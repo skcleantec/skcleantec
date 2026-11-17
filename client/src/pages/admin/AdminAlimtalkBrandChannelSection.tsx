@@ -32,9 +32,9 @@ const PREP = [
     body: '① 채널 공개 켜기 ② 검색 허용 켜기 ③ 프로필 설정 → 채널 정보에 고객센터 전화번호 넣기. 이 3가지가 없으면 알림톡을 연결할 수 없어요.',
   },
   {
-    title: '청소비서에 신청',
+    title: '청소비서에 신청 · 세팅비 입금',
     time: '',
-    body: '신청하면 담당자가 채널을 연결하고 알림톡 문구 심사를 대신 넣어 드려요. 연결할 때 채널 관리자에게 인증 요청이 한 번 가요.',
+    body: '신청 후 세팅비를 입금하면 담당자가 채널을 연결하고 알림톡 문구 심사를 대신 넣어 드려요. 연결할 때 채널 관리자에게 인증 요청이 한 번 가요.',
   },
   {
     title: '알림톡 문구 심사',
@@ -59,6 +59,7 @@ export function AdminAlimtalkBrandChannelSection() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [open, setOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -107,13 +108,15 @@ export function AdminAlimtalkBrandChannelSection() {
   const linked = view?.brands.filter((row) => row.channel) ?? [];
 
   useEffect(() => {
-    if (!open) return;
+    if (!open && !guideOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key !== 'Escape') return;
+      if (guideOpen) setGuideOpen(false);
+      else setOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  }, [open, guideOpen]);
 
   const modal = open ? (
     <div
@@ -147,7 +150,7 @@ export function AdminAlimtalkBrandChannelSection() {
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-lg bg-slate-50 p-2.5">
-              <p className="text-fluid-2xs text-gray-400">세팅비 · VAT 별도</p>
+              <p className="text-fluid-2xs text-gray-400">세팅비 · 부가세 포함</p>
               <p className="text-fluid-xs font-semibold text-gray-900">브랜드당 1회 {won(fee)}</p>
             </div>
             <div className="rounded-lg bg-slate-50 p-2.5">
@@ -203,53 +206,17 @@ export function AdminAlimtalkBrandChannelSection() {
             </div>
           ) : null}
 
-          <details className="group rounded-lg border border-gray-100" open={linked.length === 0}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5">
-              <span className="text-fluid-xs font-semibold text-gray-900">신청 전에 준비할 것 · 6단계</span>
-              <span className="text-fluid-2xs text-gray-400 group-open:hidden">펼치기</span>
-              <span className="hidden text-fluid-2xs text-gray-400 group-open:inline">접기</span>
-            </summary>
-            <div className="space-y-2 border-t border-gray-100 px-3 py-3">
-              <a
-                href="https://business.kakao.com"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block text-fluid-2xs font-medium text-sky-700 hover:underline"
-              >
-                카카오비즈니스 열기 ↗
-              </a>
-              <ol className="space-y-2">
-                {PREP.map((step, index) => (
-                  <li key={step.title} className="flex gap-2">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-fluid-2xs font-semibold text-white">
-                      {index + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-fluid-xs font-medium text-gray-900">
-                        {step.title}
-                        {step.time ? (
-                          <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-600">
-                            {step.time}
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="text-fluid-2xs text-gray-500">{step.body}</p>
-                      {index === 2 ? (
-                        <div className="mt-1 space-y-1">
-                          <p className="text-fluid-2xs text-gray-600">개인사업자 대표 = 카카오 인증서</p>
-                          <p className="text-fluid-2xs text-gray-600">법인 대표 = 사업자등록증 파일 + 휴대폰 본인 인증</p>
-                          <p className="text-fluid-2xs text-gray-600">직원이 신청 = 사업자등록증 파일 + 카카오 인증서</p>
-                          <p className="text-fluid-2xs text-red-700">
-                            가장 많이 반려되는 이유: 사업자등록증의 주민등록번호 뒷자리·개인 휴대폰·이메일을 가리지 않고 올린 경우예요. 꼭 가리고 올려 주세요.
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </details>
+          <button
+            type="button"
+            onClick={() => setGuideOpen(true)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-left hover:bg-amber-100"
+          >
+            <span className="min-w-0">
+              <span className="block text-fluid-xs font-semibold text-gray-900">신청 방법 보기</span>
+              <span className="block text-fluid-2xs text-gray-600">카카오비즈니스 가입 · 채널 만들기 · 비즈니스 인증 · 6단계</span>
+            </span>
+            <span className="shrink-0 text-fluid-xs font-semibold text-amber-800">열기 →</span>
+          </button>
 
           {openBrands.length > 0 ? (
             <div className="space-y-2">
@@ -310,7 +277,7 @@ export function AdminAlimtalkBrandChannelSection() {
                   </label>
                   <label className="flex items-start gap-2 text-fluid-2xs text-gray-700">
                     <input type="checkbox" checked={feeAccepted} onChange={(event) => setFeeAccepted(event.target.checked)} />
-                    세팅비 {won(fee)}(VAT 별도)은 다음 이용료 청구서에 함께 청구돼요
+                    세팅비 {won(fee)}(부가세 포함)은 입금이 확인되면 진행돼요
                   </label>
                 </div>
               )}
@@ -340,6 +307,99 @@ export function AdminAlimtalkBrandChannelSection() {
             </button>
           </div>
         ) : null}
+      </div>
+    </div>
+  ) : null;
+
+  const guide = guideOpen ? (
+    <div
+      className="fixed inset-0 z-[55] flex items-center justify-center bg-black/40 p-3 sm:p-6"
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) setGuideOpen(false);
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="신청 방법"
+        className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-gray-100 bg-[#FEE500] px-4 py-3 sm:px-5">
+          <div className="min-w-0">
+            <h2 className="text-fluid-sm font-bold text-[#3C1E1E]">신청 방법</h2>
+            <p className="mt-0.5 text-fluid-2xs text-[#3C1E1E]/75">카카오 채널을 준비하고 청소비서에 신청하기까지 · 보통 1주</p>
+          </div>
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 text-fluid-sm text-[#3C1E1E]/60 hover:bg-black/5 hover:text-[#3C1E1E]"
+            onClick={() => setGuideOpen(false)}
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+          <a
+            href="https://business.kakao.com"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-2xs font-semibold text-white hover:bg-slate-800"
+          >
+            카카오비즈니스 열기 ↗
+          </a>
+          <ol className="space-y-2">
+                {PREP.map((step, index) => (
+                  <li key={step.title} className="flex gap-2">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-fluid-2xs font-semibold text-white">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-fluid-xs font-medium text-gray-900">
+                        {step.title}
+                        {step.time ? (
+                          <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-600">
+                            {step.time}
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-fluid-2xs text-gray-500">{step.body}</p>
+                      {index === 2 ? (
+                        <div className="mt-1 space-y-1">
+                          <p className="text-fluid-2xs text-gray-600">개인사업자 대표 = 카카오 인증서</p>
+                          <p className="text-fluid-2xs text-gray-600">법인 대표 = 사업자등록증 파일 + 휴대폰 본인 인증</p>
+                          <p className="text-fluid-2xs text-gray-600">직원이 신청 = 사업자등록증 파일 + 카카오 인증서</p>
+                          <p className="text-fluid-2xs text-red-700">
+                            가장 많이 반려되는 이유: 사업자등록증의 주민등록번호 뒷자리·개인 휴대폰·이메일을 가리지 않고 올린 경우예요. 꼭 가리고 올려 주세요.
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-5">
+          <button
+            type="button"
+            className="rounded-lg border border-gray-200 px-4 py-2 text-fluid-sm text-gray-700 hover:bg-gray-50"
+            onClick={() => setGuideOpen(false)}
+          >
+            닫기
+          </button>
+          {openBrands.length > 0 ? (
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              onClick={() => {
+                setGuideOpen(false);
+                setOpen(true);
+              }}
+            >
+              준비됐어요 · 신청하기
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   ) : null;
@@ -393,17 +453,27 @@ export function AdminAlimtalkBrandChannelSection() {
               ))}
             </div>
           ) : null}
-          <button
-            type="button"
-            className="w-fit rounded-xl bg-gray-900 px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition hover:bg-gray-800"
-            onClick={() => setOpen(true)}
-          >
-            {openBrands.length > 0 ? '자세히 보고 신청하기 →' : '진행 상황 보기 →'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="w-fit rounded-xl bg-gray-900 px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition hover:bg-gray-800"
+              onClick={() => setOpen(true)}
+            >
+              {openBrands.length > 0 ? '자세히 보고 신청하기 →' : '진행 상황 보기 →'}
+            </button>
+            <button
+              type="button"
+              className="w-fit rounded-xl bg-white/85 px-4 py-2.5 text-[13px] font-bold text-[#3C1E1E] shadow-sm transition hover:bg-white"
+              onClick={() => setGuideOpen(true)}
+            >
+              신청 방법 보기
+            </button>
+          </div>
         </div>
       </section>
 
       {modal ? createPortal(modal, document.body) : null}
+      {guide ? createPortal(guide, document.body) : null}
 
       {notice
         ? createPortal(
