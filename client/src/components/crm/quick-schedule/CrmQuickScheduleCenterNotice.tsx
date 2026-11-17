@@ -2,11 +2,15 @@ export function CrmQuickScheduleCenterNotice({
   text,
   actionLabel,
   onAction,
+  secondaryLabel,
+  onSecondary,
   onClose,
 }: {
   text: string;
   actionLabel?: string;
   onAction?: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
   onClose?: () => void;
 }) {
   return (
@@ -18,16 +22,25 @@ export function CrmQuickScheduleCenterNotice({
             <button
               type="button"
               onClick={onAction}
-              className="inline-flex h-8 items-center rounded-lg bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-800"
+              className="inline-flex h-8 items-center rounded-lg bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
               {actionLabel}
             </button>
           ) : null}
-          {onClose ? (
+          {secondaryLabel && onSecondary ? (
+            <button
+              type="button"
+              onClick={onSecondary}
+              className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            >
+              {secondaryLabel}
+            </button>
+          ) : null}
+          {onClose && !onSecondary ? (
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 hover:bg-slate-50"
+              className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
               닫기
             </button>

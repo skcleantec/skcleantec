@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { decryptTenantSecret, encryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
+import { pickSoomgoCredentialSource } from './telecrmSoomgoPresetBrand.js';
 import {
   mergeOperatingCompanySoomgoStored,
   soomgoPublicFromStored,
@@ -158,11 +159,14 @@ export async function getTelecrmSoomgoCredentials(
   tenantId: string,
   operatingCompanyId?: string | null,
 ): Promise<TelecrmSoomgoCredentialsDto | null> {
-  if (operatingCompanyId) {
-    const fromBrand = await credentialsFromOperatingCompany(tenantId, operatingCompanyId);
-    if (fromBrand) return fromBrand;
-  }
-  return credentialsFromTenant(tenantId);
+  const fromBrand = operatingCompanyId
+    ? await credentialsFromOperatingCompany(tenantId, operatingCompanyId)
+    : null;
+  const fromTenant = fromBrand ? null : await credentialsFromTenant(tenantId);
+  const source = pickSoomgoCredentialSource(Boolean(fromBrand), Boolean(fromTenant));
+  if (source === 'brand') return fromBrand;
+  if (source === 'tenant') return fromTenant;
+  return null;
 }
 
 export async function upsertTelecrmSoomgoConfig(

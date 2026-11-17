@@ -23,6 +23,7 @@ export function CrmQuickScheduleWindowPage() {
   const [marketerName, setMarketerName] = useState<string | null>(null);
   const [centerText, setCenterText] = useState<string | null>(null);
   const [centerAction, setCenterAction] = useState(false);
+  const [replaceRow, setReplaceRow] = useState<CrmQuickScheduleItem | null>(null);
 
   useEffect(() => {
     document.title = '빠른일정 · 청소비서';
@@ -60,42 +61,66 @@ export function CrmQuickScheduleWindowPage() {
     });
   }, [setSearchParams]);
 
-  function showMissing() {
-    setCenterText(MISSING_CRM);
-    setCenterAction(true);
+  function showCenter(text: string, openCrm = false) {
+    setReplaceRow(null);
+    setCenterText(text);
+    setCenterAction(openCrm);
   }
 
-  async function askCrm(row: CrmQuickScheduleItem) {
+  async function sendApply(row: CrmQuickScheduleItem, force: boolean) {
     const requestId = crypto.randomUUID();
-    postCrmQuickSchedule({ type: 'apply', requestId, item: row });
-    const reply = await waitCrmQuickScheduleReply(requestId, 1500);
-    return { requestId, reply };
+    postCrmQuickSchedule({ type: 'apply', requestId, item: row, force });
+    const received = await waitCrmQuickScheduleReply(requestId, ['received'], 800);
+    if (!received) {
+      showCenter(MISSING_CRM, true);
+      return;
+    }
+    const reply = await waitCrmQuickScheduleReply(requestId, ['applied', 'confirm', 'failed'], 15000);
+    if (!reply) {
+      showCenter('텔레CRM에서 불러오기가 끝나지 않았어요. 텔레CRM 창을 확인해 주세요.');
+      return;
+    }
+    if (reply.type === 'confirm') {
+      setCenterText(null);
+      setCenterAction(false);
+      setReplaceRow(row);
+      return;
+    }
+    if (reply.type === 'failed') {
+      showCenter(reply.message);
+      return;
+    }
+    setReplaceRow(null);
+    setCenterText(null);
   }
 
   async function handleLoad(row: CrmQuickScheduleItem) {
-    const { reply } = await askCrm(row);
-    if (!reply) showMissing();
+    await sendApply(row, false);
+  }
+
+  async function handleReplace() {
+    const row = replaceRow;
+    if (!row) return;
+    setReplaceRow(null);
+    await sendApply(row, true);
   }
 
   async function handleCall(row: CrmQuickScheduleItem) {
     const token = getToken();
-    if (!token) return;
+    if (!token) {
+      showCenter('로그인이 필요해요.');
+      return;
+    }
     const dial = resolveCrmOutboundPhone(row.customerPhone, row.followup?.customerPhone2 ?? '');
     if (dial.replace(/\D/g, '').length < 8) {
-      throw new Error('통화할 연락처가 없습니다.');
-    }
-    const { requestId, reply } = await askCrm(row);
-    if (!reply) {
-      showMissing();
+      showCenter('통화할 연락처가 없습니다.');
       return;
     }
-    if (reply.type === 'confirm') {
-      void waitCrmQuickScheduleReply(requestId, 120_000).then((applied) => {
-        if (applied?.type === 'applied') void placeCall(token, dial, row);
-      });
-      return;
+    try {
+      await placeCall(token, dial, row);
+    } catch (e) {
+      showCenter(e instanceof Error ? e.message : '전화를 걸지 못했습니다.');
     }
-    await placeCall(token, dial, row);
   }
 
   async function placeCall(token: string, dial: string, row: CrmQuickScheduleItem) {
@@ -134,6 +159,15 @@ export function CrmQuickScheduleWindowPage() {
           <p className="py-16 text-center text-[13px] text-slate-500">작업 브랜드를 고른 뒤 다시 열어 주세요.</p>
         )}
       </div>
+      {replaceRow ? (
+        <CrmQuickScheduleCenterNotice
+          text="텔레CRM에 작성 중인 내용이 있어요. 이 고객으로 바꿀까요?"
+          actionLabel="바꿔서 불러오기"
+          onAction={() => void handleReplace()}
+          secondaryLabel="취소"
+          onSecondary={() => setReplaceRow(null)}
+        />
+      ) : null}
       {centerText ? (
         <CrmQuickScheduleCenterNotice
           text={centerText}

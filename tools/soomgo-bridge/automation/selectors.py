@@ -27,13 +27,49 @@ function isRejectedSoomgoDisplayNameLine(t) {
   if (/^(이사\\/입주|입주\\/이사)/.test(t) && (/[•·]/.test(t) || /[시군구읍면]/.test(t))) return true;
   return false;
 }
-function isSoomgoDisplayName(t) {
+function isPlausibleRegion(line) {
+  if (!line || line.length < 4 || line.length > 40) return false;
+  return /[가-힣]+(?:시|군|구)/.test(line);
+}
+function isServiceOrMoveLine(line) {
+  if (!line) return false;
+  if (line.indexOf('청소업체') >= 0) return true;
+  if (line.indexOf('이사') >= 0 && line.indexOf('입주') >= 0) return true;
+  return false;
+}
+function isQuestionOrAnswerLine(line) {
+  if (!line) return false;
+  if (/[?？]/.test(line)) return true;
+  if (/알려|선택해|입력해|원하시/.test(line)) return true;
+  return false;
+}
+function trustSoomgoNameSlot(raw) {
+  var t = normalizeSoomgoDisplayNameLine(raw);
+  if (!t || t.length < 1 || t.length > 20) return '';
+  if (isRejectedSoomgoDisplayNameLine(t)) return '';
+  return t;
+}
+function isSoomgoNameFallbackLine(t) {
   t = normalizeSoomgoDisplayNameLine(t);
-  if (isRejectedSoomgoDisplayNameLine(t)) return false;
-  if (t.length < 2 || t.length > 16) return false;
-  if (/^\\d{5,12}$/.test(t)) return true;
-  if (!/[\\uAC00-\\uD7A3A-Za-z\\u4E00-\\u9FFF]/.test(t)) return false;
-  return /^[\\uAC00-\\uD7A3A-Za-z0-9\\u4E00-\\u9FFF\\s\\-'.·]{2,16}$/.test(t);
+  var trusted = trustSoomgoNameSlot(t);
+  if (!trusted) return false;
+  if (isPlausibleRegion(trusted)) return false;
+  if (isServiceOrMoveLine(trusted)) return false;
+  if (isQuestionOrAnswerLine(trusted)) return false;
+  return true;
+}
+function isSoomgoDisplayName(t) {
+  return isSoomgoNameFallbackLine(t);
+}
+function pickSoomgoCustomerName(slotRaw, lines) {
+  if (slotRaw != null && String(slotRaw).replace(/\\s+/g, '').length > 0) {
+    return trustSoomgoNameSlot(slotRaw) || null;
+  }
+  var arr = lines || [];
+  for (var i = 0; i < arr.length; i++) {
+    if (isSoomgoNameFallbackLine(arr[i])) return normalizeSoomgoDisplayNameLine(arr[i]);
+  }
+  return null;
 }
 function isName(t) {
   return isSoomgoDisplayName(t);

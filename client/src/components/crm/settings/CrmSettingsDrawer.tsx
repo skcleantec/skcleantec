@@ -179,7 +179,7 @@ export function CrmSettingsDrawer({
                 {tab === 'soomgo-auto'
                   ? catalogScope === 'personal'
                     ? '내가 「통화」를 누를 때 숨고로 먼저 나가는 안내예요.'
-                    : '견적보내기·처리 구분 저장 때 나가는 업체 공통 메시지예요.'
+                    : '견적보내기·처리 구분 저장 때 나가는 브랜드별 메시지예요.'
                   : tab === 'soomgo-presets'
                     ? catalogScope === 'personal'
                       ? '나만 쓰는 숨고 메시지 단추예요.'

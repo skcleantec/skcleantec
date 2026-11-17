@@ -16,7 +16,7 @@ import {
   type SoomgoPresetDraft,
 } from './SoomgoMessagePresetEditor';
 import { invalidateSoomgoFollowupAutoConfigCache } from '../../../utils/soomgoFollowupAutoSend';
-import { TelecrmBrandSelect } from './TelecrmBrandSelect';
+import { TelecrmBrandSelect, useTelecrmAutoMessageBrandId } from './TelecrmBrandSelect';
 import { TelecrmSoomgoQuoteAutoMessageSection } from './TelecrmSoomgoQuoteAutoMessageSection';
 import { OnOffSwitch } from '../../ui/OnOffSwitch';
 
@@ -31,11 +31,10 @@ const INTAKE_HINT: Record<SoomgoIntakeAutoTriggerKind, string> = {
   auto_received: '「예약완료」 저장 시',
 };
 
-/** 숨고 프리셋 — 처리 구분별 자동 전송 (브랜드별, 업체 기본 폴백) */
+/** 숨고 프리셋 — 처리 구분별 자동 전송 (브랜드별) */
 export function TelecrmSoomgoAutoMessagesSection() {
   const token = getToken();
-  const [brandId, setBrandId] = useState('default');
-  const [fallbackFromDefault, setFallbackFromDefault] = useState(false);
+  const { brandId, setBrandId, ready, empty } = useTelecrmAutoMessageBrandId();
   const [drafts, setDrafts] = useState<AutoDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyKind, setBusyKind] = useState<SoomgoIntakeAutoTriggerKind | null>(null);
@@ -43,15 +42,14 @@ export function TelecrmSoomgoAutoMessagesSection() {
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const operatingCompanyId = brandId === 'default' ? null : brandId;
+  const operatingCompanyId = brandId || null;
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !operatingCompanyId) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetchTelecrmSoomgoAutoMessages(token, operatingCompanyId);
-      setFallbackFromDefault(res.fallbackFromDefault === true);
       const byKind = new Map(res.items.map((item) => [item.triggerKind, item]));
       setDrafts(
         SOOMGO_AUTO_TRIGGER_KINDS.map((triggerKind) => {
@@ -122,7 +120,6 @@ export function TelecrmSoomgoAutoMessagesSection() {
         operatingCompanyId,
       });
       invalidateSoomgoFollowupAutoConfigCache();
-      setFallbackFromDefault(false);
       patchDraft(draft.triggerKind, {
         id: updated.id,
         steps: updated.steps,
@@ -137,21 +134,20 @@ export function TelecrmSoomgoAutoMessagesSection() {
     }
   };
 
-  if (loading) {
+  if (empty) {
+    return <p className="text-fluid-sm text-slate-500">등록된 브랜드가 없습니다. 영업 브랜드를 만든 뒤 설정해 주세요.</p>;
+  }
+
+  if (!ready || loading) {
     return <p className="text-fluid-sm text-slate-500">불러오는 중…</p>;
   }
 
   return (
     <div className="space-y-3">
-      <TelecrmBrandSelect token={token} value={brandId} onChange={setBrandId} />
-      {fallbackFromDefault ? (
-        <p className="text-fluid-2xs text-amber-700">
-          이 브랜드 전용 설정이 없습니다 — 아래 내용은 업체 기본입니다. 저장하면 브랜드별로 생성됩니다.
-        </p>
-      ) : null}
+      <TelecrmBrandSelect token={token} value={brandId} onChange={setBrandId} allowDefault={false} />
       <p className="text-fluid-2xs leading-snug text-slate-600">
-        접수란 처리 구분별로 숨고 채팅 자동 전송 ON/OFF·메시지를 설정합니다. 브랜드별로 다르게 설정할 수
-        있으며, 미설정 시 <strong>업체 기본</strong>이 사용됩니다.
+        접수란 처리 구분별로 숨고 채팅 자동 전송 ON/OFF·메시지를 브랜드별로 설정합니다. 이 브랜드에 내용이
+        없으면 보내지 않습니다.
       </p>
       {msg ? (
         <p className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-fluid-2xs text-green-800">

@@ -73,15 +73,16 @@ if (!window.__soomgoBridgeChatListWatch) {
       return isSoomgoDisplayName(t);
     }
     function splitHiredMeName(raw) {
-      var t = stripDecor(raw);
+      var t = normalizeSoomgoDisplayNameLine(raw);
       if (!t) return { name: null, hiredMe: false };
       if (!/^내\\s*고용/.test(t)) {
-        return { name: isSoomgoDisplayName(t) ? normalizeSoomgoDisplayNameLine(t) : null, hiredMe: false };
+        var plain = trustSoomgoNameSlot(t);
+        return { name: plain && isSoomgoNameFallbackLine(plain) ? plain : null, hiredMe: false };
       }
-      var rest = stripDecor(t.replace(/^내\\s*고용/, ''));
+      var rest = t.replace(/^내\\s*고용/, '').trim();
       if (!rest) return { name: null, hiredMe: true };
-      var nm = isSoomgoDisplayName(rest) ? normalizeSoomgoDisplayNameLine(rest) : null;
-      return { name: nm, hiredMe: true };
+      var nm = trustSoomgoNameSlot(rest);
+      return { name: nm && isSoomgoNameFallbackLine(nm) ? nm : null, hiredMe: true };
     }
     function readPreviewFromEl(el) {
       if (!el) return { text: '', time: null };
@@ -149,14 +150,10 @@ if (!window.__soomgoBridgeChatListWatch) {
     var block = findThreeLineBlock(anchorEl);
     if (!block) return null;
 
-    var nameLine = stripDecor(block.lineTexts[0]);
+    var nameLine = normalizeSoomgoDisplayNameLine(block.lineTexts[0] || '');
     var hiredSplit = splitHiredMeName(nameLine);
     var name = hiredSplit.name;
-    if (!name && !isNameText(nameLine)) {
-      var picked = stripDecor(block.lineTexts[0]);
-      if (!picked || isRegionLine(picked)) return null;
-      name = picked.length <= 16 ? picked : null;
-    }
+    if (!name && isSoomgoNameFallbackLine(nameLine) && !isStatusLine(nameLine)) name = nameLine;
     if (!name) return null;
     var hiredMe = hiredSplit.hiredMe;
     var rowRoot = anchorEl;
@@ -271,10 +268,12 @@ if (!window.__soomgoBridgeChatListWatch) {
       return isSoomgoDisplayName(line);
     }
     function pickNameOnly(line) {
+      var raw = normalizeSoomgoDisplayNameLine(line);
+      if (raw && isSoomgoNameFallbackLine(raw) && !isStatusLine(raw)) return raw;
       var t = stripDecor(line);
       if (!t) return null;
       var h = splitHeader(t);
-      if (h && h.name) return h.name;
+      if (h && h.name && isSoomgoNameFallbackLine(h.name)) return trustSoomgoNameSlot(h.name) || h.name;
       if (isNameOnly(t) && !isRegionLine(t) && !isStatusLine(t)) return normalizeSoomgoDisplayNameLine(t);
       return null;
     }

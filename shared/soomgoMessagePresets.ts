@@ -20,7 +20,7 @@ export type SoomgoMessagePresetDto = {
   triggerKind?: SoomgoAutoTriggerKind | null;
 };
 
-/** 접수 저장 시 자동 전송 — 브랜드별(미설정 시 업체 기본 폴백) */
+/** 접수 저장 시 자동 전송 — 브랜드별 (업체 공통 폴백 없음) */
 export type SoomgoIntakeAutoTriggerKind =
   | 'auto_requested'
   | 'auto_absent'
@@ -29,7 +29,7 @@ export type SoomgoIntakeAutoTriggerKind =
   | 'auto_reserved'
   | 'auto_received';
 
-/** CRM 견적보내기 — 브랜드별 서식 (업체 공통 자동메시지 탭) */
+/** CRM 견적보내기 — 브랜드별 서식 */
 export type SoomgoQuoteAutoTriggerKind = 'auto_quote';
 
 /** CRM 통화 버튼 — 마케터 개인·브랜드별 숨고 채팅 자동 안내 */

@@ -27,15 +27,16 @@ function rowNameFromAnchor(a) {
     row = row.parentElement;
   }
   if (!row) row = a;
+  var nameEl = row.querySelector('h4, h3, [class*="nickname"], [class*="user-name"]');
+  if (nameEl) return trustSoomgoNameSlot(nameEl.textContent || '');
   var lines = (row.innerText || row.textContent || '').split(/\\n+/).map(function(x) {
     return normalizeSoomgoDisplayNameLine(x.replace(/\\s+/g, ' ').trim());
   }).filter(Boolean);
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].replace(/^내\\s*고용\\s*/i, '').trim();
-    if (isSoomgoDisplayName(line)) return line;
-    if (line.length >= 2 && line.length <= 16 && /[\\uAC00-\\uD7A3A-Za-z]/.test(line)) return line;
+    if (isSoomgoNameFallbackLine(line)) return line;
   }
-  return lines[0] || '';
+  return '';
 }
 function collectVisible() {
   var out = [];

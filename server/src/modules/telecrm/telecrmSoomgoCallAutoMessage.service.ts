@@ -3,8 +3,9 @@ import { parseSoomgoMessageSteps } from '../../lib/soomgoMessagePresets.js';
 import { SOOMGO_CALL_AUTO_TRIGGER_KIND } from '../../lib/soomgoMessagePresets.js';
 import {
   assertOperatingCompanyForTenant,
-  parseTelecrmOperatingCompanyId,
+  requireTelecrmOperatingCompanyId,
 } from './telecrmBrand.helpers.js';
+import { presetForSend } from './telecrmSoomgoPresetBrand.js';
 
 const CALL_LABEL = '통화 시 자동 안내';
 const DEFAULT_CALL_TEXT = '{마케터명}님이 지금 전화 연결을 시도 중입니다.';
@@ -80,17 +81,8 @@ async function ensureCallPresetRow(
 async function getCallPresetForBrand(
   tenantId: string,
   ownerUserId: string,
-  operatingCompanyId: string | null,
+  operatingCompanyId: string,
 ) {
-  const defaultRow = await ensureCallPresetRow(tenantId, ownerUserId, null);
-
-  if (!operatingCompanyId) {
-    return {
-      item: serializeCallRow(defaultRow),
-      fallbackFromDefault: false as const,
-    };
-  }
-
   const brandRow = await prisma.telecrmSoomgoMessagePreset.findFirst({
     where: {
       tenantId,
@@ -99,16 +91,20 @@ async function getCallPresetForBrand(
       operatingCompanyId,
     },
   });
-
   if (brandRow) {
     return { item: serializeCallRow(brandRow), fallbackFromDefault: false as const };
   }
-
-  const draftRow = await ensureCallPresetRow(tenantId, ownerUserId, operatingCompanyId);
   return {
-    item: serializeCallRow(draftRow, { fallbackFromDefault: true }),
-    fallbackFromDefault: true as const,
-    defaultItem: serializeCallRow(defaultRow),
+    item: {
+      triggerKind: SOOMGO_CALL_AUTO_TRIGGER_KIND,
+      id: '',
+      label: CALL_LABEL,
+      steps: [],
+      isActive: false,
+      operatingCompanyId,
+      ownerUserId,
+    },
+    fallbackFromDefault: false as const,
   };
 }
 
@@ -117,56 +113,49 @@ export async function getTelecrmSoomgoCallAutoMessage(
   ownerUserId: string,
   operatingCompanyIdRaw: unknown,
 ) {
-  const operatingCompanyId = parseTelecrmOperatingCompanyId(operatingCompanyIdRaw);
-  if (operatingCompanyId) {
-    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
-  }
+  const operatingCompanyId = requireTelecrmOperatingCompanyId(operatingCompanyIdRaw);
+  await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
 
   const result = await getCallPresetForBrand(tenantId, ownerUserId, operatingCompanyId);
   return {
     item: result.item,
-    fallbackFromDefault: result.fallbackFromDefault,
-    defaultItem: 'defaultItem' in result ? result.defaultItem : undefined,
+    fallbackFromDefault: false as const,
   };
 }
 
-/** 통화 버튼 — 브랜드별(명시 OFF면 폴백 없음) → 개인 기본 */
+/** 통화 버튼 — 이 직원·이 브랜드 행만. 다른 직원·업체 공통은 쓰지 않는다. */
 export async function resolveTelecrmSoomgoCallAutoMessageForSend(
   tenantId: string,
   ownerUserId: string,
   operatingCompanyId: string | null,
 ) {
-  if (operatingCompanyId) {
-    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
-    const brand = await prisma.telecrmSoomgoMessagePreset.findFirst({
-      where: {
-        tenantId,
-        ownerUserId,
-        triggerKind: SOOMGO_CALL_AUTO_TRIGGER_KIND,
-        operatingCompanyId,
-      },
-    });
-    if (brand) {
-      if (brand.isActive && parseStepsJson(brand.stepsJson).length > 0) {
-        return serializeCallRow(brand);
-      }
-      return null;
-    }
-  }
-
-  const fallback = await prisma.telecrmSoomgoMessagePreset.findFirst({
+  if (!operatingCompanyId) return null;
+  await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
+  const brand = await prisma.telecrmSoomgoMessagePreset.findFirst({
     where: {
       tenantId,
       ownerUserId,
       triggerKind: SOOMGO_CALL_AUTO_TRIGGER_KIND,
-      operatingCompanyId: null,
-      isActive: true,
+      operatingCompanyId,
     },
   });
-  if (fallback && parseStepsJson(fallback.stepsJson).length > 0) {
-    return serializeCallRow(fallback);
+  if (!brand?.triggerKind || !brand.operatingCompanyId) return null;
+  if (
+    !presetForSend({
+      id: brand.id,
+      tenantId: brand.tenantId,
+      ownerUserId: brand.ownerUserId,
+      operatingCompanyId: brand.operatingCompanyId,
+      triggerKind: brand.triggerKind,
+      stepsJson: brand.stepsJson,
+      isActive: brand.isActive,
+      paybackWon: brand.paybackWon ?? null,
+      label: brand.label,
+    })
+  ) {
+    return null;
   }
-  return null;
+  return serializeCallRow(brand);
 }
 
 export async function upsertTelecrmSoomgoCallAutoMessage(
@@ -175,10 +164,8 @@ export async function upsertTelecrmSoomgoCallAutoMessage(
   operatingCompanyIdRaw: unknown,
   input: { steps: unknown; isActive: boolean },
 ) {
-  const operatingCompanyId = parseTelecrmOperatingCompanyId(operatingCompanyIdRaw);
-  if (operatingCompanyId) {
-    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
-  }
+  const operatingCompanyId = requireTelecrmOperatingCompanyId(operatingCompanyIdRaw);
+  await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
 
   const parsedSteps = parseSoomgoMessageSteps(input.steps);
   if (input.isActive && (!parsedSteps || parsedSteps.length === 0)) {
