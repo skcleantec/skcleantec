@@ -4,9 +4,8 @@ import { prisma } from '../../lib/prisma.js';
 import { BAROBILL_TEMPLATE_NAME_BY_CODE } from './alimtalkBarobillSync.service.js';
 import { BRAND_CHANNEL_TEMPLATE_CODES } from './alimtalkBrandChannel.select.js';
 import {
-  brandTemplateCategory,
+  brandTemplateCopyMeta,
   buildBrandTemplateVariant,
-  emphasizeTypeLabel,
   type BrandTemplateButton,
   type BrandTemplateSource,
 } from './alimtalkBrandTemplateVariant.js';
@@ -39,17 +38,15 @@ export async function loadBrandChannelCopy(): Promise<BrandTemplateSource[]> {
     const saved = rows.find((row) => row.code === code);
     const name = BAROBILL_TEMPLATE_NAME_BY_CODE[code];
     const live = remote.find((item) => item.TemplateName.trim() === name);
+    const meta = brandTemplateCopyMeta(code);
     const title = live?.TemplateTitle ?? saved?.barobillTitle ?? '';
     const subtitle = live?.TemplateSubtitle ?? saved?.barobillSubtitle ?? '';
-    const emphasizeType = emphasizeTypeLabel(
-      live ? live.TemplateEmphasizeType : subtitle.trim() || title.trim() ? 1 : 0,
-    );
     const source: BrandTemplateSource = {
       name,
-      category: brandTemplateCategory(code),
-      emphasizeType,
+      category: meta.category,
+      emphasizeType: meta.emphasizeType,
       title,
-      extra: subtitle.trim() || (live?.TemplateExtra ?? saved?.barobillExtra ?? ''),
+      extra: subtitle.trim() || (live?.TemplateExtra ?? saved?.barobillExtra ?? '').trim() || meta.platformExtra,
       content: live?.TemplateContent ?? saved?.barobillContent ?? '',
       buttons: live ? readButtons(live.Buttons) : readButtons(saved?.barobillButtonsJson),
     };
