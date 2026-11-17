@@ -8,6 +8,7 @@ import { CashbillIssueError, issueCashbill } from './cashbillIssue.service.js';
 import {
   teamCashbillOverTotalWarning,
   teamCashbillReasonRequired,
+  teamCashbillUsage,
   teamCashbillVisible,
 } from './teamCashbill.access.js';
 
@@ -188,6 +189,7 @@ export async function teamIssueCashbill(
     customerName?: string;
     extraReason?: string;
     requestId?: string;
+    usage?: unknown;
   },
 ) {
   const { user, plan } = await gate(tenantId, userId);
@@ -230,7 +232,7 @@ export async function teamIssueCashbill(
     inquiryId,
     operatingCompanyId: input.operatingCompanyId,
     amount,
-    usage: 'phone',
+    usage: teamCashbillUsage(input.usage),
     identity: input.identity,
     customerName: name,
     extraReason: reason || undefined,
@@ -272,6 +274,7 @@ export async function listTeamCashbillIssues(tenantId: string, userId: string) {
       customerName: true,
       totalWon: true,
       identityMasked: true,
+      tradeUsage: true,
       ntsConfirmNum: true,
       barobillState: true,
       lastError: true,
@@ -300,6 +303,7 @@ export async function listTeamCashbillIssues(tenantId: string, userId: string) {
         linked: Boolean(row.inquiryId),
         totalWon: row.totalWon,
         identityMasked: row.identityMasked,
+        usageLabel: row.tradeUsage === 2 ? '지출증빙' : '소득공제',
         ntsConfirmNum: row.ntsConfirmNum,
         status,
         canRequestCancel: row.kind !== 'CANCEL' && issued && !cancelled && !row.cancelRequestedAt,

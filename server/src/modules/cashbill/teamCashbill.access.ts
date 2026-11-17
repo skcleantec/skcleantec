@@ -21,6 +21,11 @@ export function teamCashbillReasonRequired(input: {
   return false;
 }
 
+/** 팀장 발행 용도. 지출증빙만 따로 받고, 그 외는 소득공제. */
+export function teamCashbillUsage(raw: unknown): 'phone' | 'biz' {
+  return raw === 'biz' ? 'biz' : 'phone';
+}
+
 /** 금액이 접수 총액보다 클 때 확인 문구. 막지는 않는다. */
 export function teamCashbillOverTotalWarning(amount: number, total: number): string | null {
   if (total > 0 && amount > total) return '금액이 접수 총액보다 큽니다. 맞는지 확인해 주세요.';

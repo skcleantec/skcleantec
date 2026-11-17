@@ -71,6 +71,7 @@ export function TeamCashbillPage() {
                 <p className="truncate text-fluid-sm font-medium text-slate-900">{item.customerName || '이름 없음'}</p>
                 <p className="text-fluid-2xs text-slate-500">
                   {whenText(item.createdAt)}
+                  {item.usageLabel ? ` · ${item.usageLabel}` : ''}
                   {item.linked ? '' : ' · 연결 없음'}
                   {item.inquiryNumber ? ` · ${item.inquiryNumber}` : ''}
                 </p>

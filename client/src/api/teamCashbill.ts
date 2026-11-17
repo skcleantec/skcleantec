@@ -56,6 +56,7 @@ export type TeamCashbillMine = {
   linked: boolean;
   totalWon: number;
   identityMasked: string;
+  usageLabel: string;
   ntsConfirmNum: string | null;
   status: string;
   canRequestCancel: boolean;
@@ -83,6 +84,7 @@ export async function issueTeamCashbill(body: {
   amount: number;
   identity: string;
   customerName: string;
+  usage: 'phone' | 'biz';
   extraReason?: string;
   requestId: string;
 }): Promise<TeamCashbillIssueResult> {
