@@ -346,38 +346,49 @@ export function AdminAlimtalkBrandChannelSection() {
 
   return (
     <>
-      <section className="relative overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-white p-3 sm:p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEE500] text-gray-900"
-            aria-hidden
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-              <path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7L5.8 21l3.9-2.6c.7.1 1.5.2 2.3.2 5.5 0 10-3.6 10-8S17.5 3 12 3Z" />
-            </svg>
+      <section className="relative overflow-hidden rounded-2xl border border-amber-200 bg-[#FEBD11] shadow-sm">
+        <img
+          src="/brand/alimtalk/channel-banner-v1.webp"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 h-full w-full object-cover object-right sm:w-auto sm:max-w-none sm:object-contain"
+          loading="lazy"
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#FEBD11] via-[#FFC93C]/85 to-transparent sm:hidden"
+          aria-hidden
+        />
+        <div className="relative flex min-h-[176px] flex-col justify-center gap-3 px-5 py-5 sm:min-h-[200px] sm:px-8 sm:py-6 sm:pr-[42%]">
+          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-gray-900 px-2.5 py-1 text-[11px] font-bold text-[#FEE500]">
+            NEW · 부가서비스
+          </span>
+          <div>
+            <p className="text-[22px] font-extrabold leading-tight tracking-tight text-gray-900 sm:text-[28px]">
+              우리 카카오 채널로
+              <br className="sm:hidden" /> 알림톡 보내기!!
+            </p>
+            <p className="mt-1.5 text-[13px] font-semibold text-gray-800 sm:text-[15px]">
+              고객과의 소통과 자연스러운 마케팅 효과 급증
+            </p>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-fluid-sm font-bold text-gray-900">우리 카카오 채널로 알림톡 보내기!!</p>
-            <p className="mt-0.5 text-fluid-2xs text-gray-600">고객과의 소통과 자연스러운 마케팅 효과 급증</p>
-            {linked.length > 0 ? (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {linked.map((row) => (
-                  <span
-                    key={row.operatingCompanyId}
-                    className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100"
-                  >
-                    {row.name} · {row.channel?.badge.label}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          {linked.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {linked.map((row) => (
+                <span
+                  key={row.operatingCompanyId}
+                  className="rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 shadow-sm"
+                >
+                  {row.name} · {row.channel?.badge.label}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <button
             type="button"
-            className="shrink-0 rounded-lg bg-slate-900 px-3.5 py-2 text-fluid-xs font-semibold text-white hover:bg-slate-800"
+            className="w-fit rounded-xl bg-gray-900 px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition hover:bg-gray-800"
             onClick={() => setOpen(true)}
           >
-            {openBrands.length > 0 ? '자세히 보고 신청하기' : '진행 상황 보기'}
+            {openBrands.length > 0 ? '자세히 보고 신청하기 →' : '진행 상황 보기 →'}
           </button>
         </div>
       </section>
