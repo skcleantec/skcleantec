@@ -11,12 +11,19 @@ import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVi
 import { teamFooterActionPrimaryClass, teamFooterActionSecondaryClass } from '../../../utils/teamInspectionDisplay';
 import { openPaymentSms } from '../../../utils/cardPaymentShare';
 
+type Usage = 'phone' | 'biz';
+
 type Issued = {
   ntsConfirmNum: string | null;
   totalWon: number;
   customerName: string;
   phone: string;
+  usage: Usage;
 };
+
+function usageLabel(usage: Usage): string {
+  return usage === 'biz' ? '지출증빙' : '소득공제';
+}
 
 function digits(value: string): string {
   return value.replace(/\D/g, '');
@@ -53,6 +60,7 @@ export function TeamCashbillIssueSheet({
   const [prefill, setPrefill] = useState<TeamCashbillPrefill | null>(null);
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
+  const [usage, setUsage] = useState<Usage>('phone');
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [brandId, setBrandId] = useState('');
@@ -72,6 +80,7 @@ export function TeamCashbillIssueSheet({
     setChargeSent(false);
     setConfirming(false);
     setIssued(null);
+    setUsage('phone');
     setReason('');
     setLoading(true);
     let stop = false;
@@ -108,7 +117,12 @@ export function TeamCashbillIssueSheet({
       setError('이름을 입력해 주세요.');
       return;
     }
-    if (!/^01\d{8,9}$/.test(digits(phone))) {
+    if (usage === 'biz') {
+      if (digits(phone).length !== 10) {
+        setError('사업자번호 10자리를 입력해 주세요.');
+        return;
+      }
+    } else if (!/^01\d{8,9}$/.test(digits(phone))) {
       setError('휴대폰 번호를 확인해 주세요.');
       return;
     }
@@ -136,6 +150,7 @@ export function TeamCashbillIssueSheet({
       amount: amountWon,
       identity: digits(phone),
       customerName: name.trim(),
+      usage,
       extraReason: reason.trim() || undefined,
       requestId: crypto.randomUUID().replace(/-/g, '').slice(0, 20),
     })
@@ -146,6 +161,7 @@ export function TeamCashbillIssueSheet({
           totalWon: res.totalWon,
           customerName: res.customerName,
           phone: res.phone || digits(phone),
+          usage,
         });
       })
       .catch((err: unknown) => {
@@ -214,11 +230,37 @@ export function TeamCashbillIssueSheet({
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-fluid-sm"
             />
           </label>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              aria-pressed={usage === 'phone'}
+              onClick={() => {
+                if (usage === 'phone') return;
+                setUsage('phone');
+                setPhone(prefill?.customerPhone ?? '');
+              }}
+              className={usage === 'phone' ? teamFooterActionPrimaryClass : teamFooterActionSecondaryClass}
+            >
+              개인 소득공제
+            </button>
+            <button
+              type="button"
+              aria-pressed={usage === 'biz'}
+              onClick={() => {
+                if (usage === 'biz') return;
+                setUsage('biz');
+                setPhone('');
+              }}
+              className={usage === 'biz' ? teamFooterActionPrimaryClass : teamFooterActionSecondaryClass}
+            >
+              사업자 지출증빙
+            </button>
+          </div>
           <label className="block text-fluid-2xs font-medium text-slate-600">
-            휴대폰 번호
+            {usage === 'biz' ? '사업자번호' : '휴대폰 번호'}
             <input
               value={phone}
-              inputMode="tel"
+              inputMode={usage === 'biz' ? 'numeric' : 'tel'}
               onChange={(event) => setPhone(event.target.value)}
               onFocus={onFieldFocus}
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-fluid-sm"
@@ -279,7 +321,9 @@ export function TeamCashbillIssueSheet({
       <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl">
         <p className="text-fluid-sm font-semibold text-slate-900">이 내용으로 발행할까요?</p>
         <p className="mt-2 text-fluid-xs text-slate-700">
-          {name.trim()} · {phone}
+          {name.trim()} · {usageLabel(usage)}
+          <br />
+          {usage === 'biz' ? '사업자번호' : '휴대폰'} {phone}
           <br />
           {amountWon.toLocaleString('ko-KR')}원
         </p>
@@ -303,7 +347,7 @@ export function TeamCashbillIssueSheet({
         <p className="mt-2 text-fluid-xs text-slate-600">승인번호</p>
         <p className="mt-1 text-fluid-base font-semibold tabular-nums text-slate-900">{issued.ntsConfirmNum || '확인 중'}</p>
         <div className="mt-3 grid grid-cols-1 gap-1.5">
-          {issued.ntsConfirmNum ? (
+          {issued.ntsConfirmNum && issued.usage === 'phone' ? (
             <button
               type="button"
               className={teamFooterActionPrimaryClass}

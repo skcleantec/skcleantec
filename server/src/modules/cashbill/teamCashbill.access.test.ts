@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   teamCashbillOverTotalWarning,
   teamCashbillReasonRequired,
+  teamCashbillUsage,
   teamCashbillVisible,
 } from './teamCashbill.access.js';
 
@@ -56,6 +57,13 @@ describe('team cashbill reason and warning', () => {
       teamCashbillReasonRequired({ alreadyIssued: false, amount: 40000, total: 100000, remaining: 50000 }),
       false,
     );
+  });
+
+  it('지출증빙만 사업자로 받고 그 외는 소득공제', () => {
+    assert.equal(teamCashbillUsage('biz'), 'biz');
+    assert.equal(teamCashbillUsage('phone'), 'phone');
+    assert.equal(teamCashbillUsage('voluntary'), 'phone');
+    assert.equal(teamCashbillUsage(undefined), 'phone');
   });
 
   it('금액이 총액보다 크면 경고 문구를 준다', () => {
