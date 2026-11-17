@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { listMyTeamCashbill, requestTeamCashbillCancel, type TeamCashbillMine } from '../../api/teamCashbill';
+import {
+  cashbillCustomerSms,
+  fetchTeamCashbillShare,
+  listMyTeamCashbill,
+  requestTeamCashbillCancel,
+  type TeamCashbillMine,
+} from '../../api/teamCashbill';
+import { openPaymentSms } from '../../utils/cardPaymentShare';
 import { TeamCashbillIssueSheet } from '../../components/team/cashbill/TeamCashbillIssueSheet';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -22,6 +29,7 @@ export function TeamCashbillPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -39,6 +47,25 @@ export function TeamCashbillPage() {
   }, [load]);
 
   useInboxRealtime(token, load, Boolean(token));
+
+  const sendReceipt = (id: string) => {
+    setSendingId(id);
+    setError(null);
+    void fetchTeamCashbillShare(id)
+      .then((share) => {
+        openPaymentSms(
+          share.phone,
+          cashbillCustomerSms({
+            brandName: share.brandName,
+            totalWon: share.totalWon,
+            ntsConfirmNum: share.ntsConfirmNum,
+            url: share.url,
+          }),
+        );
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : '영수증 주소를 받지 못했습니다.'))
+      .finally(() => setSendingId(null));
+  };
 
   const sendCancel = () => {
     if (!cancelId) return;
@@ -83,14 +110,24 @@ export function TeamCashbillPage() {
                 </p>
               </div>
             </div>
-            {item.canRequestCancel ? (
-              <button
-                type="button"
-                onClick={() => setCancelId(item.id)}
-                className={`${teamFooterActionSecondaryClass} mt-2`}
-              >
-                사무실에 취소 요청
-              </button>
+            {item.canSendReceipt || item.canRequestCancel ? (
+              <div className="mt-2 grid gap-1.5">
+                {item.canSendReceipt ? (
+                  <button
+                    type="button"
+                    disabled={sendingId === item.id}
+                    onClick={() => sendReceipt(item.id)}
+                    className={teamFooterActionPrimaryClass}
+                  >
+                    영수증 보내기
+                  </button>
+                ) : null}
+                {item.canRequestCancel ? (
+                  <button type="button" onClick={() => setCancelId(item.id)} className={teamFooterActionSecondaryClass}>
+                    사무실에 취소 요청
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </li>
         ))}
