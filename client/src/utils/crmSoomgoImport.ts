@@ -93,6 +93,24 @@ export function resolveSoomgoAddress(data: SoomgoExtractedChat): string {
   return (data.region || data.address)?.trim() || '';
 }
 
+function compactSoomgoLabel(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+/** 가져온 이름이 지역·주소와 같으면 이름에 넣지 않는다 */
+export function soomgoCustomerNameForIntake(data: {
+  customerName?: string | null;
+  nickname?: string | null;
+  region?: string | null;
+  address?: string | null;
+}): string {
+  const name = compactSoomgoLabel(data.customerName || data.nickname || '');
+  const place = compactSoomgoLabel(data.region || data.address || '');
+  if (!name) return '';
+  if (place && name === place) return '';
+  return name;
+}
+
 /** 부재·보류 메모 + 숨고 요청 상세 — 짧은 쪽만 덮어쓰지 않음 */
 export function pickRicherSoomgoRequestMemo(existing: string, incoming: string): string {
   const a = existing.trim();
@@ -165,7 +183,7 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
   const lines: string[] = [];
   const empty: string[] = [];
 
-  const name = (data.customerName || data.nickname)?.trim() || '';
+  const name = soomgoCustomerNameForIntake(data);
   if (name) {
     filled.push('customerName', 'nickname');
     lines.push(`고객명·닉네임 → 접수란 상단`);

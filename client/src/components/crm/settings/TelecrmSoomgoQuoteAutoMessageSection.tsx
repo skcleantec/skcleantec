@@ -7,6 +7,7 @@ import {
   uploadTelecrmSoomgoPresetImage,
 } from '../../../api/telecrmSoomgoMessagePresets';
 import { useOperatingCompanies } from '../../../hooks/useOperatingCompanies';
+import { useTelecrmAutoMessageBrandId } from './TelecrmBrandSelect';
 import {
   normalizeSoomgoPresetSteps,
   SoomgoMessagePresetEditor,
@@ -16,7 +17,7 @@ import { OnOffSwitch } from '../../ui/OnOffSwitch';
 
 type QuoteDraft = SoomgoPresetDraft & { paybackWon: string };
 
-/** 숨고 프리셋 — 견적보내기 서식 (브랜드별, 업체 기본 폴백) */
+/** 숨고 프리셋 — 견적보내기 서식 (브랜드별) */
 export function TelecrmSoomgoQuoteAutoMessageSection({
   brandId: brandIdProp,
   onBrandIdChange,
@@ -28,11 +29,10 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
 } = {}) {
   const token = getToken();
   const brands = useOperatingCompanies(token);
-  const [internalBrandId, setInternalBrandId] = useState<string>('default');
-  const brandId = brandIdProp ?? internalBrandId;
-  const setBrandId = onBrandIdChange ?? setInternalBrandId;
+  const ownBrand = useTelecrmAutoMessageBrandId();
+  const brandId = brandIdProp ?? ownBrand.brandId;
+  const setBrandId = onBrandIdChange ?? ownBrand.setBrandId;
   const [draft, setDraft] = useState<QuoteDraft | null>(null);
-  const [fallbackFromDefault, setFallbackFromDefault] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(true);
@@ -40,27 +40,18 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
   const [msg, setMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !brandId || brandId === 'default') return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchTelecrmSoomgoQuoteAutoMessage(
-        token,
-        brandId === 'default' ? null : brandId,
-      );
-      setFallbackFromDefault(res.fallbackFromDefault === true);
+      const res = await fetchTelecrmSoomgoQuoteAutoMessage(token, brandId);
       setDraft({
         id: res.item.id,
         label: res.item.label,
         steps: res.item.steps,
         isActive: res.item.isActive,
         sortOrder: 0,
-        paybackWon:
-          res.item.paybackWon != null
-            ? String(res.item.paybackWon)
-            : res.defaultItem?.paybackWon != null
-              ? String(res.defaultItem.paybackWon)
-              : '20000',
+        paybackWon: res.item.paybackWon != null ? String(res.item.paybackWon) : '20000',
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
@@ -107,9 +98,8 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
       const updated = await updateTelecrmSoomgoQuoteAutoMessage(token, {
         steps,
         isActive: draft.isActive,
-        operatingCompanyId: brandId === 'default' ? null : brandId,
+        operatingCompanyId: brandId,
       });
-      setFallbackFromDefault(false);
       setDraft((prev) =>
         prev
           ? {
@@ -130,7 +120,11 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
     }
   };
 
-  if (loading) {
+  if (!brandIdProp && ownBrand.empty) {
+    return <p className="text-fluid-sm text-slate-500">등록된 브랜드가 없습니다. 영업 브랜드를 만든 뒤 설정해 주세요.</p>;
+  }
+
+  if (!brandId || loading) {
     return <p className="text-fluid-sm text-slate-500">불러오는 중…</p>;
   }
 
@@ -145,8 +139,9 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
       <div>
         <p className="text-fluid-sm font-semibold text-slate-900">{SOOMGO_QUOTE_AUTO_TRIGGER_LABEL}</p>
         <p className="mt-1 text-fluid-2xs leading-snug text-slate-600">
-          CRM 견적 패널의 「견적보내기」 버튼으로 숨고 채팅에 보낼 메시지입니다. 브랜드별로 다르게
-          설정할 수 있으며, 페이백 금액은 설정 → <strong>기본 단가</strong> 탭에서 입력합니다.
+          CRM 견적 패널의 「견적보내기」 버튼으로 숨고 채팅에 보낼 메시지입니다. 브랜드별로 저장되며,
+          이 브랜드에 켜 두지 않으면 보내지 않습니다. 페이백 금액은 설정 → <strong>기본 단가</strong> 탭에서
+          입력합니다.
         </p>
       </div>
 
@@ -159,7 +154,6 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
               onChange={(e) => setBrandId(e.target.value)}
               className="min-w-[8rem] rounded-lg border border-slate-300 bg-white px-2 py-1 text-fluid-2xs"
             >
-              <option value="default">업체 기본</option>
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.displayName}
@@ -167,9 +161,6 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
               ))}
             </select>
           </>
-        ) : null}
-        {fallbackFromDefault ? (
-          <span className="text-amber-700">이 브랜드 전용 서식 없음 — 저장 시 브랜드별로 생성됩니다.</span>
         ) : null}
       </label>
 

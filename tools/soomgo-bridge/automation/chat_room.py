@@ -390,12 +390,12 @@ class ChatRoomManager:
             if name:
                 return name
             name = self.driver.execute_script(SOOMGO_DISPLAY_NAME_JS + """
-                var selectors = ['h1','h2','h3','header h2','header h3','[class*="nickname"]','[class*="user-name"]'];
+                var selectors = ['h1','h2','h3','h4','header h2','header h3','[class*="nickname"]','[class*="user-name"]'];
                 for (var i = 0; i < selectors.length; i++) {
                     var el = document.querySelector(selectors[i]);
                     if (!el) continue;
-                    var t = (el.textContent || '').trim();
-                    if (isSoomgoDisplayName(t)) return normalizeSoomgoDisplayNameLine(t);
+                    var trusted = trustSoomgoNameSlot(el.textContent || '');
+                    if (trusted) return trusted;
                 }
                 return null;
             """)

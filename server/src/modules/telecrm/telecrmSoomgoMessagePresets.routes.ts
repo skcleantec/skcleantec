@@ -89,6 +89,10 @@ router.get('/auto-messages', requireStaffPermission('crm.view', 'crm.settings'),
   try {
     res.json(await listTelecrmSoomgoAutoMessages(tenantId, req.query.operatingCompanyId));
   } catch (e) {
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
@@ -117,6 +121,10 @@ router.get('/auto-messages/resolve', requireStaffPermission('crm.view', 'crm.set
       res.status(400).json({ error: '자동 메시지 종류가 올바르지 않습니다.' });
       return;
     }
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
@@ -136,6 +144,10 @@ router.get('/auto-messages/auto_quote/resolve', requireStaffPermission('crm.view
     const item = await resolveTelecrmSoomgoQuoteAutoMessageForSend(tenantId, operatingCompanyId);
     res.json({ item });
   } catch (e) {
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
@@ -160,6 +172,10 @@ router.get('/auto-messages/call/resolve', requireStaffPermission('crm.view'), as
     );
     res.json({ item });
   } catch (e) {
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
@@ -175,6 +191,10 @@ router.get('/auto-messages/call', requireStaffPermission('crm.view', 'crm.settin
   try {
     res.json(await getTelecrmSoomgoCallAutoMessage(tenantId, user.userId, req.query.operatingCompanyId));
   } catch (e) {
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
@@ -203,6 +223,10 @@ router.put('/auto-messages/call', requireStaffPermission('crm.view', 'crm.settin
       res.status(400).json({ error: '자동 전송을 켜려면 스텝을 1개 이상 추가해 주세요.' });
       return;
     }
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
@@ -217,6 +241,10 @@ router.get('/auto-messages/auto_quote', requireStaffPermission('crm.view', 'crm.
   try {
     res.json(await getTelecrmSoomgoQuoteAutoMessage(tenantId, req.query.operatingCompanyId));
   } catch (e) {
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
@@ -250,6 +278,10 @@ router.put('/auto-messages/auto_quote', requireStaffPermission('crm.settings'), 
       res.status(400).json({ error: '페이백 금액이 올바르지 않습니다.' });
       return;
     }
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
@@ -277,6 +309,10 @@ router.put('/auto-messages/:triggerKind', requireStaffPermission('crm.settings')
   } catch (e) {
     if (e instanceof Error && e.message === 'INVALID_TRIGGER') {
       res.status(400).json({ error: '자동 메시지 종류가 올바르지 않습니다.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'BRAND_REQUIRED') {
+      res.status(400).json({ error: '브랜드를 선택한 뒤 다시 해 주세요.' });
       return;
     }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {

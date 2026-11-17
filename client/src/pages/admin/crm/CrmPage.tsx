@@ -80,6 +80,7 @@ import {
   parseSoomgoPyeongForCrm,
   resolveSoomgoAddress,
   resolveSoomgoPreferredDate,
+  soomgoCustomerNameForIntake,
   soomgoImportNoticeText,
   summarizeSoomgoImport,
 } from '../../../utils/crmSoomgoImport';
@@ -148,7 +149,13 @@ import {
   sendSoomgoQuoteAutoMessage,
 } from '../../../utils/soomgoQuoteAutoSend';
 import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
-import { postCrmQuickSchedule, subscribeCrmQuickSchedule } from '../../../utils/crmQuickScheduleChannel';
+import {
+  forgetCrmQuickScheduleTab,
+  isCrmQuickScheduleResponder,
+  noteCrmQuickScheduleTab,
+  postCrmQuickSchedule,
+  subscribeCrmQuickSchedule,
+} from '../../../utils/crmQuickScheduleChannel';
 import { openCrmQuickScheduleWindow } from '../../../utils/openCrmQuickScheduleWindow';
 
 export function CrmPage() {
@@ -644,6 +651,24 @@ export function CrmPage() {
     }
   }, [activeOperatingCompanyId, isMobileApp, openQuickSchedule]);
 
+  const quickScheduleTabIdRef = useRef(crypto.randomUUID());
+
+  useEffect(() => {
+    const tabId = quickScheduleTabIdRef.current;
+    const beat = () => noteCrmQuickScheduleTab(tabId, document.hasFocus());
+    beat();
+    window.addEventListener('focus', beat);
+    const timer = window.setInterval(beat, 2000);
+    const onLeave = () => forgetCrmQuickScheduleTab(tabId);
+    window.addEventListener('beforeunload', onLeave);
+    return () => {
+      window.removeEventListener('focus', beat);
+      window.clearInterval(timer);
+      window.removeEventListener('beforeunload', onLeave);
+      forgetCrmQuickScheduleTab(tabId);
+    };
+  }, []);
+
   useEffect(() => {
     if (!activeOperatingCompanyId) return;
     postCrmQuickSchedule({ type: 'brand', operatingCompanyId: activeOperatingCompanyId });
@@ -652,13 +677,29 @@ export function CrmPage() {
   useEffect(() => {
     return subscribeCrmQuickSchedule((message) => {
       if (message.type !== 'apply') return;
+      if (!isCrmQuickScheduleResponder(quickScheduleTabIdRef.current)) return;
+      postCrmQuickSchedule({ type: 'received', requestId: message.requestId });
       const run = async () => {
         const bridge = quickBridgeRef.current;
-        if (!bridge) return;
+        if (!bridge) {
+          postCrmQuickSchedule({
+            type: 'failed',
+            requestId: message.requestId,
+            message: '텔레CRM 창이 아직 준비되지 않았어요.',
+          });
+          return;
+        }
         try {
           if (message.item.followup) {
             const token = getToken();
-            if (!token) return;
+            if (!token) {
+              postCrmQuickSchedule({
+                type: 'failed',
+                requestId: message.requestId,
+                message: '로그인이 필요해요.',
+              });
+              return;
+            }
             const res = await fetchOrderFollowup(token, message.item.followup.id);
             bridge.applyItem(res.item);
           } else {
@@ -668,25 +709,25 @@ export function CrmPage() {
             });
           }
           postCrmQuickSchedule({ type: 'applied', requestId: message.requestId, id: message.item.id });
-          try {
-            window.focus();
-          } catch {
-            /* 브라우저가 포커스를 막을 수 있습니다. */
-          }
         } catch (e) {
-          bridge.notice(e instanceof Error ? e.message : '빠른일정 고객을 불러오지 못했습니다.');
+          postCrmQuickSchedule({
+            type: 'failed',
+            requestId: message.requestId,
+            message: e instanceof Error ? e.message : '빠른일정 고객을 불러오지 못했습니다.',
+          });
         }
       };
       const bridge = quickBridgeRef.current;
-      if (!bridge) return;
-      if (bridge.isBusy()) {
+      if (!bridge) {
+        postCrmQuickSchedule({
+          type: 'failed',
+          requestId: message.requestId,
+          message: '텔레CRM 창이 아직 준비되지 않았어요.',
+        });
+        return;
+      }
+      if (bridge.isBusy() && message.force !== true) {
         postCrmQuickSchedule({ type: 'confirm', requestId: message.requestId, id: message.item.id });
-        try {
-          window.focus();
-        } catch {
-          /* 브라우저가 포커스를 막을 수 있습니다. */
-        }
-        bridge.notice(`빠른일정 · ${message.item.customerName}`, { label: '불러오기', run: () => void run() });
         return;
       }
       void run();
@@ -1026,7 +1067,7 @@ export function CrmPage() {
       resetQuotePricingState();
       const split = splitSoomgoPhones(data);
       const intakeDefaults = deriveSoomgoIntakeDefaults(data);
-      const name = (data.customerName || data.nickname)?.trim() || '';
+      const name = soomgoCustomerNameForIntake(data);
       const preferredYmd = resolveSoomgoPreferredDate(data);
       const requestMemo = (data.requestMemo || data.memo)?.trim() || '';
       const summary = summarizeSoomgoImport(data);

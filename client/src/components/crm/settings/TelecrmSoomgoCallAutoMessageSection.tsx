@@ -6,7 +6,7 @@ import {
   updateTelecrmSoomgoCallAutoMessage,
   uploadTelecrmSoomgoPresetImage,
 } from '../../../api/telecrmSoomgoMessagePresets';
-import { TelecrmBrandSelect } from './TelecrmBrandSelect';
+import { TelecrmBrandSelect, useTelecrmAutoMessageBrandId } from './TelecrmBrandSelect';
 import {
   normalizeSoomgoPresetSteps,
   SoomgoMessagePresetEditor,
@@ -17,33 +17,27 @@ import { OnOffSwitch } from '../../ui/OnOffSwitch';
 /** 숨고 프리셋 — 통화 시 자동 안내 (마케터 개인·브랜드별) */
 export function TelecrmSoomgoCallAutoMessageSection() {
   const token = getToken();
-  const [brandId, setBrandId] = useState('default');
+  const { brandId, setBrandId, ready, empty } = useTelecrmAutoMessageBrandId();
   const [draft, setDraft] = useState<SoomgoPresetDraft | null>(null);
-  const [fallbackFromDefault, setFallbackFromDefault] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const operatingCompanyId = brandId === 'default' ? null : brandId;
+  const operatingCompanyId = brandId || null;
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !operatingCompanyId) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetchTelecrmSoomgoCallAutoMessage(token, operatingCompanyId);
-      setFallbackFromDefault(res.fallbackFromDefault === true);
       const item = res.item;
-      const previewSteps =
-        res.fallbackFromDefault && res.defaultItem?.steps.length
-          ? res.defaultItem.steps
-          : item.steps;
       setDraft({
         id: item.id,
         label: item.label,
-        steps: previewSteps.length ? previewSteps : item.steps,
+        steps: item.steps,
         isActive: item.isActive,
         sortOrder: 0,
       });
@@ -94,7 +88,6 @@ export function TelecrmSoomgoCallAutoMessageSection() {
         isActive: draft.isActive,
         operatingCompanyId,
       });
-      setFallbackFromDefault(false);
       setDraft({
         id: updated.id,
         label: updated.label,
@@ -111,7 +104,11 @@ export function TelecrmSoomgoCallAutoMessageSection() {
     }
   };
 
-  if (loading) {
+  if (empty) {
+    return <p className="text-fluid-sm text-slate-500">등록된 브랜드가 없습니다. 영업 브랜드를 만든 뒤 설정해 주세요.</p>;
+  }
+
+  if (!ready || loading) {
     return <p className="text-fluid-sm text-slate-500">불러오는 중…</p>;
   }
 
@@ -126,24 +123,13 @@ export function TelecrmSoomgoCallAutoMessageSection() {
       <div>
         <p className="text-fluid-sm font-semibold text-slate-900">통화 시 자동 안내 (내 계정)</p>
         <p className="mt-1 text-fluid-2xs leading-snug text-slate-600">
-          CRM 「통화」 버튼을 누를 때 숨고 채팅으로 먼저 보낼 안내입니다. 브랜드별 ON/OFF·문구를
-          설정할 수 있으며, 브랜드에 저장하지 않으면 <strong>내 기본</strong> 문구를 따릅니다. 통화
-          시도마다 전송됩니다(쿨다운 없음).
+          CRM 「통화」 버튼을 누를 때 숨고 채팅으로 먼저 보낼 안내입니다. 브랜드마다, 그리고 로그인
+          아이디마다 따로 저장됩니다. 이 브랜드에 켜 두지 않으면 보내지 않습니다. 통화 시도마다
+          전송됩니다(쿨다운 없음).
         </p>
       </div>
 
-      <TelecrmBrandSelect
-        token={token}
-        value={brandId}
-        onChange={setBrandId}
-        defaultOptionLabel="내 기본"
-      />
-      {fallbackFromDefault ? (
-        <p className="text-fluid-2xs text-amber-700">
-          이 브랜드 전용 설정이 없습니다 — 아래는 내 기본 미리보기입니다. 저장하면 브랜드별로
-          생성됩니다.
-        </p>
-      ) : null}
+      <TelecrmBrandSelect token={token} value={brandId} onChange={setBrandId} allowDefault={false} />
 
       {msg ? (
         <p className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-fluid-2xs text-green-800">

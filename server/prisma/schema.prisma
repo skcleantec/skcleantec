@@ -5333,7 +5333,7 @@ model TelecrmSoomgoMessagePreset {
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
   triggerKind String?  @map("trigger_kind") @db.VarChar(20)
-  /// 견적보내기(auto_quote) · 접수 처리 6종 등 브랜드별 자동메시지 — null이면 테넌트 기본
+  /// 브랜드별 자동메시지. null 행은 예전 업체 공통(읽지 않음, 삭제하지 않음)
   operatingCompanyId String? @map("operating_company_id")
   operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
   /// 견적보내기 서식 — 리뷰 페이백 차감액(원). {이벤트가} 계산용

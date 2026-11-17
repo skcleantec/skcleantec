@@ -135,21 +135,29 @@ for (var pb = 0; pb < profileButtons.length; pb++) {
   if (!visible(pbtn)) continue;
   var aria = (pbtn.getAttribute('aria-label') || '').trim();
   var ariaName = aria.replace(/\\s*프로필.*$/, '').trim();
-  if (ariaName && isSoomgoDisplayName(ariaName)) return normalizeSoomgoDisplayNameLine(ariaName);
-  var btnText = normalizeSoomgoDisplayNameLine(pbtn.textContent || '');
-  if (isSoomgoDisplayName(btnText)) return btnText;
+  var trustedAria = trustSoomgoNameSlot(ariaName);
+  if (trustedAria) return trustedAria;
+  var trustedBtn = trustSoomgoNameSlot(pbtn.textContent || '');
+  if (trustedBtn) return trustedBtn;
 }
 var header = document.querySelector('header, [class*="chat-header"], [class*="ChatHeader"], [class*="room-header"]');
 if (!header) {
   var leftPane = document.querySelector('[class*="chat-room"], main');
   header = leftPane || document.body;
 }
-var nodes = header.querySelectorAll('button, a, [role="button"], h1, h2, h3, h4, span, div, p');
+var headings = header.querySelectorAll('h1, h2, h3, h4');
+for (var hi = 0; hi < headings.length; hi++) {
+  var heading = headings[hi];
+  if (!visible(heading)) continue;
+  var trustedHeading = trustSoomgoNameSlot(heading.textContent || '');
+  if (trustedHeading) return trustedHeading;
+}
+var nodes = header.querySelectorAll('button, a, [role="button"], span, div, p');
 for (var i = 0; i < nodes.length; i++) {
   var el = nodes[i];
   if (!visible(el)) continue;
   var t = (el.textContent || '').trim();
-  if (!isSoomgoDisplayName(t)) continue;
+  if (!isSoomgoNameFallbackLine(t)) continue;
   var r = el.getBoundingClientRect();
   if (r.top > 220) continue;
   return normalizeSoomgoDisplayNameLine(t);
@@ -414,9 +422,11 @@ var customerName = null;
 var region = null;
 if (userBlock) {
   var nameEl = userBlock.querySelector('[data-type="user-info"] h4, h4.headline2, h4');
+  var nameSlotFound = false;
   if (nameEl) {
-    var nm = normalizeSoomgoDisplayNameLine(nameEl.textContent || '');
-    if (isSoomgoDisplayName(nm)) customerName = nm;
+    nameSlotFound = true;
+    var trustedNm = trustSoomgoNameSlot(nameEl.textContent || '');
+    if (trustedNm) customerName = trustedNm;
   }
   var regionEls = userBlock.querySelectorAll('h6, [data-type="user-info"] h6');
   for (var re = 0; re < regionEls.length; re++) {
@@ -424,12 +434,12 @@ if (userBlock) {
     if (!rl || rl.indexOf('청소업체') >= 0 || rl.indexOf('이사') >= 0 && rl.indexOf('입주') >= 0) continue;
     if (!region && isPlausibleRegion(rl)) region = rl;
   }
-  if (!customerName || !region) {
+  if (!nameSlotFound || !region) {
     var userLines = (userBlock.innerText || '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
     for (var u = 0; u < userLines.length; u++) {
       var ul = userLines[u];
-      if (!customerName && isSoomgoDisplayName(ul)) customerName = normalizeSoomgoDisplayNameLine(ul);
-      if (!region && isPlausibleRegion(ul)) region = ul;
+      if (!nameSlotFound && !customerName && isSoomgoNameFallbackLine(ul)) customerName = normalizeSoomgoDisplayNameLine(ul);
+      if (!region && isPlausibleRegion(ul) && !isServiceOrMoveLine(ul)) region = ul;
     }
   }
 }
@@ -606,15 +616,22 @@ for (var j = 0; j < lines.length; j++) {
     pairs.push({ question: '', answer: line });
   }
 }
+var slotEl = modal.querySelector('[data-type="user"] h4, h4.headline2, header h4, h4');
 var customerName = null;
+var nameSlotFound = false;
+if (slotEl) {
+  nameSlotFound = true;
+  var trustedSlot = trustSoomgoNameSlot(slotEl.textContent || '');
+  customerName = trustedSlot || null;
+}
 var region = null;
 var skipWords = ['고객 요청', '요청 상세', '인터넷', '선택', '입력', '알려', '이사/입주', '청소업체'];
 for (var k = 0; k < Math.min(lines.length, 24); k++) {
   var cand = lines[k];
   if (isBoilerplateLine(cand)) continue;
   if (skipWords.some(function(w){ return cand.indexOf(w) >= 0; })) continue;
-  if (!customerName && isSoomgoDisplayName(cand)) customerName = normalizeSoomgoDisplayNameLine(cand);
-  if (!region && isPlausibleRegion(cand)) region = cand;
+  if (!nameSlotFound && !customerName && isSoomgoNameFallbackLine(cand)) customerName = normalizeSoomgoDisplayNameLine(cand);
+  if (!region && isPlausibleRegion(cand) && !isServiceOrMoveLine(cand)) region = cand;
 }
 var preferredDate = null;
 for (var pi = 0; pi < pairs.length; pi++) {

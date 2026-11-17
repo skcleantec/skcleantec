@@ -37,6 +37,7 @@ async function ensureQuotePresetRow(tenantId: string, operatingCompanyId: string
       tenantId,
       triggerKind: SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
       operatingCompanyId,
+      ownerUserId: null,
     },
   });
   if (existing) return existing;
@@ -59,29 +60,23 @@ async function ensureQuotePresetRow(tenantId: string, operatingCompanyId: string
 
 import {
   assertOperatingCompanyForTenant,
-  parseTelecrmOperatingCompanyId,
+  requireTelecrmOperatingCompanyId,
 } from './telecrmBrand.helpers.js';
+import { presetForSend } from './telecrmSoomgoPresetBrand.js';
 
 export async function getTelecrmSoomgoQuoteAutoMessage(
   tenantId: string,
   operatingCompanyIdRaw: unknown,
 ) {
-  const operatingCompanyId = parseTelecrmOperatingCompanyId(operatingCompanyIdRaw);
-  if (operatingCompanyId) {
-    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
-  }
-
-  const defaultRow = await ensureQuotePresetRow(tenantId, null);
-
-  if (!operatingCompanyId) {
-    return { item: serializeQuoteRow(defaultRow), fallbackFromDefault: false as const };
-  }
+  const operatingCompanyId = requireTelecrmOperatingCompanyId(operatingCompanyIdRaw);
+  await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
 
   const brandRow = await prisma.telecrmSoomgoMessagePreset.findFirst({
     where: {
       tenantId,
       triggerKind: SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
       operatingCompanyId,
+      ownerUserId: null,
     },
   });
 
@@ -89,11 +84,17 @@ export async function getTelecrmSoomgoQuoteAutoMessage(
     return { item: serializeQuoteRow(brandRow), fallbackFromDefault: false as const };
   }
 
-  const draftRow = await ensureQuotePresetRow(tenantId, operatingCompanyId);
   return {
-    item: serializeQuoteRow(draftRow),
-    fallbackFromDefault: true as const,
-    defaultItem: serializeQuoteRow(defaultRow),
+    item: {
+      triggerKind: SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
+      id: '',
+      label: QUOTE_LABEL,
+      steps: [],
+      isActive: false,
+      paybackWon: 20000,
+      operatingCompanyId,
+    },
+    fallbackFromDefault: false as const,
   };
 }
 
@@ -101,27 +102,33 @@ export async function resolveTelecrmSoomgoQuoteAutoMessageForSend(
   tenantId: string,
   operatingCompanyId: string | null,
 ) {
-  if (operatingCompanyId) {
-    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
-    const brand = await prisma.telecrmSoomgoMessagePreset.findFirst({
-      where: {
-        tenantId,
-        triggerKind: SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
-        operatingCompanyId,
-        isActive: true,
-      },
-    });
-    if (brand) return serializeQuoteRow(brand);
-  }
-  const fallback = await prisma.telecrmSoomgoMessagePreset.findFirst({
+  if (!operatingCompanyId) return null;
+  await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
+  const brand = await prisma.telecrmSoomgoMessagePreset.findFirst({
     where: {
       tenantId,
       triggerKind: SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
-      operatingCompanyId: null,
-      isActive: true,
+      operatingCompanyId,
+      ownerUserId: null,
     },
   });
-  return fallback ? serializeQuoteRow(fallback) : null;
+  if (!brand?.triggerKind || !brand.operatingCompanyId) return null;
+  if (
+    !presetForSend({
+      id: brand.id,
+      tenantId: brand.tenantId,
+      ownerUserId: brand.ownerUserId,
+      operatingCompanyId: brand.operatingCompanyId,
+      triggerKind: brand.triggerKind,
+      stepsJson: brand.stepsJson,
+      isActive: brand.isActive,
+      paybackWon: brand.paybackWon,
+      label: brand.label,
+    })
+  ) {
+    return null;
+  }
+  return serializeQuoteRow(brand);
 }
 
 export async function upsertTelecrmSoomgoQuoteAutoMessage(
@@ -129,10 +136,8 @@ export async function upsertTelecrmSoomgoQuoteAutoMessage(
   operatingCompanyIdRaw: unknown,
   input: { steps: unknown; isActive: boolean; paybackWon?: unknown },
 ) {
-  const operatingCompanyId = parseTelecrmOperatingCompanyId(operatingCompanyIdRaw);
-  if (operatingCompanyId) {
-    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
-  }
+  const operatingCompanyId = requireTelecrmOperatingCompanyId(operatingCompanyIdRaw);
+  await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
 
   const parsedSteps = parseSoomgoMessageSteps(input.steps);
   if (input.isActive && (!parsedSteps || parsedSteps.length === 0)) {

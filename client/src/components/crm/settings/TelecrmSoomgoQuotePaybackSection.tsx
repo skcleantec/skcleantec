@@ -4,15 +4,16 @@ import {
   fetchTelecrmSoomgoQuoteAutoMessage,
   updateTelecrmSoomgoQuoteAutoMessage,
 } from '../../../api/telecrmSoomgoMessagePresets';
+import { useTelecrmAutoMessageBrandId } from './TelecrmBrandSelect';
 import { useOperatingCompanies } from '../../../hooks/useOperatingCompanies';
 import { SettingsCard } from './DeletePasswordModal';
 import { formatWon, parsePriceInt } from './telecrmSettingsUi';
 
-/** 설정 → 기본 단가 — 숨고 견적보내기 페이백 금액 (브랜드별, 업체 공통) */
+/** 설정 → 기본 단가 — 숨고 견적보내기 페이백 금액 (브랜드별) */
 export function TelecrmSoomgoQuotePaybackSection() {
   const token = getToken();
   const brands = useOperatingCompanies(token);
-  const [brandId, setBrandId] = useState<string>('default');
+  const { brandId, setBrandId, ready, empty } = useTelecrmAutoMessageBrandId();
   const [paybackDraft, setPaybackDraft] = useState('');
   const [loadedMeta, setLoadedMeta] = useState<{
     steps: unknown[];
@@ -25,18 +26,12 @@ export function TelecrmSoomgoQuotePaybackSection() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !brandId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchTelecrmSoomgoQuoteAutoMessage(
-        token,
-        brandId === 'default' ? null : brandId,
-      );
-      const payback =
-        res.item.paybackWon ??
-        (res.fallbackFromDefault ? res.defaultItem?.paybackWon : null) ??
-        20000;
+      const res = await fetchTelecrmSoomgoQuoteAutoMessage(token, brandId);
+      const payback = res.item.paybackWon ?? 20000;
       setPaybackDraft(String(payback));
       setLoadedMeta({
         steps: res.item.steps,
@@ -69,7 +64,7 @@ export function TelecrmSoomgoQuotePaybackSection() {
         steps: loadedMeta.steps as import('@shared/soomgoMessagePresets').SoomgoMessageStep[],
         isActive: loadedMeta.isActive,
         paybackWon: payback,
-        operatingCompanyId: brandId === 'default' ? null : brandId,
+        operatingCompanyId: brandId,
       });
       setMsg('페이백 금액을 저장했습니다. 견적보내기 메시지의 {페이백금액}·{이벤트가}에 반영됩니다.');
       window.setTimeout(() => setMsg(null), 4000);
@@ -97,7 +92,9 @@ export function TelecrmSoomgoQuotePaybackSection() {
           {error}
         </p>
       ) : null}
-      {loading ? (
+      {empty ? (
+        <p className="text-fluid-sm text-slate-500">등록된 브랜드가 없습니다. 영업 브랜드를 만든 뒤 설정해 주세요.</p>
+      ) : !ready || loading ? (
         <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
       ) : (
         <div className="space-y-3">
@@ -108,7 +105,6 @@ export function TelecrmSoomgoQuotePaybackSection() {
               onChange={(e) => setBrandId(e.target.value)}
               className="min-w-[10rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-sm"
             >
-              <option value="default">업체 기본</option>
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.displayName}
