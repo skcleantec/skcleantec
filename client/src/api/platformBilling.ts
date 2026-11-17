@@ -168,6 +168,7 @@ export type BillingScheduleRow = {
   addonAmountKrw?: number;
   oneTimeAmountKrw?: number;
   oneTimeLabels?: string[];
+  paymentKey?: string;
   feeExempt?: boolean;
   addonExempt?: boolean;
   adjustment: {

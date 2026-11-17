@@ -5,6 +5,7 @@ import {
   type TenantBillingAdjustmentType,
 } from '@shared/tenantBilling';
 import {
+  confirmPlatformInvoicePayment,
   confirmPlatformSchedulePeriodPayment,
   createPlatformBillingAdjustment,
   getPlatformTenantBillingSchedule,
@@ -144,7 +145,11 @@ export function PlatformTenantBillingScheduleSection({
     setSaving(true);
     setError('');
     try {
-      await confirmPlatformSchedulePeriodPayment(token, tenantId, periodStartYmd);
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(periodStartYmd)) {
+        await confirmPlatformInvoicePayment(token, periodStartYmd);
+      } else {
+        await confirmPlatformSchedulePeriodPayment(token, tenantId, periodStartYmd);
+      }
       await afterMutate();
     } catch (e) {
       setError(e instanceof Error ? e.message : '확인 실패');

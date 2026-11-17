@@ -1,7 +1,7 @@
 import type { Prisma, UsageFeeCardPaymentPurpose } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
-import { confirmPaymentForSchedulePeriod, getTenantBillingSchedule } from '../billing/tenantBilling.service.js';
+import { confirmInvoicePayment, confirmPaymentForSchedulePeriod, getTenantBillingSchedule } from '../billing/tenantBilling.service.js';
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
 import { creditWalletFromCardOnce, reverseWalletCardOnce } from '../alimtalk/alimtalkWallet.service.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
@@ -45,6 +45,7 @@ export type UsageFeeOpenPeriod = {
   vatAmountKrw: number;
   chargeAmountKrw: number;
   status: string;
+  invoiceId: string | null;
 };
 
 function periodYmd(iso: string): string {
@@ -76,6 +77,7 @@ export async function listUsageFeeOpenPeriods(
         vatAmountKrw,
         chargeAmountKrw: supplyAmountKrw + vatAmountKrw,
         status: item.status,
+        invoiceId: item.invoiceId,
       };
     });
   return { items };
@@ -502,13 +504,17 @@ export async function openTenantUsageFeeWindow(
   | { error: string; status: 400 | 404 }
   | { result: { redirectUrl: string; supplyAmountKrw: number; vatAmountKrw: number; chargeAmountKrw: number } }
 > {
-  const periodStartYmd = toPeriodYmd(periodStartRaw);
-  if (!periodStartYmd) return { error: '결제할 달을 선택하세요.', status: 400 };
+  const raw = periodStartRaw.trim();
+  const invoiceKey = raw.startsWith('invoice:') ? raw.slice('invoice:'.length) : '';
+  const periodStartYmd = invoiceKey ? '' : toPeriodYmd(raw);
+  if (!invoiceKey && !periodStartYmd) return { error: '결제할 달을 선택하세요.', status: 400 };
   const tenant = await prisma.tenant.findFirst({ where: { id: tenantId }, select: { id: true, name: true } });
   if (!tenant) return { error: '업체를 찾을 수 없습니다.', status: 404 };
   const opened = await listUsageFeeOpenPeriods(tenantId);
   if ('error' in opened) return opened;
-  const period = opened.items.find((item) => item.periodStartYmd === periodStartYmd);
+  const period = invoiceKey
+    ? opened.items.find((item) => item.invoiceId === invoiceKey)
+    : opened.items.find((item) => item.periodStartYmd === periodStartYmd);
   if (!period) return { error: '선택한 달은 아직 낼 이용료가 없습니다.', status: 400 };
 
   const app = (await loadServiceBridgeMerchants()).appCard;
@@ -522,8 +528,9 @@ export async function openTenantUsageFeeWindow(
       payMethod: 'PAY_WINDOW',
       status: 'PENDING',
       tenantId,
-      periodStart: new Date(`${periodStartYmd}T00:00:00+09:00`),
-      goodsName: `솔루션 이용료 ${period.periodLabel}`.slice(0, 80),
+      invoiceId: invoiceKey || null,
+      periodStart: invoiceKey ? new Date() : new Date(`${periodStartYmd}T00:00:00+09:00`),
+      goodsName: (invoiceKey ? '카카오 채널 세팅' : `솔루션 이용료 ${period.periodLabel}`).slice(0, 80),
       supplyAmountKrw: period.supplyAmountKrw,
       vatAmountKrw: period.vatAmountKrw,
       amountKrw: period.chargeAmountKrw,
@@ -858,6 +865,16 @@ async function applyUsageFeeSideEffect(row: {
       console.error('[usage-fee wallet] ensureSkipped error', err instanceof Error ? err.message : err);
     });
     return { invoiceId: null, invoiceApplied: true };
+  }
+  if (row.purpose === 'INVOICE' && row.tenantId && row.invoiceId) {
+    try {
+      const invoice = await confirmInvoicePayment(row.invoiceId, '', row.tenantId);
+      return { invoiceId: invoice.id, invoiceApplied: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (!message.includes('이미')) throw err;
+      return { invoiceId: row.invoiceId, invoiceApplied: true };
+    }
   }
   if (row.purpose === 'INVOICE' && row.tenantId && row.periodStart) {
     try {

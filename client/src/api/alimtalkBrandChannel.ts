@@ -22,6 +22,15 @@ export type TenantBrandChannelView = {
       approved: number;
       templateCount: number;
       note: string;
+      deposit: {
+        grossKrw: number;
+        supplyKrw: number;
+        vatKrw: number;
+        bankName: string;
+        accountNumber: string;
+        accountHolder: string;
+        payKey: string | null;
+      } | null;
     } | null;
   }[];
 };
@@ -65,14 +74,14 @@ export function requestTenantBrandChannel(body: {
   bizVerify: string;
   publicReady: boolean;
   feeAccepted: boolean;
-}): Promise<{ ok: true }> {
+}): Promise<{ ok: true; status: 'PAYMENT_PENDING' | 'REQUESTED' }> {
   return tenantJson('/alimtalk/brand-channels', { method: 'POST', body: JSON.stringify(body) });
 }
 
 export type PlatformBrandChannelReview = {
   lastCheckedAt: string | null;
   fees: { setupFeeKrw: number; customCopyFeeKrw: number };
-  summary: { linked: number; inReview: number; rejected: number; ready: number; needsLink: number };
+  summary: { linked: number; inReview: number; rejected: number; ready: number; needsLink: number; paymentPending: number };
   rows: {
     id: string;
     tenantId: string;
@@ -80,6 +89,7 @@ export type PlatformBrandChannelReview = {
     brandName: string;
     searchId: string;
     status: string;
+    badge?: { label: string; tone: string };
     approved: number;
     templateCount: number;
     templates: { label: string; status: string; statusLabel: string; rejectReason: string | null }[];

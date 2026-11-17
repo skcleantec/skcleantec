@@ -5,10 +5,12 @@ import {
   requestTenantBrandChannel,
   type TenantBrandChannelView,
 } from '../../api/alimtalkBrandChannel';
+import { TenantUsageFeeWindowButton } from '../../components/admin/TenantUsageFeeWindowButton';
+import { getToken } from '../../stores/auth';
 
 const BTN_PRIMARY =
   'rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50';
-const STEPS = ['신청 접수', '채널 연결', '문구 심사', '우리 채널로 발송'] as const;
+const STEPS = ['신청 접수', '입금 확인', '채널 연결', '문구 심사', '우리 채널로 발송'] as const;
 
 const PREP = [
   {
@@ -83,7 +85,7 @@ export function AdminAlimtalkBrandChannelSection() {
     setBusy(true);
     setError('');
     try {
-      await requestTenantBrandChannel({
+      const result = await requestTenantBrandChannel({
         operatingCompanyId: brandId,
         searchId,
         adminPhone: phone,
@@ -92,7 +94,11 @@ export function AdminAlimtalkBrandChannelSection() {
         feeAccepted,
       });
       setOpen(false);
-      setNotice('신청했어요. 담당자가 연결을 시작해요.');
+      setNotice(
+        result.status === 'PAYMENT_PENDING'
+          ? '신청했어요. 세팅비를 입금하시면 연결을 시작해요.'
+          : '신청했어요. 담당자가 연결을 시작해요.',
+      );
       setSearchId('');
       setPhone('');
       setPublicReady(false);
@@ -184,7 +190,7 @@ export function AdminAlimtalkBrandChannelSection() {
                       {row.channel?.badge.label}
                     </span>
                   </div>
-                  <ol className="mt-2 grid grid-cols-4 gap-1 text-center">
+                  <ol className="mt-2 grid grid-cols-5 gap-1 text-center">
                     {STEPS.map((label, index) => {
                       const current = row.channel?.step ?? 0;
                       const tone =
@@ -194,12 +200,33 @@ export function AdminAlimtalkBrandChannelSection() {
                             ? 'bg-amber-50 text-amber-700'
                             : 'bg-slate-50 text-gray-400';
                       return (
-                        <li key={label} className={`rounded-md px-1 py-1 text-[11px] font-semibold ${tone}`}>
+                        <li key={label} className={`whitespace-normal rounded-md px-1 py-1 text-[11px] font-semibold leading-tight ${tone}`}>
                           {label}
                         </li>
                       );
                     })}
                   </ol>
+                  {row.channel?.deposit ? (
+                    <div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2.5 text-fluid-2xs text-gray-700">
+                      <p className="font-semibold text-gray-900">{won(row.channel.deposit.grossKrw)} (부가세 포함)</p>
+                      {[row.channel.deposit.bankName, row.channel.deposit.accountNumber, row.channel.deposit.accountHolder].filter(Boolean).length > 0 ? (
+                        <p>
+                          입금 계좌{' '}
+                          {[row.channel.deposit.bankName, row.channel.deposit.accountNumber, row.channel.deposit.accountHolder]
+                            .filter(Boolean)
+                            .join(' ')}
+                        </p>
+                      ) : null}
+                      <p>입금하시면 담당자가 확인 후 연결을 시작해요</p>
+                      {row.channel.deposit.payKey && getToken() ? (
+                        <TenantUsageFeeWindowButton
+                          token={getToken() ?? ''}
+                          periodStart={row.channel.deposit.payKey}
+                          supplyKrw={row.channel.deposit.supplyKrw}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
                   {row.channel?.note ? <p className="mt-1.5 text-fluid-2xs text-gray-500">{row.channel.note}</p> : null}
                 </div>
               ))}
@@ -277,7 +304,7 @@ export function AdminAlimtalkBrandChannelSection() {
                   </label>
                   <label className="flex items-start gap-2 text-fluid-2xs text-gray-700">
                     <input type="checkbox" checked={feeAccepted} onChange={(event) => setFeeAccepted(event.target.checked)} />
-                    세팅비 {won(fee)}(부가세 포함)은 입금이 확인되면 진행돼요
+                    세팅비 {won(fee)}(부가세 포함)을 입금하면 연결을 시작해요
                   </label>
                 </div>
               )}

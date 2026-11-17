@@ -8,8 +8,6 @@ import {
   channelIdsMatch,
   mapProviderTemplateStatus,
 } from './alimtalkBrandChannel.select.js';
-import { ensureBrandChannelSetupFee } from './alimtalkBrandChannel.fee.js';
-
 const HOUR_MS = 60 * 60 * 1000;
 let timer: ReturnType<typeof setInterval> | null = null;
 let running = false;
@@ -52,7 +50,6 @@ export async function syncAlimtalkBrandChannels(): Promise<{ checked: number; di
         data: { status: 'LINKED', providerChannelId: hit.ChannelId, linkedAt: now },
       });
       await ensureReadyTemplates(local.id);
-      await ensureBrandChannelSetupFee(local.id);
     } else if (local.providerChannelId !== hit.ChannelId) {
       await prisma.alimtalkBrandChannel.update({
         where: { id: local.id },
