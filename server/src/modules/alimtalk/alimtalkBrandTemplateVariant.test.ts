@@ -89,6 +89,7 @@ describe('업체 채널용 알림톡 문구', () => {
     it(platform.name, () => {
       const variant = buildBrandTemplateVariant(platform);
       assert.equal(variant.content.includes('청소비서'), false);
+      assert.equal(variant.content.endsWith('\n\n궁금한 점은 이 대화방에 바로 남겨 주세요.'), true);
       assert.equal(variant.content.endsWith('\n'), false);
       assert.equal(variant.extra, '청소 예약 안내');
       assert.equal(variant.name, platform.name);
