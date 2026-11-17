@@ -4,6 +4,7 @@ import {
   barobillKakaoSenderId,
   describeBarobillKakaoConfigGap,
   getChannelManagementUrl,
+  getChannels,
   getHistoryUrl,
   getTemplateManagementUrl,
 } from '../../lib/barobill/kakaotalk.js';
@@ -14,6 +15,16 @@ import {
   setAlimtalkTemplateProvider,
   syncBarobillAlimtalkTemplates,
 } from './alimtalkBarobillSync.service.js';
+import {
+  disconnectBrandChannel,
+  excludeBrandChannelSetupFee,
+  linkBrandChannel,
+  listPlatformBrandChannels,
+  listTenantBrandChannelDetail,
+} from './alimtalkBrandChannel.service.js';
+import { brandChannelLastCheckedAt, syncAlimtalkBrandChannels } from './alimtalkBrandChannel.sync.js';
+import { saveBrandChannelFees } from './alimtalkBrandChannel.fee.js';
+import { prisma } from '../../lib/prisma.js';
 
 function syncRouteError(err: unknown): string {
   if (err instanceof BarobillCallError) return platformBarobillCause(err);
@@ -92,6 +103,81 @@ router.patch('/templates/:code/provider', platformSuperAdminOnly, async (req, re
     const status = message.includes('정상') ? 400 : 404;
     res.status(status).json({ error: message });
   }
+});
+
+router.get('/brand-channels', async (_req, res) => {
+  const data = await listPlatformBrandChannels();
+  res.json({ ...data, lastCheckedAt: brandChannelLastCheckedAt() });
+});
+
+router.post('/brand-channels/sync', platformSuperAdminOnly, async (_req, res) => {
+  try {
+    const result = await syncAlimtalkBrandChannels();
+    res.json({ ...result, lastCheckedAt: brandChannelLastCheckedAt() });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '채널 심사를 확인하지 못했습니다.';
+    res.status(502).json({ error: message.replace(/바로빌/g, '발송 서비스') });
+  }
+});
+
+router.get('/brand-channels/remote', platformSuperAdminOnly, async (_req, res) => {
+  try {
+    const channels = await getChannels();
+    const used = await prisma.alimtalkBrandChannel.findMany({
+      where: { status: { not: 'DISCONNECTED' }, providerChannelId: { not: null } },
+      select: { providerChannelId: true, operatingCompany: { select: { name: true } } },
+    });
+    const usedBy = new Map(used.map((row) => [row.providerChannelId, row.operatingCompany.name]));
+    res.json({
+      channels: channels.map((row) => ({
+        channelId: row.ChannelId,
+        channelName: row.ChannelName,
+        usedBy: usedBy.get(row.ChannelId) ?? null,
+      })),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '채널 목록을 불러오지 못했습니다.';
+    res.status(502).json({ error: message.replace(/바로빌/g, '발송 서비스') });
+  }
+});
+
+router.patch('/brand-channel-fees', platformSuperAdminOnly, async (req, res) => {
+  const setupFeeKrw = Number(req.body?.setupFeeKrw);
+  const customCopyFeeKrw = Number(req.body?.customCopyFeeKrw);
+  if (!Number.isFinite(setupFeeKrw) || setupFeeKrw < 0 || !Number.isFinite(customCopyFeeKrw) || customCopyFeeKrw < 0) {
+    res.status(400).json({ error: '금액을 확인해 주세요.' });
+    return;
+  }
+  await saveBrandChannelFees({ setupFeeKrw: Math.round(setupFeeKrw), customCopyFeeKrw: Math.round(customCopyFeeKrw) });
+  res.json({ ok: true });
+});
+
+router.get('/tenants/:tenantId/brand-channels', async (req, res) => {
+  res.json({ brands: await listTenantBrandChannelDetail(req.params.tenantId) });
+});
+
+router.post('/tenants/:tenantId/brand-channels/link', platformSuperAdminOnly, async (req, res) => {
+  const result = await linkBrandChannel({
+    tenantId: req.params.tenantId,
+    operatingCompanyId: String(req.body?.operatingCompanyId ?? ''),
+    providerChannelId: String(req.body?.providerChannelId ?? ''),
+    createTemplates: req.body?.createTemplates !== false,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+router.post('/tenants/:tenantId/brand-channels/:channelId/disconnect', platformSuperAdminOnly, async (req, res) => {
+  await disconnectBrandChannel(req.params.tenantId, req.params.channelId);
+  res.json({ ok: true });
+});
+
+router.post('/tenants/:tenantId/brand-channels/:channelId/exclude-fee', platformSuperAdminOnly, async (req, res) => {
+  await excludeBrandChannelSetupFee(req.params.tenantId, req.params.channelId);
+  res.json({ ok: true });
 });
 
 export default router;

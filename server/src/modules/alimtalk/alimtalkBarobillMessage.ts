@@ -114,11 +114,11 @@ export function prepareBarobillMessage(
   variables: Record<string, string>,
 ): { ok: true; message: BarobillPreparedMessage } | { ok: false; error: string } {
   const content = template.barobillContent ?? '';
-  if (!content.trim()) return { ok: false, error: '바로빌 본문이 없습니다.' };
+  if (!content.trim()) return { ok: false, error: '알림톡 본문이 없습니다.' };
   const smsBody = template.barobillSmsMessage ?? '';
   const smsSubject = template.barobillSmsSubject ?? '';
   if (!smsBody.trim() || !smsSubject.trim()) {
-    return { ok: false, error: '바로빌 대체문자 제목 또는 본문이 없습니다.' };
+    return { ok: false, error: '대체문자 제목 또는 본문이 없습니다.' };
   }
 
   const canonical = canonicalOrderFormUrl(variables);

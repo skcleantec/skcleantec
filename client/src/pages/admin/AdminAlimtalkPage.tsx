@@ -22,6 +22,7 @@ import { WalletChargeModal } from '../../components/wallet/WalletChargeModal';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { getToken } from '../../stores/auth';
+import { AdminAlimtalkBrandChannelSection } from './AdminAlimtalkBrandChannelSection';
 
 const BTN_PRIMARY =
   'rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -255,6 +256,8 @@ export function AdminAlimtalkPage() {
                 : ''}
             </p>
           </section>
+
+          <AdminAlimtalkBrandChannelSection />
 
           <section className={CARD}>
             <div className="flex flex-wrap items-center justify-between gap-2">

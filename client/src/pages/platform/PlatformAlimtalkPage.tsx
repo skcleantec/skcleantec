@@ -8,6 +8,7 @@ import {
   type PlatformAlimtalkProvider,
 } from '../../api/platformAlimtalk';
 import { PlatformAlimtalkScreen } from '../../components/ui/PlatformAlimtalkScreen';
+import { PlatformAlimtalkChannelReview } from './PlatformAlimtalkChannelReview';
 
 export function PlatformAlimtalkPage() {
   const [overview, setOverview] = useState<PlatformAlimtalkOverview | null>(null);
@@ -15,6 +16,7 @@ export function PlatformAlimtalkPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [tab, setTab] = useState<'send' | 'review'>('send');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,6 +93,16 @@ export function PlatformAlimtalkPage() {
   };
 
   return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <button type="button" className={tab === 'send' ? 'rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs text-white' : 'rounded-lg px-3 py-1.5 text-fluid-xs text-gray-600'} onClick={() => setTab('send')}>
+          발송
+        </button>
+        <button type="button" className={tab === 'review' ? 'rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs text-white' : 'rounded-lg px-3 py-1.5 text-fluid-xs text-gray-600'} onClick={() => setTab('review')}>
+          채널 심사
+        </button>
+      </div>
+      {tab === 'review' ? <PlatformAlimtalkChannelReview /> : (
     <PlatformAlimtalkScreen
       overview={overview}
       loading={loading}
@@ -101,5 +113,7 @@ export function PlatformAlimtalkPage() {
       onPopup={(kind) => void onPopup(kind)}
       onProvider={(code, provider) => void onProvider(code, provider)}
     />
+      )}
+    </div>
   );
 }

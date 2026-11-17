@@ -213,9 +213,9 @@ export function PlatformTenantBillingScheduleTable({
       total: won(row.amountKrw),
       statusLabel,
       statusClass: scheduleStatusClass(row.status),
-      note: row.adjustment
+      note: [row.adjustment
         ? `${TENANT_BILLING_ADJUSTMENT_TYPE_LABEL[row.adjustment.type]} · ${row.adjustment.reason}`
-        : null,
+        : null, ...(row.oneTimeLabels ?? [])].filter(Boolean).join(' · ') || null,
       muted: false,
       canPay,
       periodYmd,

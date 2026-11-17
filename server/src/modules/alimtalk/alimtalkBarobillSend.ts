@@ -1,22 +1,26 @@
 import { BarobillCallError } from '../../lib/barobill/soap.js';
-import { describeBarobillKakaoConfigGap, sendAT } from '../../lib/barobill/kakaotalk.js';
+import { barobillKakaoChannelId, describeBarobillKakaoConfigGap, sendAT } from '../../lib/barobill/kakaotalk.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AlimtalkTemplateCode } from '../../lib/alimtalkPolicy.js';
 import { notifyAlimtalkOpsOnceToday, safeOpsSentence } from './alimtalkBarobillOpsMail.js';
 import { prepareBarobillMessage } from './alimtalkBarobillMessage.js';
+import { chooseAlimtalkSendChannel } from './alimtalkBrandChannel.select.js';
 import type { TriggerAlimtalkResult } from './alimtalkSend.service.js';
 
 const BALANCE_ERROR_CODES = new Set([-26006, -26011]);
 
 function failureSentence(err: unknown): { message: string; code: number | null } {
   if (err instanceof BarobillCallError) {
-    const message = safeOpsSentence(err.detail) || '바로빌 발송에 실패했습니다.';
-    return { message, code: err.code };
+    const message = safeOpsSentence(err.detail) || '발송 서비스에서 보내지 못했습니다.';
+    return { message: message.replace(/바로빌/g, '발송 서비스'), code: err.code };
   }
   if (err instanceof Error) {
-    return { message: safeOpsSentence(err.message) || '바로빌 발송에 실패했습니다.', code: null };
+    return {
+      message: (safeOpsSentence(err.message) || '발송 서비스에서 보내지 못했습니다.').replace(/바로빌/g, '발송 서비스'),
+      code: null,
+    };
   }
-  return { message: '바로빌 발송에 실패했습니다.', code: null };
+  return { message: '발송 서비스에서 보내지 못했습니다.', code: null };
 }
 
 export async function sendAlimtalkViaBarobill(params: {
@@ -53,35 +57,45 @@ export async function sendAlimtalkViaBarobill(params: {
     customerFacingOperatingCompanyId: params.customerFacingOperatingCompanyId,
   };
 
+  const brandChoice = await resolveBrandSendChoice(
+    params.billingTenantId,
+    params.customerFacingOperatingCompanyId,
+    params.templateCode,
+  );
   const gap = describeBarobillKakaoConfigGap();
   const prepared = template ? prepareBarobillMessage(template, params.variables) : null;
+  const templateName =
+    brandChoice.route === 'brand' ? brandChoice.templateName : template?.barobillTemplateName?.trim() ?? '';
   const blocked = !template
-    ? '바로빌 서식이 없습니다.'
+    ? '알림톡 서식이 없습니다.'
     : gap
-      ? gap
-      : template.barobillStatus !== 3
-        ? '바로빌 서식 심사가 정상이 아닙니다.'
-        : !template.barobillTemplateName?.trim()
-          ? '바로빌 템플릿명이 없습니다.'
+      ? gap.replace(/바로빌/g, '발송 서비스')
+      : brandChoice.route === 'platform' && template.barobillStatus !== 3
+        ? '알림톡 서식 심사가 끝나지 않았습니다.'
+        : !templateName
+          ? '알림톡 서식 이름이 없습니다.'
           : prepared && !prepared.ok
-            ? prepared.error
+            ? prepared.error.replace(/바로빌/g, '발송 서비스')
             : null;
 
-  if (blocked || !prepared || !prepared.ok || !template?.barobillTemplateName) {
-    const error = blocked ?? '바로빌 발송을 준비하지 못했습니다.';
+  const sentChannelId =
+    brandChoice.route === 'brand' ? brandChoice.channelId : safePlatformChannelId();
+  if (blocked || !prepared || !prepared.ok || !templateName) {
+    const error = blocked ?? '알림톡 발송을 준비하지 못했습니다.';
     await prisma.alimtalkSendLog.create({
-      data: { ...baseLog, chargeStatus: 'FAILED', errorMessage: error },
+      data: { ...baseLog, chargeStatus: 'FAILED', errorMessage: error, sentChannelId },
     });
     return { ok: false, error };
   }
 
   const pending = await prisma.alimtalkSendLog.create({
-    data: { ...baseLog, chargeStatus: 'PENDING' },
+    data: { ...baseLog, chargeStatus: 'PENDING', sentChannelId },
   });
 
   try {
     const sendKey = await sendAT({
-      templateName: template.barobillTemplateName,
+      templateName,
+      yellowId: brandChoice.route === 'brand' ? brandChoice.channelId : undefined,
       smsReply: 'A',
       message: {
         ReceiverNum: params.toPhone,
@@ -124,4 +138,36 @@ export async function sendAlimtalkViaBarobill(params: {
     }
     return { ok: false, error: failed.message };
   }
+}
+
+function safePlatformChannelId(): string | null {
+  try {
+    return barobillKakaoChannelId();
+  } catch {
+    return null;
+  }
+}
+
+async function resolveBrandSendChoice(
+  tenantId: string,
+  operatingCompanyId: string | null,
+  templateCode: AlimtalkTemplateCode,
+) {
+  if (!operatingCompanyId) return chooseAlimtalkSendChannel({ channel: null, template: null });
+  const channel = await prisma.alimtalkBrandChannel.findFirst({
+    where: { tenantId, operatingCompanyId },
+    select: {
+      status: true,
+      providerChannelId: true,
+      templates: {
+        where: { templateCode },
+        select: { status: true, providerTemplateName: true },
+        take: 1,
+      },
+    },
+  });
+  return chooseAlimtalkSendChannel({
+    channel: channel ? { status: channel.status, providerChannelId: channel.providerChannelId } : null,
+    template: channel?.templates[0] ?? null,
+  });
 }

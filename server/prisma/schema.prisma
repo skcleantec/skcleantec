@@ -375,6 +375,8 @@ model Tenant {
   alimtalkSendLogs AlimtalkSendLog[]
   alimtalkWalletChargeLogs AlimtalkWalletChargeLog[]
   alimtalkChargeRequests AlimtalkChargeRequest[]
+  alimtalkBrandChannels AlimtalkBrandChannel[]
+  billingOneTimeCharges TenantBillingOneTimeCharge[]
   walletUsageLogs TenantWalletUsageLog[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
@@ -617,6 +619,10 @@ model PlatformBillingSettings {
   dunningBlockTodayText String? @map("dunning_block_today_text") @db.VarChar(256)
   dunningPaymentNotifyEmail String? @map("dunning_payment_notify_email") @db.VarChar(256)
   dunningPaymentNotifyEmails Json @default("[]") @map("dunning_payment_notify_emails")
+  /// 브랜드 카카오 채널 세팅비. VAT 별도.
+  alimtalkBrandSetupFeeKrw Int @default(99000) @map("alimtalk_brand_setup_fee_krw")
+  /// 알림톡 문구를 브랜드마다 따로 쓸 때 건당. VAT 별도.
+  alimtalkBrandCustomCopyFeeKrw Int @default(30000) @map("alimtalk_brand_custom_copy_fee_krw")
   smtpHost             String?  @map("smtp_host") @db.VarChar(256)
   smtpPort             Int?     @map("smtp_port")
   smtpSecure           Boolean? @map("smtp_secure")
@@ -897,6 +903,7 @@ model TenantInvoice {
   confirmedByPlatformUser   PlatformUser? @relation(fields: [confirmedByPlatformUserId], references: [id], onDelete: SetNull)
   referrerCommissionAccruals PlatformReferrerCommissionAccrual[]
   usageFeeCardPayments      UsageFeeCardPayment[]
+  oneTimeCharges            TenantBillingOneTimeCharge[]
 
   @@index([tenantId, status])
   @@index([tenantId, dueDate])
@@ -1775,6 +1782,7 @@ model OperatingCompany {
   cashBillIssues   CashBillIssue[]
   taxInvoiceIssues TaxInvoiceIssue[]
   receiptIssueSettings ReceiptIssueSetting[]
+  alimtalkBrandChannel AlimtalkBrandChannel?
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -5561,6 +5569,8 @@ model AlimtalkSendLog {
   errorMessage                String?  @map("error_message") @db.Text
   /// 결과 미확정 운영 메일에 넣은 시각. 있으면 같은 발송을 다시 보내지 않는다.
   unconfirmedMailAt           DateTime? @map("unconfirmed_mail_at")
+  /// 실제로 발송을 시도한 카카오 채널 아이디. 실패해도 다른 채널로 다시 보내지 않는다.
+  sentChannelId               String?   @map("sent_channel_id") @db.VarChar(64)
   createdAt                   DateTime @default(now()) @map("created_at")
 
   @@index([tenantId, createdAt(sort: Desc)])
@@ -5600,6 +5610,72 @@ model AlimtalkChargeRequest {
 
   @@index([tenantId, status, createdAt(sort: Desc)])
   @@map("alimtalk_charge_requests")
+}
+
+/// 브랜드 카카오 채널. 승인된 서식만 이 채널로 보내고, 나머지는 청소비서 채널.
+model AlimtalkBrandChannel {
+  id                  String    @id @default(uuid())
+  tenantId            String    @map("tenant_id")
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId  String    @unique @map("operating_company_id")
+  operatingCompany    OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  searchId            String    @map("search_id") @db.VarChar(64)
+  adminPhone          String    @map("admin_phone") @db.VarChar(32)
+  /// DONE 승인 완료 · IN_REVIEW 심사 중 · NONE 아직 안 함
+  bizVerify           String    @map("biz_verify") @db.VarChar(16)
+  /// REQUESTED 신청 · LINKED 연결 · ACTIVE 서식 승인 · REJECTED · DISCONNECTED
+  status              String    @db.VarChar(16)
+  providerChannelId   String?   @map("provider_channel_id") @db.VarChar(64)
+  requestedAt         DateTime  @default(now()) @map("requested_at")
+  linkedAt            DateTime? @map("linked_at")
+  note                String?   @db.Text
+  setupFeeKrw         Int       @map("setup_fee_krw")
+  setupFeeBilledAt    DateTime? @map("setup_fee_billed_at")
+  setupFeeExcluded    Boolean   @default(false) @map("setup_fee_excluded")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  templates           AlimtalkBrandTemplate[]
+
+  @@index([tenantId, status])
+  @@map("alimtalk_brand_channels")
+}
+
+/// 브랜드 채널에 올린 알림톡 서식. 서식마다 승인 여부를 따로 본다.
+model AlimtalkBrandTemplate {
+  id                   String    @id @default(uuid())
+  brandChannelId       String    @map("brand_channel_id")
+  brandChannel         AlimtalkBrandChannel @relation(fields: [brandChannelId], references: [id], onDelete: Cascade)
+  templateCode         String    @map("template_code") @db.VarChar(64)
+  providerTemplateName String    @map("provider_template_name") @db.VarChar(200)
+  /// READY 신청 대기 · IN_REVIEW 심사 중 · APPROVED 승인 · REJECTED 반려
+  status               String    @db.VarChar(16)
+  rejectReason         String?   @map("reject_reason") @db.Text
+  submittedAt          DateTime? @map("submitted_at")
+  approvedAt           DateTime? @map("approved_at")
+  lastCheckedAt        DateTime? @map("last_checked_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@unique([brandChannelId, templateCode])
+  @@index([brandChannelId, status])
+  @@map("alimtalk_brand_templates")
+}
+
+/// 다음 이용료 청구에 한 번만 더하는 항목. 카카오 채널 세팅비.
+model TenantBillingOneTimeCharge {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label      String    @db.VarChar(200)
+  amountKrw  Int       @map("amount_krw")
+  sourceKey  String    @unique @map("source_key") @db.VarChar(80)
+  invoiceId  String?   @map("invoice_id")
+  invoice    TenantInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  voidedAt   DateTime? @map("voided_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId, voidedAt])
+  @@map("tenant_billing_one_time_charges")
 }
 
 /// SK클린텍 전용 — 옛 홈페이지 문의가 들어오는 네이버 메일

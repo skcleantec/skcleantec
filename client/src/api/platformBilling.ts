@@ -166,6 +166,8 @@ export type BillingScheduleRow = {
   invoiceId: string | null;
   baseAmountKrw?: number;
   addonAmountKrw?: number;
+  oneTimeAmountKrw?: number;
+  oneTimeLabels?: string[];
   feeExempt?: boolean;
   addonExempt?: boolean;
   adjustment: {

@@ -16,6 +16,7 @@ import { PlatformTenantBillingPanel } from './PlatformTenantBillingPanel';
 import { PlatformTenantBillingSummaryStrip } from '../../components/platform/PlatformTenantBillingSummaryStrip';
 import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
 import { PlatformTenantAlimtalkPanel } from './PlatformTenantAlimtalkPanel';
+import { PlatformTenantBrandChannels } from './PlatformTenantBrandChannels';
 import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
 import {
   featureSelectMode,
@@ -537,6 +538,7 @@ export function PlatformTenantDetailPage() {
                 <PlatformTenantAlimtalkPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
                 <PlatformTenantAddonStatus tenantId={id} />
                 <PlatformTenantTelecrmPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
+                <PlatformTenantBrandChannels tenantId={id} />
               </div>
             </>
           ) : null}
