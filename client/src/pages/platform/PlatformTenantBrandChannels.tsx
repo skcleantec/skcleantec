@@ -16,8 +16,9 @@ export function PlatformTenantBrandChannels({ tenantId }: { tenantId: string }) 
   const [error, setError] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
   const [linkBrand, setLinkBrand] = useState<PlatformTenantBrandRow | null>(null);
-  const [channels, setChannels] = useState<{ channelId: string; channelName: string; usedBy: string | null }[]>([]);
+  const [channels, setChannels] = useState<{ channelId: string; channelName: string; usedBy: string | null; platformDefault?: boolean }[]>([]);
   const [picked, setPicked] = useState('');
+  const [notice, setNotice] = useState('');
   const [createTemplates, setCreateTemplates] = useState(true);
 
   const load = useCallback(async () => {
@@ -36,7 +37,7 @@ export function PlatformTenantBrandChannels({ tenantId }: { tenantId: string }) 
     try {
       const remote = await fetchRemoteKakaoChannels();
       setChannels(remote.channels);
-      setPicked(remote.channels.find((row) => !row.usedBy)?.channelId ?? '');
+      setPicked(remote.channels.find((row) => !row.usedBy && !row.platformDefault)?.channelId ?? '');
     } catch (err) {
       setError(err instanceof Error ? err.message : '채널 목록을 불러오지 못했습니다.');
     }
@@ -119,9 +120,9 @@ export function PlatformTenantBrandChannels({ tenantId }: { tenantId: string }) 
             <p className="mt-1 text-fluid-2xs text-gray-500">{linkBrand.name}</p>
             <select className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm" value={picked} onChange={(e) => setPicked(e.target.value)}>
               {channels.map((row) => (
-                <option key={row.channelId} value={row.channelId} disabled={Boolean(row.usedBy)}>
+                <option key={row.channelId} value={row.channelId} disabled={Boolean(row.usedBy) || Boolean(row.platformDefault)}>
                   {row.channelName || row.channelId}
-                  {row.usedBy ? ` · ${row.usedBy} 사용 중` : ''}
+                  {row.platformDefault ? ' · 청소비서 기본 채널' : row.usedBy ? ` · ${row.usedBy}에서 사용 중` : ''}
                 </option>
               ))}
             </select>
@@ -149,12 +150,26 @@ export function PlatformTenantBrandChannels({ tenantId }: { tenantId: string }) 
                       setLinkBrand(null);
                       return load();
                     })
-                    .catch((err) => setError(err instanceof Error ? err.message : '연결하지 못했습니다.'));
+                    .catch((err) => {
+                      const message = err instanceof Error ? err.message : '연결하지 못했습니다.';
+                      if (message.includes('청소비서 기본 채널')) setNotice(message);
+                      else setError(message);
+                    });
                 }}
               >
                 연결
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+      {notice ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 text-center shadow-lg">
+            <p className="text-fluid-sm font-semibold text-gray-900">{notice}</p>
+            <button type="button" className={`${BTN_PRIMARY} mt-3`} onClick={() => setNotice('')}>
+              확인
+            </button>
           </div>
         </div>
       ) : null}

@@ -99,7 +99,7 @@ export function savePlatformBrandChannelFees(body: { setupFeeKrw: number; custom
 }
 
 export function fetchRemoteKakaoChannels(): Promise<{
-  channels: { channelId: string; channelName: string; usedBy: string | null }[];
+  channels: { channelId: string; channelName: string; usedBy: string | null; platformDefault?: boolean }[];
 }> {
   return platformJson('/platform/alimtalk/brand-channels/remote');
 }
@@ -150,6 +150,20 @@ export function openPlatformTemplateReview() {
     method: 'POST',
     body: JSON.stringify({ kind: 'template' }),
   });
+}
+
+export type BrandTemplateCopy = {
+  name: string;
+  category: string;
+  emphasizeType: string;
+  title: string;
+  extra: string;
+  content: string;
+  buttons: { type: string; name: string; mobileUrl: string; pcUrl: string }[];
+};
+
+export function fetchBrandChannelCopy(): Promise<{ templates: BrandTemplateCopy[] }> {
+  return platformJson('/platform/alimtalk/brand-channel-copy');
 }
 
 export function openPlatformChannelAdmin() {

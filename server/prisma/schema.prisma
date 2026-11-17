@@ -5649,6 +5649,12 @@ model AlimtalkBrandTemplate {
   providerTemplateName String    @map("provider_template_name") @db.VarChar(200)
   /// READY 신청 대기 · IN_REVIEW 심사 중 · APPROVED 승인 · REJECTED 반려
   status               String    @db.VarChar(16)
+  content              String?   @db.Text
+  title                String?   @db.VarChar(200)
+  extra                String?   @db.Text
+  buttonsJson          Json?     @map("buttons_json")
+  messageType          Int?      @map("message_type")
+  emphasizeType        Int?      @map("emphasize_type")
   rejectReason         String?   @map("reject_reason") @db.Text
   submittedAt          DateTime? @map("submitted_at")
   approvedAt           DateTime? @map("approved_at")

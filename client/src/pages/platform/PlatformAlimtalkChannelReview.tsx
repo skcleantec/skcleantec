@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  fetchBrandChannelCopy,
   fetchPlatformBrandChannelReview,
   openPlatformTemplateReview,
   savePlatformBrandChannelFees,
   syncPlatformBrandChannels,
+  type BrandTemplateCopy,
   type PlatformBrandChannelReview,
 } from '../../api/alimtalkBrandChannel';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION } from '../../utils/platformUi';
@@ -20,6 +22,7 @@ export function PlatformAlimtalkChannelReview() {
   const [copyFee, setCopyFee] = useState('30000');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [copies, setCopies] = useState<BrandTemplateCopy[] | null>(null);
 
   const load = useCallback(async () => {
     const next = await fetchPlatformBrandChannelReview();
@@ -141,6 +144,65 @@ export function PlatformAlimtalkChannelReview() {
       >
         심사 화면 열기
       </button>
+      <button
+        type="button"
+        className={BTN_SECONDARY}
+        onClick={() => {
+          void fetchBrandChannelCopy()
+            .then((result) => setCopies(result.templates))
+            .catch((err) => setError(err instanceof Error ? err.message : '서식 원문을 불러오지 못했습니다.'));
+        }}
+      >
+        업체 채널용 서식 원문
+      </button>
+      {copies ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-lg">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-fluid-sm font-semibold text-gray-900">업체 채널용 서식 원문</h3>
+              <button type="button" className={BTN_SECONDARY} onClick={() => setCopies(null)}>
+                닫기
+              </button>
+            </div>
+            {copies.map((item) => (
+              <article key={item.name} className="mt-4 space-y-2 border-t border-gray-100 pt-3">
+                <CopyRow label="이름" value={item.name} />
+                <CopyRow label="카테고리" value={item.category} />
+                <CopyRow label="강조 유형" value={item.emphasizeType} />
+                <CopyRow label="강조 제목" value={item.title} />
+                <CopyRow label="보조문구" value={item.extra} />
+                <CopyRow label="본문" value={item.content} />
+                {item.buttons.map((button, index) => (
+                  <div key={`${item.name}-${index}`} className="space-y-1">
+                    <CopyRow label={`버튼 ${index + 1} 유형`} value={button.type} />
+                    <CopyRow label={`버튼 ${index + 1} 이름`} value={button.name} />
+                    <CopyRow label={`버튼 ${index + 1} 모바일`} value={button.mobileUrl} />
+                    <CopyRow label={`버튼 ${index + 1} PC`} value={button.pcUrl} />
+                  </div>
+                ))}
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CopyRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-fluid-2xs text-gray-500">{label}</p>
+        <button
+          type="button"
+          className="text-fluid-2xs text-sky-700"
+          onClick={() => void navigator.clipboard.writeText(value)}
+        >
+          복사
+        </button>
+      </div>
+      <pre className="whitespace-pre-wrap break-words font-sans text-fluid-xs text-gray-900">{value || '—'}</pre>
     </div>
   );
 }

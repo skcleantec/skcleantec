@@ -24,6 +24,8 @@ import {
 } from './alimtalkBrandChannel.service.js';
 import { brandChannelLastCheckedAt, syncAlimtalkBrandChannels } from './alimtalkBrandChannel.sync.js';
 import { saveBrandChannelFees } from './alimtalkBrandChannel.fee.js';
+import { channelIdsMatch, isPlatformDefaultChannel } from './alimtalkBrandChannel.select.js';
+import { loadBrandChannelCopy } from './alimtalkBrandChannel.copy.js';
 import { prisma } from '../../lib/prisma.js';
 
 function syncRouteError(err: unknown): string {
@@ -105,6 +107,10 @@ router.patch('/templates/:code/provider', platformSuperAdminOnly, async (req, re
   }
 });
 
+router.get('/brand-channel-copy', async (_req, res) => {
+  res.json({ templates: await loadBrandChannelCopy() });
+});
+
 router.get('/brand-channels', async (_req, res) => {
   const data = await listPlatformBrandChannels();
   res.json({ ...data, lastCheckedAt: brandChannelLastCheckedAt() });
@@ -127,12 +133,16 @@ router.get('/brand-channels/remote', platformSuperAdminOnly, async (_req, res) =
       where: { status: { not: 'DISCONNECTED' }, providerChannelId: { not: null } },
       select: { providerChannelId: true, operatingCompany: { select: { name: true } } },
     });
-    const usedBy = new Map(used.map((row) => [row.providerChannelId, row.operatingCompany.name]));
+    const platformChannelId = process.env.BAROBILL_KAKAO_CHANNEL_ID?.trim() ?? '';
     res.json({
       channels: channels.map((row) => ({
         channelId: row.ChannelId,
         channelName: row.ChannelName,
-        usedBy: usedBy.get(row.ChannelId) ?? null,
+        platformDefault: isPlatformDefaultChannel(row.ChannelId, platformChannelId),
+        usedBy:
+          used.find(
+            (item) => item.providerChannelId && channelIdsMatch(item.providerChannelId, item.providerChannelId, row.ChannelId),
+          )?.operatingCompany.name ?? null,
       })),
     });
   } catch (err) {
