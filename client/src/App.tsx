@@ -61,6 +61,7 @@ import {
   TeamTrainingMaterialPage,
   TeamQuotationEditorPage,
   TeamCardPaymentPage,
+  TeamCashbillPage,
   StaffInquiryCardPayEntry,
   AdminCardPaymentPage,
   AdminCardPaymentPgPage,
@@ -707,6 +708,16 @@ function App() {
             }
           />
           <Route path="household-ledger" element={<SuspensePage><TeamHouseholdLedgerPage /></SuspensePage>} />
+          <Route
+            path="cashbill"
+            element={
+              <FeatureGate module="mod_cashbill" redirectTo="/team/dashboard">
+                <SuspensePage>
+                  <TeamCashbillPage />
+                </SuspensePage>
+              </FeatureGate>
+            }
+          />
           <Route
             path="db-marketplace"
             element={

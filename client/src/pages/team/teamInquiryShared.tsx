@@ -19,6 +19,8 @@ import {
 import { computeInquiryCollectibleAmount } from '../../utils/inquiryCollectibleAmount';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../../components/card-payment/CardPaymentDoneMark';
+import { TeamCashbillIssueSheet } from '../../components/team/cashbill/TeamCashbillIssueSheet';
+import { CashbillDoneMark, inquiryHasIssuedCashbill } from '../../components/cashbill/CashbillDoneMark';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { InquiryConsultationPhotosPanel } from '../../components/inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
@@ -246,6 +248,7 @@ export interface InquiryItem {
   customerName: string;
   customerPhone: string;
   cardPayments?: { id: string }[];
+  cashBillIssues?: { id: string }[];
   customerPhone2?: string | null;
   address: string;
   addressDetail: string | null;
@@ -1265,6 +1268,7 @@ export function TeamInquiryDetailModal({
   const [customerOrderOpen, setCustomerOrderOpen] = useState(false);
   const [pgRequiredOpen, setPgRequiredOpen] = useState(false);
   const [cardPayChecking, setCardPayChecking] = useState(false);
+  const [cashbillOpen, setCashbillOpen] = useState(false);
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
@@ -1378,6 +1382,8 @@ export function TeamInquiryDetailModal({
     Boolean(teamToken) &&
     viewerMe?.role !== 'EXTERNAL_PARTNER' &&
     !viewerMe?.previewExternal;
+  const showCashbill = Boolean(teamToken) && viewerMe?.canIssueCashbill === true;
+  const footerActionCount = (showCardPayment ? 1 : 0) + (showCashbill ? 1 : 0) + 1;
 
   const handleOpenCardPayment = useCallback(() => {
     const token = getTeamToken();
@@ -1443,6 +1449,7 @@ export function TeamInquiryDetailModal({
                   {primaryCustomerTitle}
                 </h2>
                 <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
+                <CashbillDoneMark issued={inquiryHasIssuedCashbill(item)} />
                 <div className="flex shrink-0 items-center gap-1">
                   {showExternalShareCopy ? (
                     <button
@@ -1497,6 +1504,7 @@ export function TeamInquiryDetailModal({
                 {primaryCustomerTitle}
               </h2>
               <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
+              <CashbillDoneMark issued={inquiryHasIssuedCashbill(item)} />
               <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:whitespace-nowrap">
                 {item.inquiryNumber ? (
                   <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-fluid-2xs font-medium tabular-nums text-white">
@@ -2501,7 +2509,9 @@ export function TeamInquiryDetailModal({
               )}
             </button>
           ) : null}
-          <div className={`grid gap-1.5 ${showCardPayment ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <div
+            className={`grid gap-1.5 ${footerActionCount >= 3 ? 'grid-cols-3' : footerActionCount === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}
+          >
             {showCardPayment ? (
               <button
                 type="button"
@@ -2511,6 +2521,15 @@ export function TeamInquiryDetailModal({
                 disabled={cardPayChecking}
               >
                 {teamBiPlain('team.modal.cardPayment')}
+              </button>
+            ) : null}
+            {showCashbill ? (
+              <button
+                type="button"
+                onClick={() => setCashbillOpen(true)}
+                className={teamFooterActionPrimaryClass}
+              >
+                {teamBiPlain('team.modal.cashbill')}
               </button>
             ) : null}
             <button type="button" onClick={onClose} className={teamFooterActionSecondaryClass}>
@@ -2526,6 +2545,7 @@ export function TeamInquiryDetailModal({
     <>
       {createPortal(modal, document.body)}
       <TeamCardPaymentPgRequiredDialog open={pgRequiredOpen} onClose={() => setPgRequiredOpen(false)} />
+      <TeamCashbillIssueSheet open={cashbillOpen} inquiryId={item.id} onClose={() => setCashbillOpen(false)} />
       {item.orderForm?.token ? (
         <CustomerOrderFormPreviewModal
           open={customerOrderOpen}

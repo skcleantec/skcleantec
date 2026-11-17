@@ -34,6 +34,10 @@ export type CashbillIssueRow = {
   linked?: boolean;
   /** 발급한 직원 이름 */
   issuerName?: string | null;
+  /** TEAM_LEADER | STAFF */
+  issuerRole?: 'TEAM_LEADER' | 'STAFF' | null;
+  /** 팀장이 사무실에 취소를 요청한 시각 */
+  cancelRequestedAt?: string | null;
   /** 취소분까지 발급돼 무효가 된 원래 건 */
   cancelled?: boolean;
   brandName?: string;

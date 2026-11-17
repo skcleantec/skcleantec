@@ -115,6 +115,7 @@ function TeamNavLinks({
   navClass,
   isExternalPartner,
   showHouseholdLedger,
+  showCashbill,
   hideTeamDayoffs,
   showDbMarketplace,
   newAssignmentCount,
@@ -129,6 +130,7 @@ function TeamNavLinks({
   navClass: ({ isActive }: { isActive: boolean }) => string;
   isExternalPartner: boolean;
   showHouseholdLedger: boolean;
+  showCashbill: boolean;
   hideTeamDayoffs: boolean;
   showDbMarketplace: boolean;
   newAssignmentCount: number;
@@ -231,6 +233,14 @@ function TeamNavLinks({
               </NavLink>,
             )
           : null}
+        {showCashbill
+          ? wrap(
+              <NavLink to={teamTo('/team/cashbill')} className={navClass} {...linkProps}>
+                <TeamNavIcon type="cashbill" className="mr-3 h-4 w-4 shrink-0" />
+                <TeamBiInline id="team.layout.nav.cashbill" />
+              </NavLink>,
+            )
+          : null}
         {showDbMarketplace
           ? wrap(
               <NavLink to={teamTo('/team/db-marketplace')} className={navClass} {...linkProps}>
@@ -311,6 +321,12 @@ function TeamNavLinks({
         <NavLink to={teamTo('/team/household-ledger')} className={navClass}>
           <TeamNavIcon type="household-ledger" className="w-4 h-4 mr-1.5 shrink-0" />
           <TeamBiInline id="team.layout.nav.householdLedger" />
+        </NavLink>
+      ) : null}
+      {showCashbill ? (
+        <NavLink to={teamTo('/team/cashbill')} className={navClass}>
+          <TeamNavIcon type="cashbill" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.cashbill" />
         </NavLink>
       ) : null}
       {showDbMarketplace ? (
@@ -441,6 +457,7 @@ export function TeamLayout() {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
+  const [canIssueCashbill, setCanIssueCashbill] = useState(false);
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [teamTrainingAvailable, setTeamTrainingAvailable] = useState(false);
   const [profileOnboardingRequired, setProfileOnboardingRequired] = useState(false);
@@ -563,6 +580,7 @@ export function TeamLayout() {
       setViewerUserId(null);
       setTenantName(null);
       setTenantFeatures(null);
+      setCanIssueCashbill(false);
       setTenantSlug(null);
       setTeamTrainingAvailable(false);
       setProfileOnboardingRequired(false);
@@ -587,6 +605,7 @@ export function TeamLayout() {
         setViewerUserId(u.id ?? null);
         setTenantName(u.tenant?.displayName?.trim() || u.tenant?.name?.trim() || null);
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
+        setCanIssueCashbill(u.canIssueCashbill === true);
         setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
         const needsOnboarding = teamProfileOnboardingRequired(u, location.search);
         setProfileOnboardingRequired(needsOnboarding);
@@ -629,6 +648,7 @@ export function TeamLayout() {
         setViewerUserId(null);
         setTenantName(null);
         setTenantFeatures(null);
+        setCanIssueCashbill(false);
         setTenantSlug(null);
         setTeamTrainingAvailable(false);
         if (isAuthSessionExpiredError(e)) {
@@ -725,6 +745,7 @@ export function TeamLayout() {
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
   const showHouseholdLedger =
     !isExternalPartner && (userRole === 'TEAM_LEADER' || previewTeamLeader);
+  const showCashbill = canIssueCashbill;
   const { items: teamPromoItems } = usePlatformPromos('team', location.search);
   const teamPromoForPage = useMemo(() => {
     const isTeamLeaderAudience =
@@ -795,6 +816,7 @@ export function TeamLayout() {
   const navShared = {
     isExternalPartner,
     showHouseholdLedger,
+    showCashbill,
     hideTeamDayoffs,
     showDbMarketplace,
     newAssignmentCount,

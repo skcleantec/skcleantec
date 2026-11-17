@@ -80,6 +80,7 @@ export function AdminCashbillListPage() {
   const monthKey = searchParams.get('month') || kstMonthKeyNow();
   const dayKey = searchParams.get('day') || kstYmdNow();
   const queryText = searchParams.get('q') || '';
+  const issuer = searchParams.get('issuer') || '';
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
   const page = parseListPage(searchParams.get('page'));
 
@@ -160,6 +161,7 @@ export function AdminCashbillListPage() {
     if (datePreset === 'month') qs.set('month', monthKey);
     if (datePreset === 'day') qs.set('day', dayKey);
     if (queryText) qs.set('q', queryText);
+    if (issuer === 'team' || issuer === 'staff') qs.set('issuer', issuer);
     qs.set('limit', String(pageSize));
     qs.set('offset', String((safePage - 1) * pageSize));
     let cancelled = false;
@@ -179,7 +181,7 @@ export function AdminCashbillListPage() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [datePreset, monthKey, dayKey, queryText, pageSize, safePage, reload]);
+  }, [datePreset, monthKey, dayKey, queryText, issuer, pageSize, safePage, reload]);
 
   const CASH_SYNC_KEY = 'receipt-cashbill-state-sync-at';
 
@@ -294,6 +296,16 @@ export function AdminCashbillListPage() {
             {period === 'custom' ? (
               <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} />
             ) : null}
+            <select
+              aria-label="발행한 사람"
+              value={issuer}
+              onChange={(event) => patch({ issuer: event.target.value, page: '1' })}
+              className="h-9 rounded-lg border-0 bg-[#F4F6FA] px-2 text-fluid-xs text-slate-700"
+            >
+              <option value="">발행한 사람</option>
+              <option value="staff">관리자</option>
+              <option value="team">팀장</option>
+            </select>
             <input
               defaultValue={queryText}
               placeholder="고객명·발급번호·접수번호"
@@ -320,13 +332,14 @@ export function AdminCashbillListPage() {
                   <th style={{ width: '140px' }} className="px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">휴대폰·사업자</th>
                   <th style={{ width: '80px' }} className="px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">구분</th>
                   <th style={{ width: '120px' }} className="px-3 py-2.5 text-right text-[12px] font-medium text-slate-600">금액</th>
+                  <th style={{ width: '110px' }} className="px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">발행한 사람</th>
                   <th style={{ width: '110px' }} className="px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">상태</th>
                   <th style={{ width: '44px' }} className="px-1 py-2.5 text-center text-[12px] font-medium text-slate-600"></th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((row) => (
-                  <tr key={row.id} className={`border-t border-[#F1F5F9] ${highlightId === row.id ? 'bg-[#F0FDF4]' : 'hover:bg-slate-50'}`}>
+                  <tr key={row.id} className={`border-t border-[#F1F5F9] ${row.cancelRequestedAt && !row.cancelled ? 'bg-amber-50' : highlightId === row.id ? 'bg-[#F0FDF4]' : 'hover:bg-slate-50'}`}>
                     <td className="whitespace-nowrap px-3 py-3 text-center tabular-nums text-slate-600 text-[12px]">{formatReceiptIssuedAt(row.createdAt)}</td>
                     <td className="px-3 py-3">
                       <PcCustomerCell row={row} />
@@ -341,6 +354,9 @@ export function AdminCashbillListPage() {
                     <td className="px-3 py-3 text-right">
                       <p className={`whitespace-nowrap font-medium tabular-nums text-[13px] ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</p>
                       <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
+                    </td>
+                    <td className="px-3 py-3 text-center text-[12px] text-slate-700">
+                      {issuerLine(row)}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <StatusDot row={row} />
@@ -392,6 +408,16 @@ export function AdminCashbillListPage() {
             {period === 'custom' ? (
               <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} />
             ) : null}
+            <select
+              aria-label="발행한 사람"
+              value={issuer}
+              onChange={(event) => patch({ issuer: event.target.value, page: '1' })}
+              className="min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-xs"
+            >
+              <option value="">발행한 사람</option>
+              <option value="staff">관리자</option>
+              <option value="team">팀장</option>
+            </select>
             <input
               defaultValue={queryText}
               placeholder="고객명·발급번호"
@@ -490,6 +516,15 @@ function canViewReceipt(row: CashbillIssueRow): boolean {
   return row.barobillState === '2000' || row.barobillState === '2500' || row.barobillState === '3000' || row.barobillState === '7000';
 }
 
+function issuerLine(row: CashbillIssueRow): string {
+  if (!row.issuerName) return '';
+  return `${row.issuerRole === 'TEAM_LEADER' ? '팀장' : '관리자'} ${row.issuerName}`;
+}
+
+function cancelAsked(row: CashbillIssueRow): boolean {
+  return Boolean(row.cancelRequestedAt) && !row.cancelled;
+}
+
 function PcCustomerCell({ row }: { row: CashbillIssueRow }) {
   const name = customerNameOf(row);
   return (
@@ -497,7 +532,7 @@ function PcCustomerCell({ row }: { row: CashbillIssueRow }) {
       {name ? (
         <p className="truncate text-[13px] font-semibold text-slate-900" title={name}>{name}</p>
       ) : (
-        <p className="truncate text-[12px] text-slate-400">연계 없음</p>
+        <p className="truncate text-[12px] text-slate-400">연결 없음</p>
       )}
       {row.inquiryNumber ? (
         <Link
@@ -506,8 +541,8 @@ function PcCustomerCell({ row }: { row: CashbillIssueRow }) {
         >
           {row.inquiryNumber}
         </Link>
-      ) : name && !row.linked ? (
-        <p className="text-[11px] text-slate-400">직접 입력</p>
+      ) : !row.linked && name ? (
+        <p className="text-[11px] font-medium text-amber-800">연결 없음</p>
       ) : null}
     </div>
   );
@@ -527,6 +562,7 @@ function StatusDot({ row }: { row: CashbillIssueRow }) {
         <span className="size-1.5 shrink-0 rounded-full" style={{ background: dot }} aria-hidden />
         <span className={view.className}>{view.label}</span>
       </span>
+      {cancelAsked(row) ? <span className="text-[11px] font-semibold text-amber-800">취소 요청됨</span> : null}
       {needCheck ? <span className="text-[11px] font-medium text-amber-700">확인 필요</span> : null}
       {view.detail ? <span className="text-[11px] text-slate-500">{view.detail}</span> : null}
     </span>
@@ -546,11 +582,11 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
   const view = cashbillStatusView(row);
   const failed = isFailedRow(row);
   return (
-    <article className={`space-y-1.5 rounded-xl border border-slate-200 p-3 ${highlight ? 'bg-[#F0FDF4]' : 'bg-white'}`}>
+    <article className={`space-y-1.5 rounded-xl border p-3 ${cancelAsked(row) ? 'border-amber-300 bg-amber-50' : highlight ? 'border-slate-200 bg-[#F0FDF4]' : 'border-slate-200 bg-white'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          {name ? <p className="truncate text-fluid-sm font-semibold text-slate-900">{name}</p> : <p className="text-fluid-sm text-slate-400">연계 없음</p>}
-          <p className="truncate text-fluid-2xs tabular-nums text-slate-500">{identityText(row)} · {usageLabel(row)}{name && !row.linked ? ' · 직접 입력' : ''}</p>
+          {name ? <p className="truncate text-fluid-sm font-semibold text-slate-900">{name}</p> : <p className="text-fluid-sm text-slate-400">연결 없음</p>}
+          <p className="truncate text-fluid-2xs tabular-nums text-slate-500">{identityText(row)} · {usageLabel(row)}{!row.linked ? ' · 연결 없음' : ''}</p>
         </div>
         <div className="shrink-0 text-right">
           <p className={`text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalWon) || 'text-slate-900'}`}>{formatSignedWon(row.totalWon)}</p>
@@ -561,7 +597,8 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
         <span className="tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</span>
         <TaxKindBadge kind={row.taxKind} />
         <span className={view.className}>{view.label}</span>
-        {row.issuerName ? <span className="truncate">발급 {row.issuerName}</span> : null}
+        {issuerLine(row) ? <span className="truncate">{issuerLine(row)}</span> : null}
+        {cancelAsked(row) ? <span className="font-semibold text-amber-800">취소 요청됨</span> : null}
       </div>
       <div className="flex items-center justify-end gap-1 border-t border-slate-100 pt-2">
         {failed || row.barobillState === '7000' || row.kind === 'CANCEL' ? (

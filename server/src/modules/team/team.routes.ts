@@ -21,6 +21,9 @@ import dbMarketplaceTeamRoutes from '../db-marketplace/dbMarketplace.team.routes
 import teamPlatformPromoRoutes from '../platform-partner-promo/teamPlatformPromo.routes.js';
 import quotationsTeamRoutes from '../quotations/quotations.team.routes.js';
 import { approvedCardPaymentFlag } from '../card-payment/cardPaymentInquiryFlag.js';
+import { issuedCashbillFlag } from '../cashbill/cashbillInquiryFlag.js';
+import teamCashbillRoutes from '../cashbill/teamCashbill.routes.js';
+import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 import {
   attachInspectionSummaries,
@@ -179,6 +182,7 @@ router.get('/me', async (req, res) => {
       phone: true,
       vehicleNumber: true,
       allowSelfDayOffEdit: true,
+      cashbillIssueEnabled: true,
       externalCompanyId: true,
       profileCompletedAt: true,
       homeAddress: true,
@@ -207,12 +211,14 @@ router.get('/me', async (req, res) => {
   const tenantId = getTenantIdFromAuth(auth) ?? me.tenantId ?? null;
   let tenant: { id: string; name: string; displayName: string; slug: string } | null = null;
   let features: string[] = [];
+  let teamCashbillOn = true;
   if (tenantId) {
     const t = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, name: true, slug: true },
+      select: { id: true, name: true, slug: true, teamCashbillIssueEnabled: true },
     });
     if (t) {
+      teamCashbillOn = t.teamCashbillIssueEnabled !== false;
       const cfg = await getTenantConfig(tenantId);
       tenant = {
         id: t.id,
@@ -233,6 +239,11 @@ router.get('/me', async (req, res) => {
     previewTeamLeader: Boolean(viewer?.previewTeamLeader),
     tenant,
     features,
+    canIssueCashbill:
+      me.role === 'TEAM_LEADER' &&
+      me.cashbillIssueEnabled !== false &&
+      teamCashbillOn &&
+      features.includes(CASHBILL_MODULE_ID),
     ...onboardingFields,
     ...(staffPreview ? { profileOnboardingRequired: false, homeAddressRequired: false } : {}),
     ...(!staffPreview
@@ -305,6 +316,7 @@ const teamInquiryInclude = {
     select: { teamMemberId: true, meetingTime: true },
   },
   ...approvedCardPaymentFlag,
+  ...issuedCashbillFlag,
 } as const;
 
 /** 팀장 스케줄 달력 — changeLogs(80건)·정산·점검 등 상세 모달 전용 필드 제외 */
@@ -385,6 +397,7 @@ const teamScheduleInquirySelect = {
   },
   inspectionChecklist: inspectionChecklistListInclude,
   ...approvedCardPaymentFlag,
+  ...issuedCashbillFlag,
 } as const;
 
 /**
@@ -793,6 +806,7 @@ router.use('/quotations', quotationsTeamRoutes);
 router.use('/db-marketplace', dbMarketplaceTeamRoutes);
 router.use('/training-material', teamLeaderTrainingTeamRoutes);
 router.use('/household-ledger', teamLeaderHouseholdLedgerRoutes);
+router.use('/cashbill', teamCashbillRoutes);
 
 /** 팀장: 접수 상세를 열어 확인한 것으로 표시 — 메뉴 미확인 배정 수 감소 */
 router.post('/inquiries/:id/detail-viewed', async (req, res) => {

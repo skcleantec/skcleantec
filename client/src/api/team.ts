@@ -84,6 +84,8 @@ export interface TeamViewerMe {
   hireDate?: string | null;
   tenant?: { id: string; name: string; displayName: string; slug?: string } | null;
   features?: string[];
+  /** 현금영수증 메뉴·발행 버튼. 모듈·업체·팀장 설정이 모두 켜져 있을 때 */
+  canIssueCashbill?: boolean;
   profileCompletedAt?: string | null;
   profileOnboardingRequired?: boolean;
   homeAddress?: string | null;

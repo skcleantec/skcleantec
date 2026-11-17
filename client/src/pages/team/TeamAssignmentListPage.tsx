@@ -41,6 +41,7 @@ import {
 } from './teamInquiryShared';
 import { TeamInquiryIntakeListChips } from '../../components/team/TeamInquiryIntakeAnswers';
 import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../../components/card-payment/CardPaymentDoneMark';
+import { CashbillDoneMark, inquiryHasIssuedCashbill } from '../../components/cashbill/CashbillDoneMark';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
@@ -554,6 +555,7 @@ export function TeamAssignmentListPage() {
                             {primaryLabel}
                           </span>
                           <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
+                          <CashbillDoneMark issued={inquiryHasIssuedCashbill(item)} />
                           <TeamInquiryServiceKindListBadge item={item} />
                           {item.claimMemo ? (
                             <span
@@ -766,6 +768,7 @@ export function TeamAssignmentListPage() {
                                 ) : null}
                               </span>
                               <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
+                          <CashbillDoneMark issued={inquiryHasIssuedCashbill(item)} />
                               <TeamInquirySpecialNotesListBadge item={item} className="align-middle" />
                             </div>
                             {memoSubtitle ? (
