@@ -54,9 +54,9 @@ export function TeamCashbillPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-3 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-fluid-base font-semibold text-slate-900">{teamBiPlain('team.cashbill.pageTitle')}</h1>
-        <button type="button" onClick={() => setSheetOpen(true)} className={`${teamFooterActionPrimaryClass} w-auto px-3`}>
+      <div className="flex flex-col gap-2">
+        <h1 className="whitespace-nowrap text-fluid-base font-semibold text-slate-900">{teamBiPlain('team.cashbill.pageTitle')}</h1>
+        <button type="button" onClick={() => setSheetOpen(true)} className={teamFooterActionPrimaryClass}>
           + 새로 발행
         </button>
       </div>

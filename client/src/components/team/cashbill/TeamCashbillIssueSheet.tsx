@@ -30,6 +30,12 @@ function digits(value: string): string {
   return value.replace(/\D/g, '');
 }
 
+function grouped(value: string): string {
+  const raw = digits(value);
+  if (!raw) return '';
+  return Number(raw).toLocaleString('ko-KR');
+}
+
 function needsReason(prefill: TeamCashbillPrefill | null, amount: number): boolean {
   if (!prefill) return false;
   if (prefill.alreadyIssued) return true;
@@ -270,13 +276,18 @@ export function TeamCashbillIssueSheet({
           <label className="block text-fluid-2xs font-medium text-slate-600">
             금액
             <input
-              value={amount}
+              value={grouped(amount)}
               inputMode="numeric"
               onChange={(event) => setAmount(digits(event.target.value))}
               onFocus={onFieldFocus}
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-fluid-sm tabular-nums"
             />
           </label>
+          {inquiryId && prefill ? (
+            <p className="-mt-2 text-fluid-2xs text-slate-500">
+              잔금 자동 입력 · 총액 {prefill.totalWon.toLocaleString('ko-KR')} − 예약금 {prefill.depositWon.toLocaleString('ko-KR')}
+            </p>
+          ) : null}
           {warning ? <p className="text-fluid-xs font-medium text-amber-800">{warning}</p> : null}
           {prefill?.alreadyIssued ? (
             <p className="text-fluid-xs text-slate-600">이 접수에 이미 발행한 현금영수증이 있습니다.</p>
@@ -299,7 +310,10 @@ export function TeamCashbillIssueSheet({
           {chargeSent ? <p className="text-fluid-xs text-emerald-800">사무실에 충전 요청을 보냈습니다.</p> : null}
           {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
         </div>
-        <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 px-3 py-2">
+        <p className="border-t border-slate-100 px-3 pt-2 text-center text-fluid-2xs text-slate-500">
+          업체 잔액 {(prefill?.walletBalanceKrw ?? 0).toLocaleString('ko-KR')}원 · 1건 {(prefill?.unitKrw ?? 100).toLocaleString('ko-KR')}원
+        </p>
+        <div className="grid grid-cols-2 gap-1.5 px-3 py-2">
           <button type="button" onClick={onClose} className={teamFooterActionSecondaryClass}>
             닫기
           </button>

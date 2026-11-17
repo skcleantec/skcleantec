@@ -31,6 +31,9 @@ async function readError(res: Response, fallback: string): Promise<TeamCashbillE
 
 export type TeamCashbillPrefill = {
   walletShort: boolean;
+  walletBalanceKrw: number;
+  unitKrw: number;
+  depositWon: number;
   brands: { id: string; name: string }[];
   customerName: string;
   customerPhone: string;
