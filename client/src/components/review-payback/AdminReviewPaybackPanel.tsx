@@ -23,6 +23,126 @@ import { useInboxRealtime, useReviewPaybackRealtime } from '../../hooks/useInbox
 import { kstTodayYmd } from '../../utils/userEmployment';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { computeDateRangeFromPreset, type DateRangePresetId } from '../../utils/dateRangePresets';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
+import { getOrderFormPublicUrl } from '../../utils/orderFormCustomerCopy';
+import { getReviewPaybackPublicUrl } from '../../utils/reviewPaybackCustomerCopy';
+
+/** 고객 링크 버튼 — 발주서·페이백 신청 링크가 하나라도 있을 때만 */
+function hasCustomerLinks(row: ReviewPaybackListItem): boolean {
+  return Boolean(row.orderForm?.token || row.orderForm?.reviewPaybackToken);
+}
+
+function CustomerLinksModal({
+  row,
+  tenantSlug,
+  onClose,
+}: {
+  row: ReviewPaybackListItem;
+  tenantSlug: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const links = [
+    row.orderForm?.token
+      ? {
+          key: 'order',
+          label: '발주서 링크',
+          desc: '고객이 받은 발주서 화면',
+          url: getOrderFormPublicUrl(row.orderForm.token, undefined, tenantSlug || null),
+        }
+      : null,
+    row.orderForm?.reviewPaybackToken
+      ? {
+          key: 'payback',
+          label: '페이백 신청 링크',
+          desc: '리뷰 캡처·계좌를 등록하는 화면',
+          url: getReviewPaybackPublicUrl(row.orderForm.reviewPaybackToken, undefined, tenantSlug || null),
+        }
+      : null,
+  ].filter((v): v is { key: string; label: string; desc: string; url: string } => v != null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const copy = async (key: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(key);
+      window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
+    } catch {
+      window.prompt('아래 링크를 복사해 주세요.', url);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="payback-customer-links-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-center">
+          <h2 id="payback-customer-links-title" className="text-fluid-sm font-semibold text-slate-900">
+            고객 링크
+          </h2>
+          <p className="mt-0.5 text-fluid-xs text-slate-500">
+            {row.customerName}
+            {row.customerPhone ? ` · ${row.customerPhone}` : ''}
+          </p>
+        </div>
+        <div className="mt-4 space-y-2.5">
+          {links.map((l) => (
+            <div key={l.key} className="rounded-xl border border-slate-200/70 bg-slate-50/60 p-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-fluid-xs font-semibold text-slate-800">{l.label}</p>
+                <p className="text-[11px] text-slate-500">{l.desc}</p>
+              </div>
+              <p className="mt-1 break-all rounded-lg bg-white px-2 py-1.5 font-mono text-[11px] text-slate-600 ring-1 ring-slate-200/70">
+                {l.url}
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <a
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-fluid-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                >
+                  열어보기
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void copy(l.key, l.url)}
+                  className={`inline-flex h-8 items-center justify-center rounded-lg text-fluid-xs font-semibold shadow-sm transition-colors ${
+                    copied === l.key ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {copied === l.key ? '복사됨' : '링크 복사'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-fluid-xs font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          닫기
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const STATUS_CHIPS: { value: ReviewPaybackStatus | ''; label: string }[] = [
   { value: '', label: '전체' },
@@ -148,6 +268,8 @@ export function AdminReviewPaybackPanel({ token }: Props) {
   const [memoDraft, setMemoDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ReviewPaybackListItem | null>(null);
+  const [linkTarget, setLinkTarget] = useState<ReviewPaybackListItem | null>(null);
+  const staffTenantSlug = useStaffTenantSlugForLinks(token);
 
   const dateQuery = useMemo(() => {
     if (datePreset === 'custom') {
@@ -429,6 +551,15 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                               발주서
                             </Link>
                           ) : null}
+                          {hasCustomerLinks(row) ? (
+                            <button
+                              type="button"
+                              onClick={() => setLinkTarget(row)}
+                              className="inline-flex items-center rounded-lg border border-sky-100 bg-sky-50/50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 shadow-sm transition-all duration-150 hover:scale-[1.03] hover:bg-sky-100/70 active:scale-[0.97]"
+                            >
+                              고객 링크
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                       <td className="px-2 py-2.5 text-center">
@@ -490,6 +621,15 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                     >
                       접수 보기
                     </Link>
+                  ) : null}
+                  {hasCustomerLinks(row) ? (
+                    <button
+                      type="button"
+                      onClick={() => setLinkTarget(row)}
+                      className="rounded-lg border border-sky-100 bg-sky-50/40 px-3 py-1.5 text-fluid-xs font-semibold text-sky-700 shadow-sm transition-all duration-150 hover:scale-[1.03] hover:bg-sky-100/70 active:scale-[0.97]"
+                    >
+                      고객 링크
+                    </button>
                   ) : null}
                   <button
                     type="button"
@@ -582,6 +722,10 @@ export function AdminReviewPaybackPanel({ token }: Props) {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {linkTarget ? (
+        <CustomerLinksModal row={linkTarget} tenantSlug={staffTenantSlug} onClose={() => setLinkTarget(null)} />
       ) : null}
 
       <ConfirmPasswordModal
