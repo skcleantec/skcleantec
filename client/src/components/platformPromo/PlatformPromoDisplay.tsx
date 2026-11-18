@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PlatformPromoActiveItem } from '../../api/platformPartnerPromo';
 import { platformPromoBannerImageUrl, platformPromoHasBannerImage } from '@shared/platformPromoImageSpec';
 import { isCbiseoStaffNativeApp, openStaffAppExternalUrl } from '../../utils/cbiseoNativeApp';
@@ -73,6 +73,35 @@ function PromoSlide({
   }
 
   return <div className={frameClass}>{img}</div>;
+}
+
+/**
+ * 서버는 랜덤 순서 배너를 조회할 때마다 다시 섞는다(앱은 8초마다 재조회).
+ * 같은 배너 묶음이면 처음 받은 순서를 유지해야 슬라이더가 1번으로 되돌아가지 않고 끝까지 돈다.
+ * 배너가 추가·삭제되면 새 순서를 그대로 쓴다.
+ */
+function useStableSlideOrder(slides: PlatformPromoActiveItem[]): PlatformPromoActiveItem[] {
+  const orderRef = useRef<string[]>([]);
+  return useMemo(() => {
+    const prev = orderRef.current;
+    const ids = slides.map((s) => s.id);
+    const prevSet = new Set(prev);
+    const sameSet = prev.length === ids.length && ids.every((id) => prevSet.has(id));
+    if (sameSet) {
+      const byId = new Map(slides.map((s) => [s.id, s] as const));
+      return prev.map((id) => byId.get(id)!);
+    }
+    orderRef.current = ids;
+    return slides;
+  }, [slides]);
+}
+
+/** 순서와 무관한 배너 묶음 키 — 이미지가 바뀔 때만 슬라이더를 새로 만든다 */
+function promoSetKey(slides: PlatformPromoActiveItem[]): string {
+  return slides
+    .map((s) => `${s.id}:${s.updatedAt ?? ''}:${platformPromoBannerImageUrl(s)}`)
+    .sort()
+    .join('|');
 }
 
 function PlatformPromoSlider({
@@ -194,14 +223,12 @@ function PlatformPromoSlider({
 
 /** 모바일 상단 롤링 배너 (5:2) */
 export function PlatformPromoCarousel({ items }: { items: PlatformPromoActiveItem[] }) {
-  const slides = useMemo(
+  const filtered = useMemo(
     () => items.filter((item) => item.showOnMobile && platformPromoHasBannerImage(item)),
     [items],
   );
-  const slideKey = useMemo(
-    () => slides.map((s) => `${s.id}:${s.updatedAt ?? ''}:${platformPromoBannerImageUrl(s)}`).join('|'),
-    [slides],
-  );
+  const slides = useStableSlideOrder(filtered);
+  const slideKey = useMemo(() => promoSetKey(slides), [slides]);
 
   return (
     <PlatformPromoSlider
@@ -220,14 +247,12 @@ export function PlatformPromoDashboardCard({
   items: PlatformPromoActiveItem[];
   layout?: 'square' | 'banner';
 }) {
-  const slides = useMemo(
+  const filtered = useMemo(
     () => items.filter((item) => item.showOnDesktop && platformPromoHasBannerImage(item)),
     [items],
   );
-  const slideKey = useMemo(
-    () => slides.map((s) => `${s.id}:${s.updatedAt ?? ''}:${platformPromoBannerImageUrl(s)}`).join('|'),
-    [slides],
-  );
+  const slides = useStableSlideOrder(filtered);
+  const slideKey = useMemo(() => promoSetKey(slides), [slides]);
 
   const frameClass =
     layout === 'banner'
