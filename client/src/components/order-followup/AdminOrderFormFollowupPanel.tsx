@@ -1189,6 +1189,16 @@ export function AdminOrderFormFollowupPanel({
                         </span>
                       </p>
                     </div>
+                    {(row.customerPhone ?? '').replace(/\D/g, '').length >= 8 ? (
+                      <a
+                        href={`tel:${(row.customerPhone ?? '').replace(/\D/g, '')}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex min-h-8 shrink-0 items-center rounded-lg bg-blue-600 px-2.5 text-fluid-2xs font-semibold text-white hover:bg-blue-700"
+                        aria-label={`${row.customerName} 전화 걸기`}
+                      >
+                        전화
+                      </a>
+                    ) : null}
                     <div className="shrink-0 scale-[0.92] origin-right">
                       <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                     </div>
