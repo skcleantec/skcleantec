@@ -100,7 +100,7 @@ function AdminCashbillIssueInner() {
 
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
-          <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'}</p>
+          <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 계산서 연결을 마쳐야 발행할 수 있어요.'}</p>
           {isTenantAdmin ? (
             <Link
               to="/admin/team-leaders/cashbill"

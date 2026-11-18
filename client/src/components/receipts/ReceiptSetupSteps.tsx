@@ -44,7 +44,7 @@ function StepRail({
   certDone: boolean;
 }) {
   const items: { id: ReceiptSetupStep; title: string; sub?: string }[] = [
-    { id: 1, title: '① 바로빌 가입' },
+    { id: 1, title: '① 발행 서비스 가입' },
     {
       id: 2,
       title: '② 공동인증서 등록',
@@ -102,7 +102,7 @@ function Step1Explain() {
       <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-1.5">
         {[
           { icon: 'clipboard' as const, title: '청소비서', body: '접수에서 발행 버튼' },
-          { icon: 'cloud' as const, title: '바로빌', body: '우리 대신 국세청에 신고' },
+          { icon: 'cloud' as const, title: '발행 서비스', body: '우리 대신 국세청에 신고' },
           { icon: 'confirm' as const, title: '국세청·고객', body: '홈택스 등록·고객 문자 안내' },
         ].map((card, i) => (
           <div key={card.title} className="contents sm:contents">
@@ -453,7 +453,7 @@ export function ReceiptReadyStatusBar({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-[#dde3ea] bg-white px-3 py-2">
         <p className="text-fluid-xs text-[#141b26]">
-          <span className="text-[#126b3f]">✓바로빌 가입</span>
+          <span className="text-[#126b3f]">✓계산서 연결</span>
           {' '}
           <span className="text-[#126b3f]">✓{certLabel}</span>
           <span className="mx-1.5 text-[#dde3ea]">|</span>

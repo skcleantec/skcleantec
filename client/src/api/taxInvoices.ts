@@ -37,7 +37,7 @@ export function taxNtsIssueNotice(
   const option = brand?.memberTaxType === '4' ? brand.ntsTaxExemptionOption : brand?.ntsTaxationOption;
   if (option === 1) return '국세청 전송: 다음 날 오후 2시 (그 전까지 발급 취소 가능)';
   if (option === 2) return '발급 즉시 국세청에 전송돼요. 취소는 수정세금계산서로만 할 수 있어요.';
-  return '국세청 전송 설정을 아직 확인하지 못했어요. 발급 후 전송 시각은 바로빌 회원사 설정을 따릅니다.';
+  return '국세청 전송 설정을 아직 확인하지 못했어요. 발급 후 전송 시각은 계산서 연결 설정을 따릅니다.';
 }
 
 export type TaxInvoiceBrand = {

@@ -180,7 +180,7 @@ export function CashbillBrandCard({
 
       {!member || extraRetry ? (
         <>
-          {!member ? <p className="text-fluid-2xs text-[#5d6878]">현금영수증·세금계산서를 발행하려면 바로빌 연결이 한 번 필요해요.</p> : null}
+          {!member ? <p className="text-fluid-2xs text-[#5d6878]">현금영수증·세금계산서를 발행하려면 계산서 연결이 한 번 필요해요.</p> : null}
           <CashbillLinkForm
             brand={brand}
             prefill={prefill}

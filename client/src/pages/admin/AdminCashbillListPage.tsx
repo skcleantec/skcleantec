@@ -118,11 +118,11 @@ export function AdminCashbillListPage() {
         const brand = defaultBrand(settings);
         const member = brand?.member ?? null;
         if (!isBarobillJoined(member)) {
-          setConnectionStatus({ ok: false, label: '바로빌 미가입' });
+          setConnectionStatus({ ok: false, label: '계산서 미연결' });
           return;
         }
         if (!member?.certValid) {
-          setConnectionStatus({ ok: false, label: '바로빌 연결 · 인증서 미등록' });
+          setConnectionStatus({ ok: false, label: '계산서 연결 · 인증서 미등록' });
           return;
         }
         const left = certDaysLeft(member.certExpireDate);
@@ -137,7 +137,7 @@ export function AdminCashbillListPage() {
         const until = formatCertExpireDot(member.certExpireDate);
         setConnectionStatus({
           ok: true,
-          label: until ? `바로빌 연결 · 인증서 ${until}까지` : '바로빌 연결',
+          label: until ? `계산서 연결 · 인증서 ${until}까지` : '계산서 연결',
         });
       })
       .catch(() => { if (!stop) setConnectionStatus(null); });
@@ -265,7 +265,7 @@ export function AdminCashbillListPage() {
       {/* needsLink 안내 */}
       {needsLink && !loading ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
-          <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'}</p>
+          <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 계산서 연결을 마쳐야 발행할 수 있어요.'}</p>
           {isTenantAdmin ? (
             <Link
               to="/admin/team-leaders/cashbill"

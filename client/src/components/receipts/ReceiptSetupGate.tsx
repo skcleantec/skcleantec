@@ -20,7 +20,7 @@ function MarketerSetupWaiting({
 }) {
   const message =
     step === 1
-      ? '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'
+      ? '관리자가 계산서 연결을 마쳐야 발행할 수 있어요.'
       : step === 2
         ? kind === 'taxinvoice'
           ? '세금계산서는 관리자가 공동인증서를 등록해야 해요.'
@@ -35,7 +35,7 @@ function MarketerSetupWaiting({
       <p className="text-fluid-sm leading-relaxed text-slate-600">{message}</p>
       {kind === 'cashbill' && step === 2 ? (
         <p className="text-fluid-2xs text-slate-500">
-          현금영수증은 공동인증서가 없어도 됩니다. 바로빌 가입만 끝나면 발행할 수 있어요.
+          현금영수증은 공동인증서가 없어도 됩니다. 계산서 연결만 끝나면 발행할 수 있어요.
         </p>
       ) : null}
     </div>

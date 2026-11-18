@@ -193,13 +193,13 @@ export function AdminTaxInvoiceListPage() {
   const soonestExpire = expireDates[0] ?? null;
   const connectionStatus: ReceiptConnectionStatus | null = (() => {
     if (loading) return null;
-    if (needsLink) return { ok: false, label: '바로빌 미가입' };
-    if (missingCert) return { ok: false, label: '바로빌 연결 · 인증서 미등록' };
+    if (needsLink) return { ok: false, label: '계산서 미연결' };
+    if (missingCert) return { ok: false, label: '계산서 연결 · 인증서 미등록' };
     const left = certDaysLeft(soonestExpire);
     if (left != null && left < 0) return { ok: false, label: '인증서 만료' };
     if (left != null && left <= 30) return { ok: false, label: `인증서 ${left}일 남음` };
     const until = formatCertExpireDot(soonestExpire);
-    return { ok: true, label: until ? `바로빌 연결 · 인증서 ${until}까지` : '바로빌 연결' };
+    return { ok: true, label: until ? `계산서 연결 · 인증서 ${until}까지` : '계산서 연결' };
   })();
   const goReissue = (id: string) => navigate(`${ISSUE_PATH}?from=${encodeURIComponent(id)}`);
 
@@ -260,7 +260,7 @@ export function AdminTaxInvoiceListPage() {
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'nts5', page: '1' })} onIssueFailed={() => patch({ state: 'failed', page: '1' })} />
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
-          <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'}</p>
+          <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 계산서 연결을 마쳐야 발행할 수 있어요.'}</p>
           {isTenantAdmin ? (
             <Link to="/admin/team-leaders/cashbill" className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">계산서 연결로 가기</Link>
           ) : null}

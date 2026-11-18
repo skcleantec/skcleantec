@@ -152,7 +152,7 @@ export function CashbillLinkForm({
 
   const buttonLabel =
     submitLabel ??
-    (mode === 'edit' ? '저장' : extra ? (member?.status === 'REJECTED' ? '다시 제출' : '검토 요청') : '바로빌 연결하기');
+    (mode === 'edit' ? '저장' : extra ? (member?.status === 'REJECTED' ? '다시 제출' : '검토 요청') : '계산서 연결하기');
 
   return (
     <div className="max-w-[640px] space-y-2">

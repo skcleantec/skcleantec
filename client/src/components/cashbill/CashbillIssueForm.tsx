@@ -234,7 +234,7 @@ export function CashbillIssueForm({
     setAmount(String(basis === 'total' ? (hit.totalWon ?? hit.remainingWon) : hit.remainingWon));
     if (hit.taxType === '4') setTaxKind('exempt');
     if (usage === 'phone') setIdentity(hit.customerPhone ?? '');
-    setError(hit.simplified ? '간이과세자 현금영수증은 바로빌 답변 전까지 발급할 수 없습니다.' : null);
+    setError(hit.simplified ? '간이과세자 현금영수증은 아직 발급할 수 없습니다. 사무실(청소비서)에 문의해 주세요.' : null);
   }
 
   /** 접수 연결 없이 발행 — 금액은 남기고 이름·번호만 비운다 */
