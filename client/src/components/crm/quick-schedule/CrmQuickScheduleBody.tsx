@@ -50,6 +50,8 @@ export function CrmQuickScheduleBody({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** 마지막으로 누른(선택한) 행 — 새로고침 뒤에도 같은 고객이면 계속 표시 */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
@@ -176,12 +178,29 @@ export function CrmQuickScheduleBody({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
+              {rows.map((row, idx) => {
                 const badge = quickWhenBadge(row.preferredKind, row.preferredYmd, today);
+                const selected = selectedId === row.id;
+                const rowTone = selected
+                  ? 'bg-sky-50 hover:bg-sky-100/70'
+                  : idx % 2 === 1
+                    ? 'bg-slate-50/70 hover:bg-slate-100'
+                    : 'bg-white hover:bg-slate-100';
                 return (
-                  <tr key={row.id} className="border-b border-slate-100">
-                    <td className="px-1.5 py-2 text-left">
-                      <p className="truncate font-medium text-slate-900">{row.customerName}</p>
+                  <tr
+                    key={row.id}
+                    onClick={() => setSelectedId(row.id)}
+                    aria-selected={selected}
+                    className={`cursor-pointer border-b border-slate-200/70 transition-colors ${rowTone}`}
+                  >
+                    <td
+                      className={`px-1.5 py-2 text-left ${
+                        selected ? 'shadow-[inset_3px_0_0_0_#0284c7]' : ''
+                      }`}
+                    >
+                      <p className={`truncate font-medium ${selected ? 'text-sky-900' : 'text-slate-900'}`}>
+                        {row.customerName}
+                      </p>
                       {row.nickname ? <p className="truncate text-[11px] text-slate-500">{row.nickname}</p> : null}
                     </td>
                     <td className="truncate px-1.5 py-2 text-slate-800">{row.customerPhone}</td>
