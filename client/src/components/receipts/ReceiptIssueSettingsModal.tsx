@@ -12,6 +12,7 @@ import {
   type TaxInvoiceIssueDefaults,
 } from '../../api/receiptIssueSettings';
 import { Button } from '../ui/Button';
+import { TeamCashbillIssueSetting } from '../cashbill/TeamCashbillIssueSetting';
 
 const inputCls =
   'min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-fluid-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500';
@@ -287,6 +288,9 @@ export function ReceiptIssueSettingsModal({ kind, mode = 'tenant', open, onClose
               </label>
             </div>
           )}
+          {mode === 'tenant' && !loading ? (
+            <TeamCashbillIssueSetting canEdit={canEdit} showTaxKind={kind === 'cashbill'} />
+          ) : null}
         </div>
         <footer className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
           <Button type="button" variant="secondary" onClick={onClose}>취소</Button>
