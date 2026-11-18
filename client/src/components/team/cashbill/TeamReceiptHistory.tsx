@@ -87,7 +87,7 @@ export function TeamReceiptHistory({ kind }: { kind: 'cash' | 'tax' }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'copied' | 'copied-app' | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -111,7 +111,7 @@ export function TeamReceiptHistory({ kind }: { kind: 'cash' | 'tax' }) {
 
   useEffect(() => {
     if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), 1600);
+    const timer = window.setTimeout(() => setCopied(null), copied === 'copied-app' ? 2200 : 1600);
     return () => window.clearTimeout(timer);
   }, [copied]);
 
@@ -130,7 +130,7 @@ export function TeamReceiptHistory({ kind }: { kind: 'cash' | 'tax' }) {
     void task
       .then((res) => shareReceiptLink({ brandName: res.brandName, label, totalWon: res.totalWon, url: res.url }))
       .then((result) => {
-        if (result === 'copied') setCopied(true);
+        if (result === 'copied' || result === 'copied-app') setCopied(result);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '영수증 주소를 받지 못했습니다.'));
   };
@@ -207,7 +207,9 @@ export function TeamReceiptHistory({ kind }: { kind: 'cash' | 'tax' }) {
       ) : null}
       {copied ? (
         <div className={`${STAFF_APP_SAFE_OVERLAY} pointer-events-none fixed inset-0 z-[680] flex items-center justify-center p-4`}>
-          <p className="rounded-full bg-slate-900 px-3 py-1.5 text-fluid-xs text-white">링크를 복사했어요</p>
+          <p className="rounded-full bg-slate-900 px-3 py-1.5 text-center text-fluid-xs text-white">
+            {copied === 'copied-app' ? '링크를 복사했어요. 카톡에 붙여 넣어 주세요' : '링크를 복사했어요'}
+          </p>
         </div>
       ) : null}
     </div>

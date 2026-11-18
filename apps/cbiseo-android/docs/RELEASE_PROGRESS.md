@@ -7,18 +7,18 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-09-10)
+## 현재 상태 (최종 갱신: 2026-11-18)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 39 |
+| **최신 versionCode** | 40 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 프로덕션** | Play에 **38까지 업로드됨** → 다음은 **39** |
-| **인앱 업데이트 매니페스트** | `latestVersionCode` **39** 권장 · `minVersionCode` **31** |
-| **Play 경고** | v32 난독화 1% → v34+ R8. **v36 권장 3건** → 아래 표 · `.cursor/rules/play-console-quality.mdc` |
-| **최신 AAB** | `dist/cbiseo-play-1.0.0-39.aab` |
-| **AAB SHA256** | `A8ABF36BA0259061739A175CED438634E4ADA8ECE87F74D9C0A76AFDEC2173B4` |
+| **Play 프로덕션** | Play에 **39까지 문서상 업로드** · **40 AAB는 빌드만, 업로드 전** |
+| **인앱 업데이트 매니페스트** | 업로드 후 `latestVersionCode` **40** 권장 · `minVersionCode` **31** |
+| **Play 경고** | v39 권장 4건은 **40**에서 `setDecorFitsSystemWindows` 삭제·인셋 return 유지. 다음은 **41** |
+| **최신 AAB** | `dist/cbiseo-play-1.0.0-40.aab` |
+| **AAB SHA256** | `0AEB714EB27F3E4B3585358ABD57AD83A2602622599FC0BADD591925A9C6E27A` |
 
 ---
 
@@ -32,10 +32,19 @@
 | 36 | 더 넓은 화면이 표시되지 않을 수 있음 · `enableEdgeToEdge()` 권장 | 사용자 환경 | **코드는 v25부터 적용됨.** v36 대시보드에 남는 것은 Play가 올린 AAB를 다시 본 것 |
 | 36 | `setStatusBarColor` · `setNavigationBarColor` · `LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES` | 사용자 환경 | 우리 코드/테마에는 없음. Material·GMS·`enableEdgeToEdge` 내부 호출(오탐) |
 | 36 | AGP 8.0+ 로 빌드 최적화 | 메모리 사용량 | **이미 AGP 8.7.3.** 내리지 말 것 |
+| 39 | `setDecorFitsSystemWindows` · 인셋 CONSUMED | 사용자 환경 | **40**에서 우리 호출 삭제. 리스너는 `insets`를 그대로 반환 |
 
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 40) — 2026-11-18
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | 공유하기가 카카오톡을 고르는 창으로 열림. 뒤로가기가 스케줄에서 앱을 끄지 않음. v39 넓은 화면 권장: `setDecorFitsSystemWindows` 삭제 |
+| **Play** | 업로드는 빌드 확인 후. 내부 테스트 |
+| **AAB** | `dist/cbiseo-play-1.0.0-40.aab` · SHA256 `0AEB714EB27F3E4B3585358ABD57AD83A2602622599FC0BADD591925A9C6E27A` |
 
 ### v1.0.0 (versionCode 39) — 2026-09-10
 

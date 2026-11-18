@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Base64
 import android.widget.Toast
@@ -15,6 +16,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -33,6 +35,7 @@ import com.cbiseo.app.push.StaffPushRegistration
 import com.cbiseo.app.session.StaffRoleResolver
 import com.cbiseo.app.update.StaffAppUpdateCoordinator
 import com.cbiseo.app.update.StaffAppUpdatePrefs
+import org.json.JSONObject
 
 class StaffWebActivity : AppCompatActivity() {
     private lateinit var binding: ActivityStaffWebBinding
@@ -44,6 +47,9 @@ class StaffWebActivity : AppCompatActivity() {
     private var pendingPushPath: String? = null
     private var systemBarsBottomPx = 0
     private var systemBarsTopPx = 0
+    private var staffHomeUrl: String? = null
+    private var lastExitPromptAt = 0L
+    private var backHandling = false
     private lateinit var appBridge: CbiseoAppBridge
     private var updateCoordinator: StaffAppUpdateCoordinator? = null
 
@@ -72,6 +78,8 @@ class StaffWebActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_PUSH_PATH = "push_path"
+        private const val HANDLE_BACK_JS =
+            "(function(){try{return window.__cbiseoHandleBack?window.__cbiseoHandleBack()===true:false}catch(e){return false}})()"
 
         @Volatile
         private var activeWebView: WebView? = null
@@ -109,6 +117,9 @@ class StaffWebActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityStaffWebBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = onStaffBackPressed()
+        })
         StaffWindowInsets.applyStaffWeb(this, binding.root, binding.staffWebView) { bottomPx, topPx ->
             systemBarsBottomPx = bottomPx
             systemBarsTopPx = topPx
@@ -127,6 +138,7 @@ class StaffWebActivity : AppCompatActivity() {
         }
 
         staffSessionActive = true
+        staffHomeUrl = apiBaseUrl.trimEnd('/') + homePath
         StaffFcmRegistrar.ensureChannels(applicationContext)
         StaffFcmRegistrar.registerToken(applicationContext)
 
@@ -524,12 +536,55 @@ class StaffWebActivity : AppCompatActivity() {
         webView.evaluateJavascript(script) { onDone?.invoke() }
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (binding.staffWebView.canGoBack()) {
-            binding.staffWebView.goBack()
-        } else {
-            super.onBackPressed()
+    private fun onStaffBackPressed() {
+        if (!staffSessionActive || backHandling) {
+            if (!staffSessionActive) finish()
+            return
         }
+        val webView = binding.staffWebView
+        backHandling = true
+        webView.evaluateJavascript(HANDLE_BACK_JS) { raw ->
+            backHandling = false
+            if (raw == "true") return@evaluateJavascript
+            if (webHistoryCanGoBack(webView)) {
+                webView.goBack()
+                return@evaluateJavascript
+            }
+            if (!isStaffHome(webView.url)) {
+                replaceWithHome(webView)
+                return@evaluateJavascript
+            }
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastExitPromptAt < 2_000L) {
+                finish()
+            } else {
+                lastExitPromptAt = now
+                Toast.makeText(this, "한 번 더 누르면 종료돼요", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun webHistoryCanGoBack(webView: WebView): Boolean {
+        if (!webView.canGoBack()) return false
+        val list = webView.copyBackForwardList()
+        val index = list.currentIndex
+        if (index <= 0) return false
+        val prev = list.getItemAtIndex(index - 1)?.url.orEmpty()
+        return prev.isNotBlank() && prev != "about:blank"
+    }
+
+    private fun isStaffHome(url: String?): Boolean {
+        val path = runCatching { Uri.parse(url).path }.getOrNull().orEmpty().trimEnd('/')
+        return path == "/team/dashboard" || path == "/admin/dashboard"
+    }
+
+    private fun replaceWithHome(webView: WebView) {
+        val home = staffHomeUrl?.trim().orEmpty()
+        if (home.isEmpty()) {
+            finish()
+            return
+        }
+        val quoted = JSONObject.quote(home)
+        webView.evaluateJavascript("location.replace($quoted)", null)
     }
 }

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { RoutePageFallback } from './components/ui/RoutePageFallback'
+import { installCbiseoHardwareBack } from './utils/cbiseoNativeApp'
 import { installHardNavigateOnMenuChange } from './utils/hardNavigateOnMenuChange'
 import {
   isChunkLoadError,
@@ -11,6 +12,7 @@ import {
 } from './utils/lazyWithRetry'
 
 installHardNavigateOnMenuChange()
+installCbiseoHardwareBack()
 
 class RootErrorBoundary extends Component<
   { children: ReactNode },

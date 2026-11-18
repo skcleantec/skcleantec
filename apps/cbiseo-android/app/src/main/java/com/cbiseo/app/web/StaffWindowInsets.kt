@@ -4,7 +4,6 @@ import android.view.View
 import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.cbiseo.app.ui.CbiseoEdgeToEdge
 
@@ -39,7 +38,6 @@ object StaffWindowInsets {
         applyTopPadding: Boolean,
         onInsets: (bottomPx: Int, topPx: Int) -> Unit,
     ) {
-        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.setPadding(0, if (applyTopPadding) bars.top else 0, 0, 0)

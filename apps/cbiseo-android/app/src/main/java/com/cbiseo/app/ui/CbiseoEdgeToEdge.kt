@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 
 /**
@@ -19,7 +18,6 @@ object CbiseoEdgeToEdge {
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
         )
-        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
     }
 
     /** 로그인 — 밝은 상단 배경(#B8D9F2), 어두운 상태바 아이콘 */
@@ -28,7 +26,6 @@ object CbiseoEdgeToEdge {
             statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
         )
-        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
     }
 
     /** 스플래시·온보딩 — 어두운/컬러 배경 + 밝은 상태바 아이콘 */
@@ -37,7 +34,6 @@ object CbiseoEdgeToEdge {
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
-        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
     }
 
     /** 루트 또는 푸터에 시스템 바 인셋 패딩 (XML padding에 더해짐) */
