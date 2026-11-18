@@ -532,10 +532,22 @@ router.get('/me', authMiddleware, async (req, res) => {
   const marketerAdminAccess = effectiveStaffAdminAccess;
   const operatingCompaniesResolved = tenantId
     ? effectiveStaffAdminAccess
-      ? (await listOperatingCompanies(prisma, tenantId)).map((oc) => ({
-          ...oc,
-          isPrimary: oc.isDefault,
-        }))
+      ? await (async () => {
+          const items = await listOperatingCompanies(prisma, tenantId);
+          let marketerPrimaryId: string | null = null;
+          if (user.role === 'MARKETER') {
+            const row = await prisma.userOperatingCompany.findFirst({
+              where: { tenantId, userId, isPrimary: true },
+              select: { operatingCompanyId: true },
+            });
+            const id = row?.operatingCompanyId;
+            if (id && items.some((oc) => oc.id === id)) marketerPrimaryId = id;
+          }
+          return items.map((oc) => ({
+            ...oc,
+            isPrimary: marketerPrimaryId ? oc.id === marketerPrimaryId : oc.isDefault,
+          }));
+        })()
       : await listUserOperatingCompanies(prisma, tenantId, userId)
     : [];
   const r =

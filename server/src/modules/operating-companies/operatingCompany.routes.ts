@@ -71,8 +71,20 @@ router.get('/my', async (req, res) => {
   const isStaffAdmin = await userHasStaffAdminAccess(auth);
   if (isStaffAdmin) {
     const items = await listOperatingCompanies(prisma, tenantId);
+    let marketerPrimaryId: string | null = null;
+    if (auth.role === 'MARKETER') {
+      const row = await prisma.userOperatingCompany.findFirst({
+        where: { tenantId, userId: auth.userId, isPrimary: true },
+        select: { operatingCompanyId: true },
+      });
+      const id = row?.operatingCompanyId;
+      if (id && items.some((oc) => oc.id === id)) marketerPrimaryId = id;
+    }
     res.json({
-      items: items.map((oc) => ({ ...oc, isPrimary: oc.isDefault })),
+      items: items.map((oc) => ({
+        ...oc,
+        isPrimary: marketerPrimaryId ? oc.id === marketerPrimaryId : oc.isDefault,
+      })),
       isAdmin: true,
     });
     return;

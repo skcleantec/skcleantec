@@ -18,6 +18,7 @@ export function CrmSoomgoTopBar({
   bridgeManifest,
   onRequestUpdate,
   updateBusy = false,
+  brandName = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -34,6 +35,8 @@ export function CrmSoomgoTopBar({
   bridgeManifest?: SoomgoBridgeManifest | null;
   onRequestUpdate?: () => void;
   updateBusy?: boolean;
+  /** 지금 숨고 연동이 쓰는 작업 브랜드 — 어느 계정으로 붙는지 헷갈리지 않게 표시 */
+  brandName?: string | null;
 }) {
   if (!open) return null;
 
@@ -69,6 +72,15 @@ export function CrmSoomgoTopBar({
             <CrmIconSoomgo className="h-4 w-4" />
           </span>
           <span className="text-fluid-xs font-bold text-sky-950">숨고 연동</span>
+          {brandName?.trim() ? (
+            <span
+              className="inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full bg-white px-2 py-0.5 text-fluid-2xs font-bold text-sky-900 ring-1 ring-sky-300"
+              title={`「${brandName.trim()}」 브랜드 숨고 계정으로 연동합니다`}
+            >
+              <span className="truncate">{brandName.trim()}</span>
+              <span className="shrink-0 font-medium text-sky-700">계정</span>
+            </span>
+          ) : null}
         </div>
 
         {!bridgeUp ? (

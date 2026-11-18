@@ -2056,6 +2056,7 @@ export function CrmPage() {
                 busyLabel={soomgoPanelBusyLabel}
                 error={soomgoError}
                 onOpenSoomgo={() => void openSoomgo()}
+                brandName={showWorkBrandSwitcher ? workBrandActive?.displayName ?? null : null}
                 onRefresh={() => {
                   void refreshManifest();
                   void refreshSoomgoStatus();
