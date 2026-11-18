@@ -627,6 +627,8 @@ model PlatformBillingSettings {
   alimtalkBrandSetupFeeKrw Int @default(99000) @map("alimtalk_brand_setup_fee_krw")
   /// 알림톡 문구를 브랜드마다 따로 쓸 때 건당. VAT 별도.
   alimtalkBrandCustomCopyFeeKrw Int @default(30000) @map("alimtalk_brand_custom_copy_fee_krw")
+  /// 브랜드 카카오 채널을 발송 서비스와 맞춘 마지막 시각. 배포해도 남는다.
+  alimtalkBrandChannelLastCheckedAt DateTime? @map("alimtalk_brand_channel_last_checked_at")
   smtpHost             String?  @map("smtp_host") @db.VarChar(256)
   smtpPort             Int?     @map("smtp_port")
   smtpSecure           Boolean? @map("smtp_secure")
@@ -5644,6 +5646,8 @@ model AlimtalkBrandChannel {
   setupFeeKrw         Int       @map("setup_fee_krw")
   setupFeeBilledAt    DateTime? @map("setup_fee_billed_at")
   setupFeeExcluded    Boolean   @default(false) @map("setup_fee_excluded")
+  /// 연결 알림을 이미 보냈으면 시각. 같은 연결을 다시 알리지 않는다.
+  linkedNotifiedAt    DateTime? @map("linked_notified_at")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
   templates           AlimtalkBrandTemplate[]
@@ -5670,6 +5674,10 @@ model AlimtalkBrandTemplate {
   rejectReason         String?   @map("reject_reason") @db.Text
   submittedAt          DateTime? @map("submitted_at")
   approvedAt           DateTime? @map("approved_at")
+  /// 승인 알림을 이미 보냈으면 시각. 배포 전 승인 건은 approvedAt과 같게 둔다.
+  approvedNotifiedAt   DateTime? @map("approved_notified_at")
+  /// 반려 알림을 이미 보냈으면 시각.
+  rejectedNotifiedAt   DateTime? @map("rejected_notified_at")
   lastCheckedAt        DateTime? @map("last_checked_at")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")

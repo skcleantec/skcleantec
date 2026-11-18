@@ -4,6 +4,12 @@ import { prisma } from '../../lib/prisma.js';
 import { sendAlimtalkOpsMail } from './alimtalkBarobillOpsMail.js';
 import { BAROBILL_TEMPLATE_NAME_BY_CODE } from './alimtalkBarobillSync.service.js';
 import {
+  brandTemplateLabel,
+  notifyBrandChannelLinked,
+  notifyBrandTemplatesApproved,
+  notifyBrandTemplatesRejected,
+} from './alimtalkBrandChannel.notify.js';
+import {
   BRAND_CHANNEL_TEMPLATE_CODES,
   channelIdsMatch,
   mapProviderTemplateStatus,
@@ -13,8 +19,12 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let running = false;
 let lastCheckedAt: string | null = null;
 
-export function brandChannelLastCheckedAt(): string | null {
-  return lastCheckedAt;
+export async function brandChannelLastCheckedAt(): Promise<string | null> {
+  const row = await prisma.platformBillingSettings.findUnique({
+    where: { id: 'default' },
+    select: { alimtalkBrandChannelLastCheckedAt: true },
+  });
+  return row?.alimtalkBrandChannelLastCheckedAt?.toISOString() ?? lastCheckedAt;
 }
 
 export async function syncAlimtalkBrandChannels(): Promise<{ checked: number; disconnected: number }> {
@@ -45,10 +55,20 @@ export async function syncAlimtalkBrandChannels(): Promise<{ checked: number; di
       continue;
     }
     if (local.status === 'REQUESTED') {
-      await prisma.alimtalkBrandChannel.update({
-        where: { id: local.id },
+      const linked = await prisma.alimtalkBrandChannel.updateMany({
+        where: { id: local.id, tenantId: local.tenantId, status: 'REQUESTED' },
         data: { status: 'LINKED', providerChannelId: hit.ChannelId, linkedAt: now },
       });
+      if (linked.count === 1 && !local.linkedNotifiedAt) {
+        await notifyBrandChannelLinked({
+          tenantId: local.tenantId,
+          channelId: local.id,
+          tenantName: local.tenant.name,
+          brandName: local.operatingCompany.name,
+          searchId: local.searchId,
+          now,
+        });
+      }
       await ensureReadyTemplates(local.id);
     } else if (local.providerChannelId !== hit.ChannelId) {
       await prisma.alimtalkBrandChannel.update({
@@ -56,8 +76,43 @@ export async function syncAlimtalkBrandChannels(): Promise<{ checked: number; di
         data: { providerChannelId: hit.ChannelId },
       });
     }
-    await refreshTemplates(local.id, hit.ChannelId, now);
+    const changes = await refreshTemplates(local.id, local.tenantId, hit.ChannelId, now);
+    if (changes.approved.length > 0 || changes.rejected.length > 0) {
+      const fresh = await prisma.alimtalkBrandTemplate.findMany({
+        where: { brandChannelId: local.id, templateCode: { in: [...BRAND_CHANNEL_TEMPLATE_CODES] } },
+      });
+      const remaining = fresh
+        .filter((row) => row.status !== 'APPROVED')
+        .map((row) => ({ name: brandTemplateLabel(row.templateCode, row.providerTemplateName), status: row.status }));
+      if (changes.approved.length > 0) {
+        await notifyBrandTemplatesApproved({
+          tenantId: local.tenantId,
+          tenantName: local.tenant.name,
+          brandName: local.operatingCompany.name,
+          searchId: local.searchId,
+          templateIds: changes.approved.map((row) => row.id),
+          approvedNames: changes.approved.map((row) => row.name),
+          remaining,
+          now,
+        });
+      }
+      if (changes.rejected.length > 0) {
+        await notifyBrandTemplatesRejected({
+          tenantId: local.tenantId,
+          tenantName: local.tenant.name,
+          brandName: local.operatingCompany.name,
+          searchId: local.searchId,
+          rejected: changes.rejected,
+          now,
+        });
+      }
+    }
   }
+  await prisma.platformBillingSettings.upsert({
+    where: { id: 'default' },
+    create: { id: 'default', alimtalkBrandChannelLastCheckedAt: now },
+    update: { alimtalkBrandChannelLastCheckedAt: now },
+  });
   lastCheckedAt = now.toISOString();
   if (gone.length > 0) {
     await sendAlimtalkOpsMail(
@@ -79,12 +134,22 @@ async function ensureReadyTemplates(brandChannelId: string): Promise<void> {
   }
 }
 
-async function refreshTemplates(brandChannelId: string, channelId: string, now: Date): Promise<void> {
+async function refreshTemplates(
+  brandChannelId: string,
+  tenantId: string,
+  channelId: string,
+  now: Date,
+): Promise<{
+  approved: { id: string; name: string }[];
+  rejected: { id: string; name: string; reason: string }[];
+}> {
+  const approved: { id: string; name: string }[] = [];
+  const rejected: { id: string; name: string; reason: string }[] = [];
   let remote: BarobillKakaoTemplate[] = [];
   try {
     remote = await getTemplates(channelId);
   } catch {
-    return;
+    return { approved, rejected };
   }
   const rows = await prisma.alimtalkBrandTemplate.findMany({
     where: { brandChannelId, templateCode: { in: [...BRAND_CHANNEL_TEMPLATE_CODES] } },
@@ -92,15 +157,16 @@ async function refreshTemplates(brandChannelId: string, channelId: string, now: 
   for (const row of rows) {
     const hit = remote.find((item) => item.TemplateName.trim() === row.providerTemplateName.trim());
     if (!hit) {
-      await prisma.alimtalkBrandTemplate.update({
-        where: { id: row.id },
+      await prisma.alimtalkBrandTemplate.updateMany({
+        where: { id: row.id, brandChannel: { id: brandChannelId, tenantId } },
         data: { lastCheckedAt: now },
       });
       continue;
     }
     const status = mapProviderTemplateStatus(hit.Status);
-    await prisma.alimtalkBrandTemplate.update({
-      where: { id: row.id },
+    const reason = status === 'REJECTED' ? row.rejectReason || '카카오 심사에서 반려되었습니다.' : null;
+    await prisma.alimtalkBrandTemplate.updateMany({
+      where: { id: row.id, brandChannel: { id: brandChannelId, tenantId } },
       data: {
         status,
         content: hit.TemplateContent,
@@ -109,22 +175,30 @@ async function refreshTemplates(brandChannelId: string, channelId: string, now: 
         buttonsJson: hit.Buttons,
         messageType: hit.TemplateMessageType,
         emphasizeType: hit.TemplateEmphasizeType,
-        rejectReason: status === 'REJECTED' ? row.rejectReason || '카카오 심사에서 반려되었습니다.' : null,
+        rejectReason: reason,
         submittedAt: status === 'IN_REVIEW' || status === 'APPROVED' ? row.submittedAt ?? now : row.submittedAt,
         approvedAt: status === 'APPROVED' ? row.approvedAt ?? now : row.approvedAt,
         lastCheckedAt: now,
       },
     });
+    const name = brandTemplateLabel(row.templateCode, row.providerTemplateName);
+    if (status === 'APPROVED' && row.status !== 'APPROVED' && !row.approvedAt && !row.approvedNotifiedAt) {
+      approved.push({ id: row.id, name });
+    }
+    if (status === 'REJECTED' && row.status !== 'REJECTED' && !row.rejectedNotifiedAt) {
+      rejected.push({ id: row.id, name, reason: reason ?? '카카오 심사에서 반려되었습니다.' });
+    }
   }
-  const approved = await prisma.alimtalkBrandTemplate.count({
+  const approvedCount = await prisma.alimtalkBrandTemplate.count({
     where: { brandChannelId, status: 'APPROVED', templateCode: { in: [...BRAND_CHANNEL_TEMPLATE_CODES] } },
   });
-  if (approved > 0) {
+  if (approvedCount > 0) {
     await prisma.alimtalkBrandChannel.updateMany({
-      where: { id: brandChannelId, status: { in: ['LINKED', 'REQUESTED'] } },
+      where: { id: brandChannelId, tenantId, status: { in: ['LINKED', 'REQUESTED'] } },
       data: { status: 'ACTIVE' },
     });
   }
+  return { approved, rejected };
 }
 
 export function startAlimtalkBrandChannelSync(): void {

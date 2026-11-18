@@ -47,6 +47,7 @@ export type PlatformInboxPayload = {
     landingLink: number;
     pg: number;
     barobill: number;
+    brandChannel?: number;
   };
   pendingTotal: number;
 };

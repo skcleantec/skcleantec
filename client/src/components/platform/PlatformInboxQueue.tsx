@@ -210,15 +210,20 @@ export function PlatformInboxQueue({
       <section className={CARD_SECTION}>
         <h2 className="text-base font-semibold text-gray-900">검토</h2>
         <ul className="grid gap-2 sm:grid-cols-2">
-          {REVIEW.map((item) => (
+          {[
+            ...REVIEW,
+            ...((inbox.review.brandChannel ?? 0) > 0
+              ? [{ key: 'brandChannel' as const, label: '카카오 채널', to: '/platform/alimtalk?tab=review' }]
+              : []),
+          ].map((item) => (
             <li key={item.key}>
               <Link
                 to={item.to}
                 className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               >
                 <span className="text-gray-900">{item.label}</span>
-                <PlatformStatusBadge tone={inbox.review[item.key] > 0 ? 'warn' : 'ok'}>
-                  {`${inbox.review[item.key]}건`}
+                <PlatformStatusBadge tone={(inbox.review[item.key] ?? 0) > 0 ? 'warn' : 'ok'}>
+                  {`${inbox.review[item.key] ?? 0}건`}
                 </PlatformStatusBadge>
               </Link>
             </li>

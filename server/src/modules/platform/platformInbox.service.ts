@@ -155,8 +155,18 @@ export async function getPlatformInbox() {
     requestedBy: row.requestedBy.name,
     requestedAt: row.requestedAt.toISOString(),
   }));
-  const review = { signup, planUpgrade, landingLink, pg, barobill: barobillTodo };
-  const reviewTotal = signup + planUpgrade + landingLink + pg + barobillTodo + cardCancelRequests.length;
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [recentApprovedBrands, openRejected] = await Promise.all([
+    prisma.alimtalkBrandChannel.count({
+      where: {
+        templates: { some: { status: 'APPROVED', approvedAt: { gte: weekAgo } } },
+      },
+    }),
+    prisma.alimtalkBrandTemplate.count({ where: { status: 'REJECTED' } }),
+  ]);
+  const brandChannel = recentApprovedBrands + openRejected;
+  const review = { signup, planUpgrade, landingLink, pg, barobill: barobillTodo, brandChannel };
+  const reviewTotal = signup + planUpgrade + landingLink + pg + barobillTodo + brandChannel + cardCancelRequests.length;
   return {
     money,
     barobillLinks,

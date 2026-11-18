@@ -11,9 +11,31 @@ import {
 } from '../../api/alimtalkBrandChannel';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION } from '../../utils/platformUi';
 
+function kstParts(iso: string): { month: string; day: string; time: string } | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return { month: pick('month'), day: pick('day'), time: `${pick('hour')}:${pick('minute')}` };
+}
+
 function clock(iso: string | null): string {
   if (!iso) return '아직 없음';
-  return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' });
+  const parts = kstParts(iso);
+  return parts ? `${parts.month}/${parts.day} ${parts.time}` : '아직 없음';
+}
+
+function monthDay(iso: string | null): string {
+  if (!iso) return '';
+  const parts = kstParts(iso);
+  return parts ? `${parts.month}/${parts.day}` : '';
 }
 
 export function PlatformAlimtalkChannelReview() {
@@ -42,6 +64,7 @@ export function PlatformAlimtalkChannelReview() {
     ['심사 중', summary?.inReview ?? 0],
     ['반려', summary?.rejected ?? 0],
     ['신청 대기', summary?.ready ?? 0],
+    ['최근 승인', summary?.recentlyApproved ?? 0],
   ] as const;
 
   return (
@@ -69,7 +92,7 @@ export function PlatformAlimtalkChannelReview() {
           금액 저장
         </button>
       </section>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {tiles.map(([label, value]) => (
           <div key={label} className="rounded-xl border border-gray-200 bg-white p-3">
             <p className="text-xl font-bold tabular-nums text-slate-900">{value}</p>
@@ -123,6 +146,9 @@ export function PlatformAlimtalkChannelReview() {
                     {row.templates.map((item) => (
                       <span key={item.label} className="rounded-full bg-slate-100 px-2 py-0.5 text-fluid-2xs font-semibold text-slate-700" title={item.rejectReason ?? item.statusLabel}>
                         {item.statusLabel}
+                        {item.status === 'APPROVED' && item.approvedAt ? (
+                          <span className="ml-1 font-normal text-slate-500">{monthDay(item.approvedAt)}</span>
+                        ) : null}
                       </span>
                     ))}
                   </div>
