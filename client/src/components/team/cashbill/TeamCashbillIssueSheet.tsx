@@ -17,6 +17,7 @@ import { TeamReceiptKindTabs } from './TeamReceiptKindTabs';
 import { TeamTaxInvoiceSheet } from './TeamTaxInvoiceSheet';
 
 type Usage = 'phone' | 'biz';
+type TaxKind = 'taxable' | 'exempt';
 
 type Issued = {
   ntsConfirmNum: string | null;
@@ -30,6 +31,17 @@ type Issued = {
 
 function usageLabel(usage: Usage): string {
   return usage === 'biz' ? '지출증빙' : '소득공제';
+}
+
+function taxLabel(kind: TaxKind): string {
+  return kind === 'exempt' ? '면세' : '과세';
+}
+
+function taxHint(amountWon: number, kind: TaxKind): string {
+  if (kind === 'exempt') return '면세 · 부가세 없음';
+  const supply = Math.round(amountWon / 1.1);
+  const vat = amountWon - supply;
+  return `공급가액 ${supply.toLocaleString('ko-KR')} · 부가세 ${vat.toLocaleString('ko-KR')}`;
 }
 
 function digits(value: string): string {
@@ -81,6 +93,7 @@ export function TeamCashbillIssueSheet({
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
   const [usage, setUsage] = useState<Usage>('phone');
+  const [taxKind, setTaxKind] = useState<TaxKind>('taxable');
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [brandId, setBrandId] = useState('');
@@ -103,6 +116,7 @@ export function TeamCashbillIssueSheet({
     setConfirming(false);
     setIssued(null);
     setUsage('phone');
+    setTaxKind('taxable');
     setReason('');
     setLoading(true);
     let stop = false;
@@ -114,6 +128,7 @@ export function TeamCashbillIssueSheet({
         setPhone(res.customerPhone);
         setAmount(res.defaultAmountWon > 0 ? String(res.defaultAmountWon) : '');
         setBrandId(res.brands[0]?.id ?? '');
+        setTaxKind(res.defaultTaxKind === 'exempt' ? 'exempt' : 'taxable');
         setWalletShort(res.walletShort);
       })
       .catch((err: unknown) => {
@@ -141,6 +156,11 @@ export function TeamCashbillIssueSheet({
   }
 
   const amountWon = Math.round(Number(digits(amount)));
+  const selectedTaxType = inquiryId
+    ? prefill?.issueTaxType
+    : prefill?.brands.find((brand) => brand.id === brandId)?.taxType;
+  const exemptLocked = selectedTaxType === '4';
+  const activeTax: TaxKind = exemptLocked ? 'exempt' : taxKind;
   const warning = overTotal(prefill, amountWon);
   const reasonOn = needsReason(prefill, amountWon);
 
@@ -184,6 +204,7 @@ export function TeamCashbillIssueSheet({
       identity: digits(phone),
       customerName: name.trim(),
       usage,
+      taxKind: activeTax,
       extraReason: reason.trim() || undefined,
       requestId: crypto.randomUUID().replace(/-/g, '').slice(0, 20),
     })
@@ -294,6 +315,28 @@ export function TeamCashbillIssueSheet({
               사업자 지출증빙
             </button>
           </div>
+          {exemptLocked ? (
+            <p className="text-fluid-xs text-slate-600">면세사업자는 면세로 고정됩니다.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                aria-pressed={activeTax === 'taxable'}
+                onClick={() => setTaxKind('taxable')}
+                className={activeTax === 'taxable' ? teamFooterActionPrimaryClass : teamFooterActionSecondaryClass}
+              >
+                과세
+              </button>
+              <button
+                type="button"
+                aria-pressed={activeTax === 'exempt'}
+                onClick={() => setTaxKind('exempt')}
+                className={activeTax === 'exempt' ? teamFooterActionPrimaryClass : teamFooterActionSecondaryClass}
+              >
+                면세
+              </button>
+            </div>
+          )}
           <label className="block text-fluid-2xs font-medium text-slate-600">
             {usage === 'biz' ? '사업자번호' : '휴대폰 번호'}
             <input
@@ -314,6 +357,7 @@ export function TeamCashbillIssueSheet({
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-fluid-sm tabular-nums"
             />
           </label>
+          <p className="-mt-2 text-fluid-2xs text-slate-500">{taxHint(Number.isFinite(amountWon) ? amountWon : 0, activeTax)}</p>
           {inquiryId && prefill ? (
             <p className="-mt-2 text-fluid-2xs text-slate-500">
               잔금 자동 입력 · 총액 {prefill.totalWon.toLocaleString('ko-KR')} − 예약금 {prefill.depositWon.toLocaleString('ko-KR')}
@@ -371,7 +415,7 @@ export function TeamCashbillIssueSheet({
           <br />
           {usage === 'biz' ? '사업자번호' : '휴대폰'} {phone}
           <br />
-          {amountWon.toLocaleString('ko-KR')}원
+          {amountWon.toLocaleString('ko-KR')}원 · {taxLabel(activeTax)}
         </p>
         {warning ? <p className="mt-2 text-fluid-xs font-medium text-amber-800">{warning}</p> : null}
         <div className="mt-3 grid grid-cols-2 gap-1.5">

@@ -159,20 +159,29 @@ export async function requestCashbillLink(memberId: string, barobillUserIdHint: 
   if (!res.ok) throw new Error(await apiErrorMessage(res, '연결 요청을 보내지 못했습니다.'));
 }
 
-export async function fetchTeamCashbillIssueSetting(): Promise<{ enabled: boolean }> {
+export type TeamCashbillIssueSetting = {
+  enabled: boolean;
+  taxKind: 'taxable' | 'exempt';
+  exemptLocked: boolean;
+};
+
+export async function fetchTeamCashbillIssueSetting(): Promise<TeamCashbillIssueSetting> {
   const res = await fetch(`${API}/cashbill/team-issue-setting`, { headers: headers() });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '팀장 발행 설정을 불러오지 못했습니다.'));
-  return res.json() as Promise<{ enabled: boolean }>;
+  return res.json() as Promise<TeamCashbillIssueSetting>;
 }
 
-export async function saveTeamCashbillIssueSetting(enabled: boolean): Promise<{ enabled: boolean }> {
+export async function saveTeamCashbillIssueSetting(body: {
+  enabled?: boolean;
+  taxKind?: 'taxable' | 'exempt';
+}): Promise<TeamCashbillIssueSetting> {
   const res = await fetch(`${API}/cashbill/team-issue-setting`, {
     method: 'PUT',
     headers: headers(),
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '팀장 발행 설정을 저장하지 못했습니다.'));
-  return res.json() as Promise<{ enabled: boolean }>;
+  return res.json() as Promise<TeamCashbillIssueSetting>;
 }
 
 export async function cancelCashbillLinkRequest(memberId: string): Promise<void> {

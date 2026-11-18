@@ -18,6 +18,7 @@ import {
   syncOpenCashbillStates,
 } from './cashbillIssue.service.js';
 import { ensureCashbillShareUrl } from './cashbillShare.service.js';
+import { readTeamCashbillIssueSetting, saveTeamCashbillIssueSetting } from './teamCashbill.service.js';
 import { takeReceiptStateSyncSlot } from '../receipts/receiptStateSyncGate.js';
 import {
   getReceiptWalletSummary,
@@ -115,11 +116,7 @@ router.get('/team-issue-setting', async (req, res) => {
   if (!staff(res, user)) return;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
-  const tenant = await prisma.tenant.findFirst({
-    where: { id: tenantId },
-    select: { teamCashbillIssueEnabled: true },
-  });
-  res.json({ enabled: tenant?.teamCashbillIssueEnabled !== false });
+  res.json(await readTeamCashbillIssueSetting(tenantId));
 });
 
 router.put('/team-issue-setting', async (req, res) => {
@@ -127,16 +124,12 @@ router.put('/team-issue-setting', async (req, res) => {
   if (!adminOnly(res, user)) return;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
-  const enabled = (req.body as { enabled?: unknown }).enabled;
-  if (typeof enabled !== 'boolean') {
+  const body = (req.body ?? {}) as { enabled?: unknown; taxKind?: unknown };
+  if (typeof body.enabled !== 'boolean' && body.taxKind !== 'taxable' && body.taxKind !== 'exempt') {
     res.status(400).json({ error: '켜짐 또는 꺼짐을 선택해 주세요.' });
     return;
   }
-  await prisma.tenant.update({
-    where: { id: tenantId },
-    data: { teamCashbillIssueEnabled: enabled },
-  });
-  res.json({ enabled });
+  res.json(await saveTeamCashbillIssueSetting(tenantId, body));
 });
 
 router.get('/issues', async (req, res) => {

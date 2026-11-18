@@ -26,6 +26,24 @@ export function teamCashbillUsage(raw: unknown): 'phone' | 'biz' {
   return raw === 'biz' ? 'biz' : 'phone';
 }
 
+export type TeamCashbillTaxKind = 'taxable' | 'exempt';
+
+/** 팀장 과세구분. 면세가 아니면 과세. */
+export function teamCashbillTaxKind(raw: unknown): TeamCashbillTaxKind {
+  return raw === 'exempt' ? 'exempt' : 'taxable';
+}
+
+/** 연결된 계산서가 모두 면세사업자면 과세구분을 바꿀 수 없다. */
+export function teamCashbillExemptLocked(taxTypes: Array<string | null | undefined>): boolean {
+  return taxTypes.length > 0 && taxTypes.every((taxType) => taxType === '4');
+}
+
+/** 저장된 기본값. 면세 고정이면 면세. */
+export function teamCashbillDefaultTaxKind(input: { stored: unknown; exemptLocked: boolean }): TeamCashbillTaxKind {
+  if (input.exemptLocked) return 'exempt';
+  return teamCashbillTaxKind(input.stored);
+}
+
 /** 팀장이 영수증 주소를 받을 수 있는지. 본인 발행 또는 본인 배정 접수만. */
 export function teamCashbillCanShare(input: { issuedByMe: boolean; assignedInquiry: boolean }): boolean {
   return input.issuedByMe || input.assignedInquiry;

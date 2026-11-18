@@ -266,6 +266,8 @@ model Tenant {
   billingAccessBlockedAt DateTime?            @map("billing_access_blocked_at")
   /// 팀장 앱에서 현금영수증 발행 허용. 기본 켜짐.
   teamCashbillIssueEnabled Boolean @default(true) @map("team_cashbill_issue_enabled")
+  /// 팀장 현금영수증 기본 과세구분. taxable | exempt. 면세사업자는 발행 시 면세로 고정.
+  teamCashbillDefaultTaxKind String @default("taxable") @map("team_cashbill_default_tax_kind") @db.VarChar(16)
 
   users     User[]
   inquiries Inquiry[]

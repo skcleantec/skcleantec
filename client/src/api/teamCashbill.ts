@@ -34,7 +34,9 @@ export type TeamCashbillPrefill = {
   walletBalanceKrw: number;
   unitKrw: number;
   depositWon: number;
-  brands: { id: string; name: string }[];
+  brands: { id: string; name: string; taxType: string | null }[];
+  defaultTaxKind: 'taxable' | 'exempt';
+  issueTaxType: string | null;
   customerName: string;
   customerPhone: string;
   defaultAmountWon: number;
@@ -76,6 +78,7 @@ export type TeamCashbillMine = {
   totalWon: number;
   identityMasked: string;
   usageLabel: string;
+  taxKind: 'taxable' | 'exempt';
   ntsConfirmNum: string | null;
   status: string;
   canRequestCancel: boolean;
@@ -105,6 +108,7 @@ export async function issueTeamCashbill(body: {
   identity: string;
   customerName: string;
   usage: 'phone' | 'biz';
+  taxKind: 'taxable' | 'exempt';
   extraReason?: string;
   requestId: string;
 }): Promise<TeamCashbillIssueResult> {

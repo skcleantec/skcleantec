@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  teamCashbillDefaultTaxKind,
+  teamCashbillExemptLocked,
   teamCashbillOverTotalWarning,
   teamCashbillReasonRequired,
+  teamCashbillTaxKind,
   teamCashbillUsage,
   teamCashbillVisible,
 } from './teamCashbill.access.js';
@@ -64,6 +67,22 @@ describe('team cashbill reason and warning', () => {
     assert.equal(teamCashbillUsage('phone'), 'phone');
     assert.equal(teamCashbillUsage('voluntary'), 'phone');
     assert.equal(teamCashbillUsage(undefined), 'phone');
+  });
+
+  it('면세가 아니면 과세로 받는다', () => {
+    assert.equal(teamCashbillTaxKind('exempt'), 'exempt');
+    assert.equal(teamCashbillTaxKind('taxable'), 'taxable');
+    assert.equal(teamCashbillTaxKind('zero'), 'taxable');
+    assert.equal(teamCashbillTaxKind(undefined), 'taxable');
+  });
+
+  it('연결된 계산서가 모두 면세면 기본값을 면세로 고정한다', () => {
+    assert.equal(teamCashbillExemptLocked(['4', '4']), true);
+    assert.equal(teamCashbillExemptLocked(['4', '1']), false);
+    assert.equal(teamCashbillExemptLocked([]), false);
+    assert.equal(teamCashbillDefaultTaxKind({ stored: 'taxable', exemptLocked: true }), 'exempt');
+    assert.equal(teamCashbillDefaultTaxKind({ stored: 'exempt', exemptLocked: false }), 'exempt');
+    assert.equal(teamCashbillDefaultTaxKind({ stored: '기타', exemptLocked: false }), 'taxable');
   });
 
   it('금액이 총액보다 크면 경고 문구를 준다', () => {
