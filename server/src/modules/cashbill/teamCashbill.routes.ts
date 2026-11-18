@@ -6,6 +6,7 @@ import {
   listTeamCashbillIssues,
   requestTeamCashbillCancel,
   teamCashbillShareLink,
+  teamCashbillViewLink,
   requestTeamCashbillCharge,
   teamCashbillAccess,
   teamCashbillPrefill,
@@ -75,6 +76,17 @@ router.post('/issues', async (req, res) => {
     res.status(201).json(await teamIssueCashbill(tenantId, user.userId, body));
   } catch (err) {
     sendError(res, err, '현금영수증을 발행하지 못했습니다.');
+  }
+});
+
+router.get('/issues/:id/view', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    res.json(await teamCashbillViewLink(tenantId, user.userId, req.params.id));
+  } catch (err) {
+    sendError(res, err, '영수증을 열지 못했습니다.');
   }
 });
 

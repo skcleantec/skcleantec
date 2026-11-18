@@ -12,6 +12,9 @@ import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVi
 import { teamFooterActionPrimaryClass, teamFooterActionSecondaryClass } from '../../../utils/teamInspectionDisplay';
 import { openPaymentSms } from '../../../utils/cardPaymentShare';
 import { STAFF_APP_SAFE_OVERLAY } from '../../../utils/staffAppSafeArea';
+import { fetchTeamTaxAccess } from '../../../api/teamTaxInvoice';
+import { TeamReceiptKindTabs } from './TeamReceiptKindTabs';
+import { TeamTaxInvoiceSheet } from './TeamTaxInvoiceSheet';
 
 type Usage = 'phone' | 'biz';
 
@@ -59,12 +62,16 @@ export function TeamCashbillIssueSheet({
   open,
   inquiryId,
   onClose,
+  showTaxTab = true,
 }: {
   open: boolean;
   inquiryId: string | null;
   onClose: () => void;
+  showTaxTab?: boolean;
 }) {
   const titleId = useId();
+  const [kind, setKind] = useState<'cash' | 'tax'>('cash');
+  const [taxOn, setTaxOn] = useState(showTaxTab);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
   const [prefill, setPrefill] = useState<TeamCashbillPrefill | null>(null);
@@ -84,6 +91,8 @@ export function TeamCashbillIssueSheet({
 
   useEffect(() => {
     if (!open) return;
+    setKind('cash');
+    void fetchTeamTaxAccess().then((res) => setTaxOn(showTaxTab && res.taxInvoiceOn)).catch(() => setTaxOn(false));
     setPrefill(null);
     setError(null);
     setWalletShort(false);
@@ -113,9 +122,20 @@ export function TeamCashbillIssueSheet({
     return () => {
       stop = true;
     };
-  }, [inquiryId, open]);
+  }, [inquiryId, open, showTaxTab]);
 
   if (!open) return null;
+  if (taxOn && kind === 'tax') {
+    return (
+      <TeamTaxInvoiceSheet
+        open
+        inquiryId={inquiryId}
+        onClose={onClose}
+        onCash={() => setKind('cash')}
+        showTabs
+      />
+    );
+  }
 
   const amountWon = Math.round(Number(digits(amount)));
   const warning = overTotal(prefill, amountWon);
@@ -202,13 +222,16 @@ export function TeamCashbillIssueSheet({
         aria-labelledby={titleId}
         className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-          <h2 id={titleId} className="text-fluid-sm font-semibold text-slate-900">
-            현금영수증
-          </h2>
-          <button type="button" onClick={onClose} className="text-fluid-xs text-slate-500">
-            닫기
-          </button>
+        <div className="space-y-2 border-b border-slate-100 px-3 py-2">
+          <div className="flex items-center justify-between">
+            <h2 id={titleId} className="text-fluid-sm font-semibold text-slate-900">
+              영수증
+            </h2>
+            <button type="button" onClick={onClose} className="text-fluid-xs text-slate-500">
+              닫기
+            </button>
+          </div>
+          {taxOn ? <TeamReceiptKindTabs kind="cash" onChange={setKind} /> : null}
         </div>
         <div
           ref={scrollRef}

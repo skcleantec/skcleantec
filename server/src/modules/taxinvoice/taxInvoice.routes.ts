@@ -12,11 +12,11 @@ import {
   linkTaxInvoiceInquiry,
   listTaxInvoices,
   taxInvoiceReissueSource,
-  taxInvoiceCustomerUrl,
   taxInvoicePrintUrl,
   searchTaxInvoiceInquiries,
   syncOpenTaxInvoiceStates,
 } from './taxInvoice.service.js';
+import { ensureTaxInvoiceShareUrl } from './taxInvoiceShare.service.js';
 import { modifyTaxInvoice } from './taxInvoiceModify.service.js';
 import { updateBarobillSupplier } from './taxInvoiceSupplier.service.js';
 import { takeReceiptStateSyncSlot } from '../receipts/receiptStateSyncGate.js';
@@ -102,6 +102,7 @@ router.get('/', async (req, res) => {
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
       inquiryId: typeof req.query.inquiryId === 'string' ? req.query.inquiryId : undefined,
       extraOnly: req.query.extra === '1',
+      issuer: typeof req.query.issuer === 'string' ? req.query.issuer : undefined,
       limit,
       offset,
     }));
@@ -299,7 +300,7 @@ router.get('/:issueId/mail-url', async (req, res) => {
     const kind = req.query.kind === 'print' ? 'print' : 'mail';
     const url = kind === 'print'
       ? await taxInvoicePrintUrl(tenantId, String(req.params.issueId ?? ''))
-      : await taxInvoiceCustomerUrl(tenantId, String(req.params.issueId ?? ''));
+      : await ensureTaxInvoiceShareUrl(tenantId, String(req.params.issueId ?? ''));
     res.json({ url });
   } catch (err) {
     sendError(res, err, '영수증 주소를 받지 못했습니다.');

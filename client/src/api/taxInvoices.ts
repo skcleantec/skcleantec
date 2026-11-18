@@ -74,6 +74,8 @@ export type TaxInvoiceRow = {
   lastError: string | null;
   /** 발급한 직원 이름 */
   issuerName?: string | null;
+  issuerRole?: 'TEAM_LEADER' | 'STAFF' | null;
+  linked?: boolean;
   ntsSendKey?: string | null;
   itemName?: string;
   canCancel: boolean;

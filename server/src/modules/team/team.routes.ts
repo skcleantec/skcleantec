@@ -23,6 +23,7 @@ import quotationsTeamRoutes from '../quotations/quotations.team.routes.js';
 import { approvedCardPaymentFlag } from '../card-payment/cardPaymentInquiryFlag.js';
 import { issuedCashbillFlag } from '../cashbill/cashbillInquiryFlag.js';
 import teamCashbillRoutes from '../cashbill/teamCashbill.routes.js';
+import teamTaxInvoiceRoutes from '../taxinvoice/teamTaxInvoice.routes.js';
 import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 import {
@@ -807,6 +808,7 @@ router.use('/db-marketplace', dbMarketplaceTeamRoutes);
 router.use('/training-material', teamLeaderTrainingTeamRoutes);
 router.use('/household-ledger', teamLeaderHouseholdLedgerRoutes);
 router.use('/cashbill', teamCashbillRoutes);
+router.use('/tax-invoices', teamTaxInvoiceRoutes);
 
 /** 팀장: 접수 상세를 열어 확인한 것으로 표시 — 메뉴 미확인 배정 수 감소 */
 router.post('/inquiries/:id/detail-viewed', async (req, res) => {

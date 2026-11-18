@@ -125,6 +125,15 @@ export async function listMyTeamCashbill(): Promise<{ items: TeamCashbillMine[] 
   return res.json() as Promise<{ items: TeamCashbillMine[] }>;
 }
 
+export async function fetchTeamCashbillView(id: string): Promise<{ url: string }> {
+  const token = tokenOrThrow();
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/cashbill/issues/${encodeURIComponent(id)}/view`), {
+    headers: headers(token),
+  });
+  if (!res.ok) throw await readError(res, '영수증을 열지 못했습니다.');
+  return res.json() as Promise<{ url: string }>;
+}
+
 export async function fetchTeamCashbillShare(id: string): Promise<TeamCashbillShare> {
   const token = tokenOrThrow();
   const res = await fetch(withTeamPreviewQuery(`${API}/team/cashbill/issues/${encodeURIComponent(id)}/share`), {

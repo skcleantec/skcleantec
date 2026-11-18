@@ -1983,6 +1983,9 @@ model TaxInvoiceIssue {
   originalIssue      TaxInvoiceIssue? @relation("TaxInvoiceModify", fields: [originalIssueId], references: [id], onDelete: Restrict)
   modifications      TaxInvoiceIssue[] @relation("TaxInvoiceModify")
   createdById        String?          @map("created_by_id")
+  /// 팀장이 수정·취소를 사무실에 요청한 시각. 수정·취소는 관리자만 한다.
+  officeRequestedAt  DateTime?        @map("office_requested_at")
+  officeRequestedById String?         @map("office_requested_by_id")
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
 

@@ -1,5 +1,4 @@
 import type { Prisma, TaxInvoiceIssue } from '@prisma/client';
-import { issuerNameMap } from '../receipts/receiptHistory.js';
 import { findInquiryIdsByReceiptName, receiptCustomerLabel, receiptRealName } from '../receipts/receiptNameSearch.js';
 import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
@@ -634,6 +633,7 @@ export async function listTaxInvoices(tenantId: string, query: {
   q?: string;
   inquiryId?: string;
   extraOnly?: boolean;
+  issuer?: string;
   limit: number;
   offset: number;
 }) {
@@ -643,6 +643,16 @@ export async function listTaxInvoices(tenantId: string, query: {
   else if (createdAt) where.createdAt = createdAt;
   if (query.extraOnly) where.extraAmountWon = { gt: 0 };
   if (query.operatingCompanyId) where.operatingCompanyId = query.operatingCompanyId;
+  if (query.issuer === 'team' || query.issuer === 'staff') {
+    const people = await prisma.user.findMany({
+      where: {
+        tenantId,
+        role: query.issuer === 'team' ? 'TEAM_LEADER' : { in: ['ADMIN', 'MARKETER', 'OFFICE_STAFF'] },
+      },
+      select: { id: true },
+    });
+    where.createdById = { in: people.map((person) => person.id) };
+  }
   const q = query.q?.trim().slice(0, 40);
   if (q) {
     where.AND = [{
@@ -735,11 +745,24 @@ export async function listTaxInvoices(tenantId: string, query: {
     }),
     prisma.taxInvoiceIssue.aggregate({ where: monthWhere, _sum: { chargedKrw: true } }),
   ]);
-  const issuers = await issuerNameMap(items.map((row) => row.createdById));
+  const issuerIds = [...new Set(items.map((row) => row.createdById).filter((id): id is string => Boolean(id)))];
+  const issuerRows = issuerIds.length
+    ? await prisma.user.findMany({
+      where: { tenantId, id: { in: issuerIds } },
+      select: { id: true, name: true, role: true },
+    })
+    : [];
+  const issuers = new Map(issuerRows.map((person) => [person.id, person]));
   return {
     items: items.map((row) => ({
       ...toPublic(row),
-      issuerName: row.createdById ? issuers.get(row.createdById) ?? '탈퇴한 사용자' : null,
+      issuerName: row.createdById ? issuers.get(row.createdById)?.name ?? '탈퇴한 사용자' : null,
+      issuerRole: row.createdById
+        ? issuers.get(row.createdById)?.role === 'TEAM_LEADER'
+          ? 'TEAM_LEADER'
+          : 'STAFF'
+        : null,
+      linked: Boolean(row.inquiryId),
       inquiryNumber: row.inquiry?.inquiryNumber ?? null,
       customerName: row.inquiry?.customerName?.trim() || row.buyerCeoName.trim() || '—',
       brandName: row.operatingCompany.name,
