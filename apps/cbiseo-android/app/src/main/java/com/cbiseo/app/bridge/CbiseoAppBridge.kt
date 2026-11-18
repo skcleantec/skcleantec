@@ -4,6 +4,8 @@ package com.cbiseo.app.bridge
 
 import android.content.Context
 
+import android.content.Intent
+
 import android.os.Handler
 
 import android.os.Looper
@@ -131,6 +133,40 @@ class CbiseoAppBridge(
         Handler(Looper.getMainLooper()).post {
 
             updateCoordinator?.openPlayStore()
+
+        }
+
+    }
+
+
+
+    /** 글 공유 창. 카카오톡 등을 고를 수 있다. */
+
+    @JavascriptInterface
+
+    fun shareText(title: String, text: String) {
+
+        val body = text.trim()
+
+        if (body.isEmpty()) return
+
+        val subject = title.trim().ifEmpty { "공유" }
+
+        Handler(Looper.getMainLooper()).post {
+
+            val send = Intent(Intent.ACTION_SEND).apply {
+
+                type = "text/plain"
+
+                putExtra(Intent.EXTRA_SUBJECT, subject)
+
+                putExtra(Intent.EXTRA_TEXT, body)
+
+            }
+
+            val chooser = Intent.createChooser(send, subject).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+            runCatching { appContext.startActivity(chooser) }
 
         }
 

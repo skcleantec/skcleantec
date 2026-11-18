@@ -36,7 +36,7 @@ alwaysApply: false
 
 > **keystore·AAB는 터미널만** — `.cursor/rules/cbiseo-android-play-terminal.mdc`
 
-`versionCode` bump **직전:** `.cursor/rules/play-console-quality.mdc` **「다음 AAB」**(지금 **40** = v39 대시보드 4건)를 코드에 반영한 뒤 빌드한다.
+`versionCode` bump **직전:** `.cursor/rules/play-console-quality.mdc` **「다음 AAB」**(지금 **41**. **40**에서 v39 대시보드 4건·`setDecorFitsSystemWindows` 삭제를 반영함)를 코드에 반영한 뒤 빌드한다.
 
 `versionCode` bump·AAB·Play 업로드 완료 시:
 

@@ -1,5 +1,6 @@
 import { API, apiErrorMessage } from './apiPrefix';
 import { getTeamToken } from '../stores/teamAuth';
+import { isCbiseoStaffNativeApp, shareTextInStaffApp } from '../utils/cbiseoNativeApp';
 import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 function headers(token: string) {
@@ -153,18 +154,21 @@ export function receiptShareText(input: { brandName: string; label: string; tota
   return brand ? `[${brand}] ${input.label} · ${amount}` : `${input.label} · ${amount}`;
 }
 
-export async function shareReceiptLink(input: { brandName: string; label: string; totalWon: number; url: string }): Promise<'shared' | 'copied'> {
-  const payload = { title: input.label, text: receiptShareText(input), url: input.url };
-  if (typeof navigator.share === 'function') {
+export async function shareReceiptLink(input: { brandName: string; label: string; totalWon: number; url: string }): Promise<'shared' | 'copied' | 'copied-app'> {
+  const line = receiptShareText(input);
+  const body = `${line}\n${input.url}`;
+  if (shareTextInStaffApp(input.label, body)) return 'shared';
+  const oldApp = isCbiseoStaffNativeApp() && typeof window.CbiseoApp?.shareText !== 'function';
+  if (!oldApp && typeof navigator.share === 'function') {
     try {
-      await navigator.share(payload);
+      await navigator.share({ title: input.label, text: line, url: input.url });
       return 'shared';
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return 'shared';
     }
   }
-  await navigator.clipboard.writeText(input.url);
-  return 'copied';
+  await navigator.clipboard.writeText(oldApp ? body : input.url);
+  return oldApp ? 'copied-app' : 'copied';
 }
 
 export async function cancelTeamCashbill(id: string): Promise<void> {

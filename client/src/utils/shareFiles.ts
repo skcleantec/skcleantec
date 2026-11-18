@@ -1,4 +1,5 @@
 import { copyTextToClipboard } from './clipboard';
+import { shareTextInStaffApp } from './cbiseoNativeApp';
 
 export type ShareZipResult = 'shared' | 'downloaded' | 'cancelled';
 
@@ -189,6 +190,7 @@ export async function shareImageFiles(params: {
   }
 
   const body = buildShareLinkFallbackBody(text, images);
+  if (shareTextInStaffApp(title, body)) return 'shared';
   const ok = await copyTextToClipboard(body);
   if (!ok) throw new Error('공유·복사에 실패했습니다. 네트워크 연결을 확인해 주세요.');
   return 'clipboard';

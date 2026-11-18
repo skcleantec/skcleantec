@@ -25,6 +25,8 @@ declare global {
       openPlayStore?: () => void;
       /** http(s) 등 — 시스템 브라우저(외부)에서 열기 */
       openExternalUrl?: (url: string) => void;
+      /** 글 공유 — 카카오톡 등을 고르는 창. 없는 구버전 앱은 호출하지 않는다. */
+      shareText?: (title: string, text: string) => void;
       /** TMAP — Play v38+ 네이티브 Intent */
       openNavi?: (app: string, lat: string, lng: string, name: string) => void;
       /** WebView 로그아웃 — 네이티브 FCM·TokenStore 정리 */
@@ -32,6 +34,8 @@ declare global {
     };
     __cbiseoNativeGoogleLogin?: (idToken: string) => void;
     __cbiseoNativeGoogleLoginError?: (message: string) => void;
+    /** true면 열린 창을 닫았으니 앱은 뒤로 가지 않는다. */
+    __cbiseoHandleBack?: () => boolean;
   }
 }
 
@@ -89,6 +93,73 @@ export function notifyCbiseoStaffLogout(): void {
 }
 
 /** 앱 WebView — 배너·프로모 링크를 시스템 브라우저(외부)에서 연다 */
+/** 업무 앱 공유 창. 브릿지가 없으면 false. */
+export function shareTextInStaffApp(title: string, text: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const share = window.CbiseoApp?.shareText;
+  if (typeof share !== 'function') return false;
+  const body = text.trim();
+  if (!body) return false;
+  try {
+    share.call(window.CbiseoApp, title.trim(), body);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isOnScreen(el: Element): boolean {
+  const style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+function clickClose(root: ParentNode): boolean {
+  const labeled = root.querySelector<HTMLElement>('button[aria-label="닫기"], button[aria-label="메뉴 닫기"]');
+  if (labeled && isOnScreen(labeled)) {
+    labeled.click();
+    return true;
+  }
+  const buttons = root.querySelectorAll('button');
+  for (let i = buttons.length - 1; i >= 0; i -= 1) {
+    const button = buttons[i];
+    if (!button || !isOnScreen(button)) continue;
+    if ((button.textContent ?? '').replace(/\s/g, '') === '닫기') {
+      button.click();
+      return true;
+    }
+  }
+  return false;
+}
+
+/** 열린 팝업·메뉴를 먼저 닫는다. 앱 뒤로가기 직전에 호출된다. */
+export function installCbiseoHardwareBack(): void {
+  if (typeof window === 'undefined') return;
+  window.__cbiseoHandleBack = () => {
+    const menuClose = document.querySelector<HTMLElement>('button[aria-label="메뉴 닫기"]');
+    if (menuClose && isOnScreen(menuClose)) {
+      menuClose.click();
+      return true;
+    }
+    const sheet = document.querySelector('[data-fab-sheet]');
+    if (sheet && isOnScreen(sheet)) {
+      if (!clickClose(sheet)) sheet.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return true;
+    }
+    const dialogs = [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].filter(isOnScreen);
+    const top = dialogs[dialogs.length - 1];
+    if (!top) return false;
+    if (clickClose(top)) return true;
+    const overlay = top.parentElement;
+    if (overlay && overlay !== document.body) {
+      overlay.click();
+      return true;
+    }
+    return true;
+  };
+}
+
 export function openStaffAppExternalUrl(url: string): void {
   const trimmed = url.trim();
   if (!trimmed) return;
