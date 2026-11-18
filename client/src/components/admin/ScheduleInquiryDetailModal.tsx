@@ -31,6 +31,7 @@ import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
 import { InquiryCustomerCallButton } from './InquiryCustomerCallButton';
 import { InquiryEditFooterTools } from './card-payment/InquiryEditFooterTools';
+import { InquiryPaybackLinkButton } from './inquiry-edit/InquiryPaybackLinkButton';
 import { ScheduleCustomCalendarPinSection } from './ScheduleCustomCalendarPinSection';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import type { ServiceZoneItem } from '../../api/serviceZones';
@@ -2582,6 +2583,18 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     >
                       발주서
                     </Button>
+                  ) : null}
+                  {!isCreate && item.orderForm?.token ? (
+                    <InquiryPaybackLinkButton
+                      inquiryId={item.id}
+                      token={token}
+                      tenantSlug={tenantSlug}
+                      brandSlug={item.operatingCompany?.slug ?? null}
+                      customerName={item.customerName}
+                      initialPaybackToken={
+                        (item.orderForm as { reviewPaybackToken?: string | null }).reviewPaybackToken ?? null
+                      }
+                    />
                   ) : null}
                   <Button
                     size="sm"
