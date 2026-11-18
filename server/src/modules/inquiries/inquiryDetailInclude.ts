@@ -44,6 +44,7 @@ export const inquiryDetailInclude = {
     select: {
       id: true,
       token: true,
+      reviewPaybackToken: true,
       createdById: true,
       totalAmount: true,
       depositAmount: true,
