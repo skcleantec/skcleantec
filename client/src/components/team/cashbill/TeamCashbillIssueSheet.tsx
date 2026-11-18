@@ -63,11 +63,14 @@ export function TeamCashbillIssueSheet({
   inquiryId,
   onClose,
   showTaxTab = true,
+  initialKind = 'cash',
 }: {
   open: boolean;
   inquiryId: string | null;
   onClose: () => void;
   showTaxTab?: boolean;
+  /** 처음 열 때 고를 탭 (영수증 메뉴에서 보고 있던 탭) */
+  initialKind?: 'cash' | 'tax';
 }) {
   const titleId = useId();
   const [kind, setKind] = useState<'cash' | 'tax'>('cash');
@@ -91,7 +94,7 @@ export function TeamCashbillIssueSheet({
 
   useEffect(() => {
     if (!open) return;
-    setKind('cash');
+    setKind(initialKind);
     void fetchTeamTaxAccess().then((res) => setTaxOn(showTaxTab && res.taxInvoiceOn)).catch(() => setTaxOn(false));
     setPrefill(null);
     setError(null);
@@ -122,7 +125,7 @@ export function TeamCashbillIssueSheet({
     return () => {
       stop = true;
     };
-  }, [inquiryId, open, showTaxTab]);
+  }, [inquiryId, open, showTaxTab, initialKind]);
 
   if (!open) return null;
   if (taxOn && kind === 'tax') {
