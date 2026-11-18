@@ -29,39 +29,50 @@ export function CrmWorkBrandBar({
       badgeColorKey: item.config?.branding?.badgeColorKey,
       inactive: !item.isActive,
     });
+    const strip = variant === 'strip';
     return (
       <button
         key={item.operatingCompanyId}
         type="button"
         disabled={switching || selected}
+        aria-pressed={selected}
         onClick={() => {
           if (selected) return;
           void (async () => {
             const ok = await confirmDialog({
               title: `작업 브랜드를 「${item.displayName}」로 바꿉니다.`,
-              body: '고객 조회·저장·숨고 연동이 해당 브랜드 기준으로 바뀁니다.',
+              body: '고객 조회·저장·숨고 연동이 해당 브랜드 기준으로 바뀝니다.',
               confirmLabel: '바꾸기',
             });
             if (ok) onSwitch(item.slug);
           })();
         }}
         className={
-          variant === 'inline'
-            ? `inline-flex h-6 max-w-[8.5rem] items-center whitespace-nowrap rounded-lg px-2 text-fluid-2xs font-semibold truncate transition ${
-                selected
-                  ? `ring-1 ring-emerald-400/80 ring-offset-1 ring-offset-white ${colorCls}`
-                  : `opacity-80 hover:opacity-100 ${colorCls}`
-              }`
-            : `inline-flex max-w-[10rem] items-center rounded-lg px-2.5 py-1 text-fluid-2xs font-semibold truncate transition ${
-                selected
-                  ? `ring-2 ring-white/80 ring-offset-1 ring-offset-slate-900 ${colorCls}`
-                  : `opacity-75 hover:opacity-100 ${colorCls}`
+          selected
+            ? `inline-flex h-7 max-w-[11rem] items-center gap-1 whitespace-nowrap rounded-lg pl-1.5 pr-2 text-fluid-2xs font-bold shadow-sm ring-2 ring-offset-1 disabled:cursor-default ${
+                strip ? 'ring-white/90 ring-offset-slate-900' : 'ring-slate-900/80 ring-offset-white'
+              } ${colorCls}`
+            : `inline-flex h-7 max-w-[9rem] items-center whitespace-nowrap rounded-lg border border-dashed px-2 text-fluid-2xs font-medium transition disabled:opacity-50 ${
+                strip
+                  ? 'border-white/30 bg-transparent text-slate-400 hover:border-white/60 hover:text-white'
+                  : 'border-slate-300 bg-white text-slate-400 hover:border-slate-400 hover:text-slate-700'
               }`
         }
-        title={item.slug ? `${item.displayName} (${item.slug})` : item.displayName}
+        title={
+          selected
+            ? `지금 「${item.displayName}」 브랜드로 작업 중`
+            : `누르면 「${item.displayName}」 브랜드로 바꿉니다`
+        }
       >
-        {item.displayName}
-        {item.isPrimary ? <span className="ml-0.5 opacity-70">·기본</span> : null}
+        {selected ? (
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" aria-hidden>
+            <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.18" />
+            <path d="M4.8 8.2l2.1 2.1 4.3-4.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : null}
+        <span className="truncate">{item.displayName}</span>
+        {selected ? <span className="shrink-0 text-[10px] font-semibold opacity-80">사용 중</span> : null}
+        {!selected && item.isPrimary ? <span className="ml-0.5 shrink-0 opacity-70">·기본</span> : null}
       </button>
     );
   });
@@ -69,7 +80,7 @@ export function CrmWorkBrandBar({
   if (variant === 'inline') {
     return (
       <div className="flex flex-wrap items-center gap-1" role="group" aria-label="작업 브랜드">
-        <span className="mr-0.5 whitespace-nowrap text-fluid-2xs font-medium text-slate-500">브랜드</span>
+        <span className="mr-0.5 whitespace-nowrap text-fluid-2xs font-semibold text-slate-600">작업 브랜드</span>
         {chips}
       </div>
     );
