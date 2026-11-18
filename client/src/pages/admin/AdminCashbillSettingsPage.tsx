@@ -7,7 +7,6 @@ import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { CashbillBrandCard } from '../../components/cashbill/CashbillBrandCard';
-import { TeamCashbillIssueSetting } from '../../components/cashbill/TeamCashbillIssueSetting';
 
 export function AdminCashbillSettingsPage() {
   const navigate = useNavigate();
@@ -50,7 +49,6 @@ export function AdminCashbillSettingsPage() {
         </span>
       </PageTitleWithFavorite>
 
-      <TeamCashbillIssueSetting canEdit={!permissions.loading && permissions.me?.role === 'ADMIN'} />
       {settings?.blockReason ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-amber-900">
           {settings.blockReason}
