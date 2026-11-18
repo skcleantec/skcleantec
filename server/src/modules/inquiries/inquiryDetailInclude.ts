@@ -1,4 +1,5 @@
 import { approvedCardPaymentFlag } from '../card-payment/cardPaymentInquiryFlag.js';
+import { issuedCashbillFlag, issuedTaxInvoiceFlag } from '../cashbill/cashbillInquiryFlag.js';
 import { operatingCompanySummarySelect } from '../operating-companies/operatingCompanyPublicSummary.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 
@@ -78,4 +79,6 @@ export const inquiryDetailInclude = {
     include: { createdBy: { select: { id: true, name: true } } },
   },
   ...approvedCardPaymentFlag,
+  ...issuedCashbillFlag,
+  ...issuedTaxInvoiceFlag,
 } as const;

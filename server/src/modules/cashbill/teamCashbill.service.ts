@@ -4,7 +4,7 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { readCashbillWalletBalance } from './cashbillWallet.js';
 import { cashbillRemaining } from './cashbillIssue.amounts.js';
-import { CashbillIssueError, cashbillPrintUrl, issueCashbill } from './cashbillIssue.service.js';
+import { CashbillIssueError, cancelCashbillIssue, cashbillPrintUrl, issueCashbill } from './cashbillIssue.service.js';
 import {
   teamCashbillCanShare,
   teamCashbillDefaultTaxKind,
@@ -359,7 +359,6 @@ export async function listTeamCashbillIssues(tenantId: string, userId: string) {
       const issued = ISSUED.includes(row.barobillState ?? '');
       let status = '확인 중';
       if (row.kind === 'CANCEL' || cancelled) status = '취소됨';
-      else if (row.cancelRequestedAt) status = '취소 요청됨';
       else if (issued) status = '발행됨';
       else if (row.lastError) status = '발행되지 않음';
       return {
@@ -373,8 +372,8 @@ export async function listTeamCashbillIssues(tenantId: string, userId: string) {
         taxKind: teamCashbillTaxKind(row.taxKind),
         ntsConfirmNum: row.ntsConfirmNum,
         status,
-        canRequestCancel: row.kind !== 'CANCEL' && issued && !cancelled && !row.cancelRequestedAt,
-        canSendReceipt: row.kind !== 'CANCEL' && issued && !cancelled && !row.cancelRequestedAt && Boolean(row.ntsConfirmNum),
+        canCancel: row.kind !== 'CANCEL' && issued && !cancelled && Boolean(row.ntsConfirmNum),
+        canSendReceipt: row.kind !== 'CANCEL' && issued && !cancelled && Boolean(row.ntsConfirmNum),
         createdAt: row.createdAt.toISOString(),
         lastError: plainError(row.lastError),
       };
@@ -419,7 +418,7 @@ export async function teamCashbillShareLink(tenantId: string, userId: string, is
     throw new CashbillIssueError('이 영수증은 보낼 수 없습니다.', 403);
   }
   const cancelled = row.cancellations.some((child) => child.barobillState && CANCEL_DONE.includes(child.barobillState));
-  if (row.kind === 'CANCEL' || cancelled || row.cancelRequestedAt || !row.ntsConfirmNum) {
+  if (row.kind === 'CANCEL' || cancelled || !row.ntsConfirmNum) {
     throw new CashbillIssueError('보낼 수 있는 영수증이 아닙니다.');
   }
   return {
@@ -431,33 +430,44 @@ export async function teamCashbillShareLink(tenantId: string, userId: string, is
   };
 }
 
-export async function requestTeamCashbillCancel(tenantId: string, userId: string, issueId: string) {
+export async function cancelTeamCashbill(tenantId: string, userId: string, issueId: string, requestId?: string) {
   const { user } = await gate(tenantId, userId);
   const row = await prisma.cashBillIssue.findFirst({
     where: { id: issueId, tenantId, createdById: userId },
     select: {
       id: true,
       kind: true,
+      totalWon: true,
       customerName: true,
       ntsConfirmNum: true,
-      cancelRequestedAt: true,
       barobillState: true,
       cancellations: { select: { barobillState: true } },
       inquiry: { select: { customerName: true } },
     },
   });
-  if (!row || row.kind === 'CANCEL') throw new CashbillIssueError('취소 요청할 발행 건이 없습니다.', 404);
+  if (!row || row.kind === 'CANCEL') throw new CashbillIssueError('취소할 영수증이 없습니다.', 404);
   const cancelled = row.cancellations.some((child) => child.barobillState && CANCEL_DONE.includes(child.barobillState));
   if (cancelled) throw new CashbillIssueError('이미 취소된 건입니다.');
-  if (!ISSUED.includes(row.barobillState ?? '')) throw new CashbillIssueError('발행이 끝난 건만 취소를 요청할 수 있습니다.');
-  if (row.cancelRequestedAt) return { ok: true };
-  await prisma.cashBillIssue.updateMany({
-    where: { id: row.id, tenantId, createdById: userId },
-    data: { cancelRequestedAt: new Date(), cancelRequestedById: userId },
-  });
+  if (!row.ntsConfirmNum || !ISSUED.includes(row.barobillState ?? '')) {
+    throw new CashbillIssueError('승인번호가 나온 건만 취소할 수 있습니다.');
+  }
+  try {
+    await cancelCashbillIssue(tenantId, userId, row.id, requestId);
+  } catch (err) {
+    if (err instanceof CashbillIssueError && (err.code === 'wallet_short' || err.message.includes('지갑'))) {
+      throw new CashbillIssueError(WALLET_SHORT, 402, 'wallet_short');
+    }
+    if (err instanceof CashbillIssueError && err.message.includes('바로빌')) {
+      throw new CashbillIssueError('지금은 취소할 수 없습니다. 사무실에 문의해 주세요.', err.statusCode, err.code);
+    }
+    throw err;
+  }
   const who = row.inquiry?.customerName?.trim() || row.customerName?.trim() || '고객';
-  const approval = row.ntsConfirmNum ? ` 승인번호 ${row.ntsConfirmNum}` : '';
-  await tellOffice(tenantId, userId, `[현금영수증] ${user.name} 팀장이 ${who} 현금영수증 취소를 요청했습니다.${approval}`).catch(() => undefined);
+  await tellOffice(
+    tenantId,
+    userId,
+    `[현금영수증] ${user.name} 팀장이 ${who} ${row.totalWon.toLocaleString('ko-KR')}원을 취소했습니다.`,
+  ).catch(() => undefined);
   return { ok: true };
 }
 

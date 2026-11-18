@@ -5,7 +5,8 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { readCashbillWalletBalance } from '../cashbill/cashbillWallet.js';
 import { teamCashbillVisible } from '../cashbill/teamCashbill.access.js';
-import { TaxInvoiceError, issueTaxInvoice, taxInvoicePrintUrl } from './taxInvoice.service.js';
+import { TaxInvoiceError, cancelTaxInvoice, issueTaxInvoice, taxInvoicePrintUrl } from './taxInvoice.service.js';
+import { modifyTaxInvoice } from './taxInvoiceModify.service.js';
 import { listTaxInvoiceBuyers } from './taxInvoiceBuyer.service.js';
 import { ensureTaxInvoiceShareUrl } from './taxInvoiceShare.service.js';
 import { teamTaxInvoiceReasonRequired, teamTaxInvoiceTabVisible } from './teamTaxInvoice.access.js';
@@ -279,19 +280,20 @@ export async function listTeamTaxInvoices(tenantId: string, userId: string) {
       totalAmount: true,
       barobillState: true,
       ntsSendKey: true,
+      ntsSendState: true,
+      modifyCode: true,
       inquiryId: true,
-      officeRequestedAt: true,
       createdAt: true,
+      modifications: { where: { modifyCode: '4', barobillState: '3014' }, select: { id: true } },
       inquiry: { select: { customerName: true, inquiryNumber: true, customerPhone: true } },
     },
   });
   return {
     items: rows.map((row) => {
       const issued = row.barobillState === '3014';
-      const cancelled = row.barobillState === '5031';
+      const cancelled = row.barobillState === '5031' || row.modifyCode === '4' || row.modifications.length > 0;
       let status = '확인 중';
       if (cancelled) status = '취소됨';
-      else if (row.officeRequestedAt) status = '요청됨';
       else if (issued) status = '발행됨';
       const approval = Boolean(row.ntsSendKey);
       return {
@@ -302,8 +304,8 @@ export async function listTeamTaxInvoices(tenantId: string, userId: string) {
         totalWon: row.totalAmount,
         status,
         approvalReady: approval && !cancelled,
-        canSendReceipt: issued && !cancelled && !row.officeRequestedAt && approval,
-        canRequestOffice: issued && !cancelled && !row.officeRequestedAt,
+        canSendReceipt: issued && !cancelled && approval,
+        canCancel: issued && !cancelled && approval,
         createdAt: row.createdAt.toISOString(),
       };
     }),
@@ -318,10 +320,12 @@ async function ownTax(tenantId: string, userId: string, issueId: string) {
       id: true,
       barobillState: true,
       ntsSendKey: true,
+      ntsSendState: true,
+      modifyCode: true,
       totalAmount: true,
       officeRequestedAt: true,
       buyerCorpName: true,
-      inquiry: { select: { customerPhone: true } },
+      inquiry: { select: { customerPhone: true, customerName: true } },
       operatingCompany: { select: { name: true, tenantId: true } },
     },
   });
@@ -337,7 +341,7 @@ export async function teamTaxInvoiceViewLink(tenantId: string, userId: string, i
 
 export async function teamTaxInvoiceShareLink(tenantId: string, userId: string, issueId: string) {
   const row = await ownTax(tenantId, userId, issueId);
-  if (row.barobillState !== '3014' || row.officeRequestedAt || !row.ntsSendKey) {
+  if (row.barobillState !== '3014' || row.modifyCode === '4' || !row.ntsSendKey) {
     throw new TaxInvoiceError('보낼 수 있는 영수증이 아닙니다.');
   }
   return {
@@ -347,6 +351,36 @@ export async function teamTaxInvoiceShareLink(tenantId: string, userId: string, 
     ntsConfirmNum: row.ntsSendKey,
     phone: (row.inquiry?.customerPhone ?? '').replace(/\D/g, ''),
   };
+}
+
+export async function cancelTeamTaxInvoice(tenantId: string, userId: string, issueId: string) {
+  const { user } = await gate(tenantId, userId);
+  const row = await ownTax(tenantId, userId, issueId);
+  if (row.barobillState === '5031' || row.modifyCode === '4') throw new TaxInvoiceError('이미 취소된 건입니다.');
+  if (row.barobillState !== '3014' || !row.ntsSendKey) throw new TaxInvoiceError('승인번호가 나온 건만 취소할 수 있습니다.');
+  const released = await prisma.taxInvoiceIssue.count({
+    where: { tenantId, originalIssueId: row.id, modifyCode: '4', barobillState: '3014' },
+  });
+  if (released > 0) throw new TaxInvoiceError('이미 취소된 건입니다.');
+  try {
+    if (row.ntsSendState === '1') await cancelTaxInvoice(tenantId, row.id);
+    else await modifyTaxInvoice(tenantId, userId, row.id, { kind: 'release' });
+  } catch (err) {
+    if (err instanceof TaxInvoiceError && (err.code === 'wallet_short' || err.message.includes('지갑'))) {
+      throw new TaxInvoiceError(WALLET_SHORT, 402, 'wallet_short');
+    }
+    if (err instanceof TaxInvoiceError && (err.message.includes('바로빌') || err.code === 'cert')) {
+      throw new TaxInvoiceError('지금은 취소할 수 없습니다. 사무실에 문의해 주세요.', err.statusCode, err.code);
+    }
+    throw err;
+  }
+  const who = row.inquiry?.customerName?.trim() || row.buyerCorpName.trim() || '고객';
+  await tellOffice(
+    tenantId,
+    userId,
+    `[세금계산서] ${user.name} 팀장이 ${who} ${row.totalAmount.toLocaleString('ko-KR')}원을 취소했습니다.`,
+  ).catch(() => undefined);
+  return { ok: true };
 }
 
 export async function requestTeamTaxInvoiceOffice(tenantId: string, userId: string, issueId: string) {

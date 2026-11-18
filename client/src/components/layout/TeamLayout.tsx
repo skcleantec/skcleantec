@@ -241,6 +241,14 @@ function TeamNavLinks({
               </NavLink>,
             )
           : null}
+        {showCashbill
+          ? wrap(
+              <NavLink to={teamTo('/team/taxinvoice')} className={navClass} {...linkProps}>
+                <TeamNavIcon type="taxinvoice" className="mr-3 h-4 w-4 shrink-0" />
+                <TeamBiInline id="team.layout.nav.taxinvoice" />
+              </NavLink>,
+            )
+          : null}
         {showDbMarketplace
           ? wrap(
               <NavLink to={teamTo('/team/db-marketplace')} className={navClass} {...linkProps}>
@@ -327,6 +335,12 @@ function TeamNavLinks({
         <NavLink to={teamTo('/team/cashbill')} className={navClass}>
           <TeamNavIcon type="cashbill" className="w-4 h-4 mr-1.5 shrink-0" />
           <TeamBiInline id="team.layout.nav.cashbill" />
+        </NavLink>
+      ) : null}
+      {showCashbill ? (
+        <NavLink to={teamTo('/team/taxinvoice')} className={navClass}>
+          <TeamNavIcon type="taxinvoice" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.taxinvoice" />
         </NavLink>
       ) : null}
       {showDbMarketplace ? (

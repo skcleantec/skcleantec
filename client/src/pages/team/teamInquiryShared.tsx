@@ -20,7 +20,7 @@ import { computeInquiryCollectibleAmount } from '../../utils/inquiryCollectibleA
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../../components/card-payment/CardPaymentDoneMark';
 import { TeamCashbillIssueSheet } from '../../components/team/cashbill/TeamCashbillIssueSheet';
-import { CashbillDoneMark, inquiryHasIssuedCashbill } from '../../components/cashbill/CashbillDoneMark';
+import { ReceiptIssuedBadges, inquiryHasIssuedCashbill, inquiryHasIssuedTaxInvoice } from '../../components/cashbill/CashbillDoneMark';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { InquiryConsultationPhotosPanel } from '../../components/inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
@@ -249,6 +249,7 @@ export interface InquiryItem {
   customerPhone: string;
   cardPayments?: { id: string }[];
   cashBillIssues?: { id: string }[];
+  taxInvoiceIssues?: { id: string }[];
   customerPhone2?: string | null;
   address: string;
   addressDetail: string | null;
@@ -1449,7 +1450,6 @@ export function TeamInquiryDetailModal({
                   {primaryCustomerTitle}
                 </h2>
                 <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
-                <CashbillDoneMark issued={inquiryHasIssuedCashbill(item)} />
                 <div className="flex shrink-0 items-center gap-1">
                   {showExternalShareCopy ? (
                     <button
@@ -1480,6 +1480,7 @@ export function TeamInquiryDetailModal({
                 ) : null}
                 <TeamInquiryStatusBi code={item.status} />
                 {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
+                <ReceiptIssuedBadges cash={inquiryHasIssuedCashbill(item)} tax={inquiryHasIssuedTaxInvoice(item)} />
                 {hasInspectionModule && enableHappyCall ? (
                   <TeamInspectionStatusBadge item={item} />
                 ) : hasInspectionModule ? (
@@ -1504,7 +1505,6 @@ export function TeamInquiryDetailModal({
                 {primaryCustomerTitle}
               </h2>
               <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
-              <CashbillDoneMark issued={inquiryHasIssuedCashbill(item)} />
               <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:whitespace-nowrap">
                 {item.inquiryNumber ? (
                   <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-fluid-2xs font-medium tabular-nums text-white">
@@ -1513,6 +1513,7 @@ export function TeamInquiryDetailModal({
                 ) : null}
                 <TeamInquiryStatusBi code={item.status} />
                 {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
+                <ReceiptIssuedBadges cash={inquiryHasIssuedCashbill(item)} tax={inquiryHasIssuedTaxInvoice(item)} />
                 {hasInspectionModule && enableHappyCall ? (
                   <TeamInspectionStatusBadge item={item} />
                 ) : hasInspectionModule ? (

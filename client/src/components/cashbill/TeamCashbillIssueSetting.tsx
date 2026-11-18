@@ -84,6 +84,7 @@ export function TeamCashbillIssueSetting({ canEdit = true, showTaxKind = true }:
         </div>
       ) : null}
       <p className="text-fluid-2xs text-slate-500">바꾸면 바로 저장돼요. 팀장별로 끄기는 사용자 등록 › 팀장에서 해요.</p>
+      <p className="text-fluid-2xs text-slate-500">팀장도 본인이 발행한 건은 취소할 수 있어요.</p>
       {error ? <p className="text-fluid-2xs text-red-700">{error}</p> : null}
     </fieldset>
   );

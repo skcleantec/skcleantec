@@ -13,3 +13,16 @@ export const issuedCashbillFlag = {
     take: 1,
   },
 };
+
+/** 접수에 발행이 끝난 세금계산서가 있는지. 발급 취소·계약 해제로 지운 건은 빼다. */
+export const issuedTaxInvoiceFlag = {
+  taxInvoiceIssues: {
+    where: {
+      barobillState: '3014',
+      totalAmount: { gt: 0 },
+      modifications: { none: { modifyCode: '4', barobillState: '3014' } },
+    },
+    select: { id: true },
+    take: 1,
+  },
+};

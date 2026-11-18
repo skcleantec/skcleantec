@@ -81,7 +81,7 @@ export type TeamCashbillMine = {
   taxKind: 'taxable' | 'exempt';
   ntsConfirmNum: string | null;
   status: string;
-  canRequestCancel: boolean;
+  canCancel: boolean;
   canSendReceipt: boolean;
   createdAt: string;
   lastError: string | null;
@@ -147,13 +147,34 @@ export async function fetchTeamCashbillShare(id: string): Promise<TeamCashbillSh
   return res.json() as Promise<TeamCashbillShare>;
 }
 
-export async function requestTeamCashbillCancel(id: string): Promise<void> {
+export function receiptShareText(input: { brandName: string; label: string; totalWon: number }): string {
+  const brand = input.brandName.trim();
+  const amount = `${input.totalWon.toLocaleString('ko-KR')}원`;
+  return brand ? `[${brand}] ${input.label} · ${amount}` : `${input.label} · ${amount}`;
+}
+
+export async function shareReceiptLink(input: { brandName: string; label: string; totalWon: number; url: string }): Promise<'shared' | 'copied'> {
+  const payload = { title: input.label, text: receiptShareText(input), url: input.url };
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share(payload);
+      return 'shared';
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return 'shared';
+    }
+  }
+  await navigator.clipboard.writeText(input.url);
+  return 'copied';
+}
+
+export async function cancelTeamCashbill(id: string): Promise<void> {
   const token = tokenOrThrow();
   const res = await fetch(withTeamPreviewQuery(`${API}/team/cashbill/issues/${encodeURIComponent(id)}/cancel-request`), {
     method: 'POST',
     headers: headers(token),
+    body: JSON.stringify({ requestId: crypto.randomUUID().replace(/-/g, '').slice(0, 20) }),
   });
-  if (!res.ok) throw await readError(res, '취소 요청을 보내지 못했습니다.');
+  if (!res.ok) throw await readError(res, '취소하지 못했습니다.');
 }
 
 export async function requestTeamCashbillCharge(): Promise<void> {

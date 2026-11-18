@@ -7,6 +7,7 @@ import {
   requestTeamTaxInvoiceCert,
   requestTeamTaxInvoiceCharge,
   requestTeamTaxInvoiceOffice,
+  cancelTeamTaxInvoice,
   teamIssueTaxInvoice,
   teamTaxInvoiceAccess,
   teamTaxInvoicePrefill,
@@ -93,6 +94,17 @@ router.get('/issues/:id/share', async (req, res) => {
     res.json(await teamTaxInvoiceShareLink(tenantId, user.userId, req.params.id));
   } catch (err) {
     sendError(res, err, '영수증 주소를 받지 못했습니다.');
+  }
+});
+
+router.post('/issues/:id/cancel', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    res.json(await cancelTeamTaxInvoice(tenantId, user.userId, req.params.id));
+  } catch (err) {
+    sendError(res, err, '취소하지 못했습니다.');
   }
 });
 

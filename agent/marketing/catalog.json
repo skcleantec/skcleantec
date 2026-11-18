@@ -1,7 +1,7 @@
 {
   "product": "청소비서",
   "productEn": "CBISEO",
-  "updatedAt": "2026-10-29",
+  "updatedAt": "2026-11-18",
   "planMonthlyCoins": {
     "free": 70,
     "standard": 200,
@@ -51,9 +51,16 @@
     { "label": "정보공유", "path": "/team/db-marketplace" },
     { "label": "휴무일", "path": "/team/dayoffs" },
     { "label": "C/S", "path": "/team/cs" },
-    { "label": "메시지", "path": "/team/messages" }
+    { "label": "메시지", "path": "/team/messages" },
+    { "label": "현금영수증", "path": "/team/cashbill", "plain": "내가 발행한 현금영수증. + 새로 발행, 영수증 보기, 공유하기, 취소. 배정 상세 하단도 현금영수증이고 세금계산서 탭은 없다." },
+    { "label": "세금계산서", "path": "/team/taxinvoice", "plain": "내가 발행한 세금계산서. + 새로 발행은 이 메뉴에서만. 버튼은 현금영수증과 같다." }
   ],
   "menus": {
+    "teamReceipts": {
+      "doc": "menus/team-receipts.md",
+      "teamClickPath": "로그인 → 상단 「현금영수증」 또는 「세금계산서」",
+      "plain": "팀장 현금영수증과 세금계산서는 메뉴가 따로입니다. 각 화면은 제목, + 새로 발행, 내 발행 내역입니다. 줄 버튼은 영수증 보기, 공유하기, 취소입니다. 배정 상세는 현금영수증만 열고, 발행되면 해피콜 옆에 초록 현금영수증 ✓ 또는 파랑 세금계산서 ✓가 붙습니다."
+    },
     "schedule": {
       "doc": "menus/schedule.md",
       "adminClickPath": "로그인 → 상단 「스케쥴」 → 달력에서 날짜 → 일정 목록 → 카드 상세",

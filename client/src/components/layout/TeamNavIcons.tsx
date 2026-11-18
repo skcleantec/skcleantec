@@ -9,7 +9,8 @@ export type TeamNavIconType =
   | 'cs'
   | 'messages'
   | 'e-contracts'
-  | 'cashbill';
+  | 'cashbill'
+  | 'taxinvoice';
 
 export function TeamNavIcon({
   type,
@@ -105,6 +106,15 @@ export function TeamNavIcon({
         <path d="M6 3h9l5 5v13H6z" />
         <path d="M15 3v5h5" />
         <path d="M9 12h6M9 16h4" />
+      </svg>
+    );
+  }
+  if (type === 'taxinvoice') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M6 3h9l5 5v13H6z" />
+        <path d="M15 3v5h5" />
+        <path d="M8 13h8M8 17h5" />
       </svg>
     );
   }
