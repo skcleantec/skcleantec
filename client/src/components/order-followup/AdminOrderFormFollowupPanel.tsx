@@ -1589,7 +1589,18 @@ export function AdminOrderFormFollowupPanel({
                     text="고급 DB로 올릴 때까지 팀에서 더 촘촘히 챙길 고객으로 표시합니다. 켜면 목록에서 노란 배경으로 보입니다."
                   />
                 </div>
+              </div>
+              <div className="shrink-0 border-t border-gray-100 bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px),var(--cbiseo-safe-area-bottom,0px))] sm:pb-3 rounded-b-none sm:rounded-b-2xl">
                 <div className="flex items-center gap-2">
+                  {(editPhone || edit.customerPhone || '').replace(/\D/g, '').length >= 8 ? (
+                    <a
+                      href={`tel:${(editPhone || edit.customerPhone || '').replace(/\D/g, '')}`}
+                      className="inline-flex w-20 items-center justify-center rounded-lg bg-blue-600 py-2.5 text-fluid-sm font-medium text-white hover:bg-blue-700"
+                      aria-label="고객에게 전화 걸기"
+                    >
+                      전화
+                    </a>
+                  ) : null}
                   <button
                     type="button"
                     disabled={savingEdit}
