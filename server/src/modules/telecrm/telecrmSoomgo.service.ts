@@ -1,6 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
 import { decryptTenantSecret, encryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
-import { pickSoomgoCredentialSource } from './telecrmSoomgoPresetBrand.js';
 import {
   mergeOperatingCompanySoomgoStored,
   soomgoPublicFromStored,
@@ -159,14 +158,30 @@ export async function getTelecrmSoomgoCredentials(
   tenantId: string,
   operatingCompanyId?: string | null,
 ): Promise<TelecrmSoomgoCredentialsDto | null> {
-  const fromBrand = operatingCompanyId
-    ? await credentialsFromOperatingCompany(tenantId, operatingCompanyId)
-    : null;
-  const fromTenant = fromBrand ? null : await credentialsFromTenant(tenantId);
-  const source = pickSoomgoCredentialSource(Boolean(fromBrand), Boolean(fromTenant));
-  if (source === 'brand') return fromBrand;
-  if (source === 'tenant') return fromTenant;
+  if (!operatingCompanyId) return credentialsFromTenant(tenantId);
+  const fromBrand = await credentialsFromOperatingCompany(tenantId, operatingCompanyId);
+  if (fromBrand) return fromBrand;
+  const oc = await prisma.operatingCompany.findFirst({
+    where: { id: operatingCompanyId, tenantId },
+    select: { isDefault: true },
+  });
+  if (oc?.isDefault) return credentialsFromTenant(tenantId);
   return null;
+}
+
+/** 기본 브랜드가 아닌데 숨고 계정이 없을 때 안내. 기본 브랜드·브랜드 없음이면 null. */
+export async function nonDefaultBrandMissingSoomgoMessage(
+  tenantId: string,
+  operatingCompanyId: string,
+): Promise<string | null> {
+  const oc = await prisma.operatingCompany.findFirst({
+    where: { id: operatingCompanyId, tenantId },
+    select: { isDefault: true, name: true, config: true },
+  });
+  if (!oc || oc.isDefault) return null;
+  const config = parseOperatingCompanyConfig(oc.config);
+  const label = config.branding?.displayName?.trim() || oc.name.trim() || '브랜드';
+  return `「${label}」 브랜드의 숨고 계정이 설정되지 않았습니다. 영업 브랜드 설정에서 등록해 주세요.`;
 }
 
 export async function upsertTelecrmSoomgoConfig(

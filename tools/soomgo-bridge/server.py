@@ -21,7 +21,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from automation.browser import BrowserManager
+from automation.browser import BrowserManager, _chrome_profile_dir
+from automation.last_login import (
+    account_key,
+    last_login_path,
+    read_saved_key,
+    session_matches_saved,
+    write_saved_key,
+)
 from automation.call_modal import CallModalManager
 from automation.chat_list_watcher import ChatListWatcher
 from automation.chat_room import ChatRoomManager
@@ -111,10 +118,44 @@ def _open_soomgo_login_if_needed(driver) -> None:
         logger.warning('open soomgo login page: %s', e)
 
 
-def _perform_soomgo_login(driver, email: str, password: str, mode: str) -> tuple[bool, str | None]:
+def _remember_login_account(mode: str, email: str) -> None:
+    try:
+        write_saved_key(last_login_path(_chrome_profile_dir()), account_key(mode, email))
+    except Exception as e:
+        logger.warning('save soomgo last login: %s', e)
+
+
+def _clear_soomgo_browser_session(driver) -> None:
+    """다른 브랜드 세션이 남아 있으면 쿠키·저장소를 지우고 로그인 화면으로 보낸다."""
+    try:
+        url = (driver.current_url or '').lower()
+        if 'soomgo.com' not in url:
+            driver.get('https://soomgo.com/')
+            time.sleep(0.4)
+        driver.delete_all_cookies()
+        driver.execute_script(
+            "try{localStorage.clear();}catch(e){}"
+            "try{sessionStorage.clear();}catch(e){}"
+        )
+        driver.get(URLS['LOGIN'])
+        time.sleep(0.6)
+        if is_logged_in(driver):
+            logger.warning('soomgo session still logged in after cookie clear')
+    except Exception as e:
+        logger.warning('clear soomgo session: %s', e)
+
+
+def _perform_soomgo_login(
+    driver,
+    email: str,
+    password: str,
+    mode: str,
+    *,
+    accept_existing: bool = True,
+) -> tuple[bool, str | None]:
     """긴 대기 포함 — HTTP lock 밖에서 호출."""
     dismiss_blocking_overlays(driver, 0.5, max_rounds=4)
-    if is_logged_in(driver):
+    if accept_existing and is_logged_in(driver):
         goto_chat_list(driver)
         return True, None
 
@@ -583,13 +624,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 mode = str(body.get('mode', 'email') or 'email').strip().lower()
                 if mode not in ('email', 'kakao'):
                     mode = 'email'
+                request_key = account_key(mode, email)
+                saved_key = read_saved_key(last_login_path(_chrome_profile_dir()))
                 _open_soomgo_login_if_needed(driver)
                 _arrange_soomgo_layout(body)
 
-                if is_logged_in(driver):
+                if is_logged_in(driver) and session_matches_saved(saved_key, request_key):
                     goto_chat_list(driver)
                     _logged_in = True
                     _last_error = None
+                    _remember_login_account(mode, email)
                     _chat_watcher.ensure_installed(driver)
                     _ensure_chat_watch()
                     _json_response(
@@ -612,6 +656,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     )
                     return
 
+                switched_account = bool(is_logged_in(driver))
+                if switched_account:
+                    _clear_soomgo_browser_session(driver)
+
             _login_in_progress.set()
             try:
                 driver = _browser.driver
@@ -623,7 +671,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
                             return
                         driver = _browser.driver
                 assert driver is not None
-                ok, login_err = _perform_soomgo_login(driver, email, password, mode)
+                ok, login_err = _perform_soomgo_login(
+                    driver,
+                    email,
+                    password,
+                    mode,
+                    accept_existing=not switched_account,
+                )
             finally:
                 _login_in_progress.clear()
 
@@ -636,16 +690,17 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 else:
                     _last_error = login_err
                 status = 200 if ok else 401
-                _json_response(
-                    self,
-                    status,
-                    {
-                        **_status_payload(),
-                        'loginOk': ok,
-                        'error': _last_error,
-                        'loginMode': mode,
-                    },
-                )
+                if ok:
+                    _remember_login_account(mode, email)
+                payload = {
+                    **_status_payload(),
+                    'loginOk': ok,
+                    'error': _last_error,
+                    'loginMode': mode,
+                }
+                if ok and switched_account:
+                    payload['switchedAccount'] = True
+                _json_response(self, status, payload)
             return
 
         with _lock:

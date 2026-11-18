@@ -5,6 +5,7 @@ import { requireCrmWorkOperatingCompanyId, requireTelecrmActorPassword, requireT
 import {
   getTelecrmSoomgoConfig,
   getTelecrmSoomgoCredentials,
+  nonDefaultBrandMissingSoomgoMessage,
   listTelecrmSoomgoBrandConfigs,
   updateTelecrmSoomgoBrandConfig,
   upsertTelecrmSoomgoConfig,
@@ -36,7 +37,12 @@ router.get('/credentials', requireStaffPermission('crm.view', 'crm.settings'), a
   if (!operatingCompanyId) return;
   const creds = await getTelecrmSoomgoCredentials(tenantId, operatingCompanyId);
   if (!creds) {
-    res.status(404).json({ error: '숨고 연동 계정이 설정되지 않았습니다. 텔레CRM 설정 또는 영업 브랜드 설정에서 등록해 주세요.' });
+    const brandMessage = await nonDefaultBrandMissingSoomgoMessage(tenantId, operatingCompanyId);
+    res.status(404).json({
+      error:
+        brandMessage ??
+        '숨고 연동 계정이 설정되지 않았습니다. 텔레CRM 설정 또는 영업 브랜드 설정에서 등록해 주세요.',
+    });
     return;
   }
   res.json(creds);
