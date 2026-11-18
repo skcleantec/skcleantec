@@ -73,6 +73,7 @@ export function AdminTaxInvoiceListPage() {
   const brandId = searchParams.get('brandId') || '';
   const queryText = searchParams.get('q') || '';
   const extraOnly = searchParams.get('extra') === '1';
+  const issuer = searchParams.get('issuer') || '';
   // 예전 ?tab=issue·?from= 주소는 발행 페이지로 보낸다.
   const tabParam = searchParams.get('tab');
   const legacyFrom = searchParams.get('from');
@@ -122,6 +123,7 @@ export function AdminTaxInvoiceListPage() {
     if (brandId) qs.set('brandId', brandId);
     if (queryText) qs.set('q', queryText);
     if (extraOnly) qs.set('extra', '1');
+    if (issuer === 'team' || issuer === 'staff') qs.set('issuer', issuer);
     qs.set('limit', String(pageSize));
     qs.set('offset', String((safePage - 1) * pageSize));
     const res = await listTaxInvoices(qs);
@@ -129,7 +131,7 @@ export function AdminTaxInvoiceListPage() {
     setTotal(res.total);
     setBrands(res.brands);
     if (res.summary) setSummary(res.summary);
-  }, [datePreset, monthKey, dayKey, state, brandId, queryText, extraOnly, pageSize, safePage]);
+  }, [datePreset, monthKey, dayKey, state, brandId, queryText, extraOnly, issuer, pageSize, safePage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -302,6 +304,11 @@ export function AdminTaxInvoiceListPage() {
                     {brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
                   </select>
                 ) : null}
+                <select value={issuer} aria-label="발행한 사람" className="h-9 rounded-lg border-0 bg-[#F4F6FA] px-2 text-fluid-xs" onChange={(e) => patch({ issuer: e.target.value, page: '1' })}>
+                  <option value="">발행한 사람</option>
+                  <option value="staff">관리자</option>
+                  <option value="team">팀장</option>
+                </select>
                 <label className="inline-flex min-h-9 items-center gap-1.5 text-fluid-xs text-slate-600">
                   <input type="checkbox" checked={extraOnly} onChange={(event) => patch({ extra: event.target.checked ? '1' : null, page: '1' })} />
                   추가금액 있는 건만
@@ -322,6 +329,7 @@ export function AdminTaxInvoiceListPage() {
                       <th className="w-[64px] px-2 py-2.5 text-center text-fluid-2xs font-medium text-slate-600">구분</th>
                       <th className="w-[108px] px-3 py-2.5 text-right text-fluid-2xs font-medium text-slate-600">공급가액</th>
                       <th className="w-[92px] px-3 py-2.5 text-right text-fluid-2xs font-medium text-slate-600">세액</th>
+                      <th className="w-[110px] px-2 py-2.5 text-center text-fluid-2xs font-medium text-slate-600">발행한 사람</th>
                       <th className="w-[140px] px-2 py-2.5 text-center text-fluid-2xs font-medium text-slate-600">상태</th>
                       <th className="w-[120px] px-2 py-2.5" />
                     </tr>
@@ -341,7 +349,7 @@ export function AdminTaxInvoiceListPage() {
                               <span className="tabular-nums">{row.buyerCorpNum || '—'}</span>
                               {row.inquiryNumber ? (
                                 <> · <Link className="underline-offset-2 hover:underline" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.customerName} {row.inquiryNumber}</Link></>
-                              ) : null}
+                              ) : <span> · 연결 없음</span>}
                             </p>
                           </td>
                           <td className={`truncate px-3 py-3 text-fluid-2xs text-slate-600 ${XL_HIDE}`} title={row.itemName || '청소 서비스'}>{row.itemName || '청소 서비스'}</td>
@@ -351,6 +359,7 @@ export function AdminTaxInvoiceListPage() {
                             <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 text-right text-fluid-2xs tabular-nums text-slate-600">{row.taxKind === 'exempt' ? '—' : formatSignedWon(row.taxAmount)}</td>
+                          <td className="px-2 py-3 text-center text-fluid-2xs text-slate-700">{row.issuerName ? `${row.issuerRole === 'TEAM_LEADER' ? '팀장' : '관리자'} ${row.issuerName}` : ''}</td>
                           <td className="px-2 py-3 text-center">
                             <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
                               <TaxStatus row={row} />
@@ -380,6 +389,11 @@ export function AdminTaxInvoiceListPage() {
               <SegmentedControl ariaLabel="발행 기간" value={preset} onChange={(next) => patch({ datePreset: next, page: '1' })} options={PRESETS.map((item) => ({ value: item.value, label: item.label }))} />
               {preset === 'month' ? <YearMonthSelect value={monthKey} onChange={(month) => patch({ month, page: '1' })} /> : null}
               {preset === 'day' ? <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} /> : null}
+              <select value={issuer} aria-label="발행한 사람" className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-xs" onChange={(e) => patch({ issuer: e.target.value, page: '1' })}>
+                <option value="">발행한 사람</option>
+                <option value="staff">관리자</option>
+                <option value="team">팀장</option>
+              </select>
               <select value={state} aria-label="상태" className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-xs" onChange={(e) => patch({ state: e.target.value, page: '1' })}>
                 {STATES.map(([id, label]) => <option key={id || 'all'} value={id}>{label}</option>)}
               </select>
@@ -552,7 +566,7 @@ async function openTaxMail(issueId: string): Promise<void> {
 function TaxCard({ row, nested, cancelling, onCancel, onReissue, onLink, onModify, onError, onFocusOriginal, highlight }: { row: TaxInvoiceRow; nested: boolean; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onModify: () => void; onError: (message: string) => void; onFocusOriginal: (id: string) => void; highlight: boolean }) {
   return (
     <article data-tax-row={row.id} className={`space-y-1 rounded-lg border border-slate-200 p-2 ${nested ? 'ml-2' : ''} ${highlight ? 'bg-[#F0FDF4]' : 'bg-white'}`}>
-      <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}{row.issuerName ? ` · 발급 ${row.issuerName}` : ''}</p>
+      <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}{row.issuerName ? ` · ${row.issuerRole === 'TEAM_LEADER' ? '팀장' : '관리자'} ${row.issuerName}` : ''}{row.linked === false ? ' · 연결 없음' : ''}</p>
       <p className="truncate text-fluid-sm font-medium text-slate-900" title={row.customerName}>{row.customerName}</p>
       <p className="truncate text-fluid-xs text-slate-700" title={row.buyerCorpName}>{row.buyerCorpName} · {row.buyerCorpNum || '—'}</p>
       <div className="text-right">

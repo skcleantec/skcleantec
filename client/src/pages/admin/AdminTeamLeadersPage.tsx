@@ -987,12 +987,12 @@ export function AdminTeamLeadersPage() {
                             />
                           </button>
                           <span className="text-gray-300">|</span>
-                          <span className="shrink-0 text-fluid-2xs font-medium text-gray-600">현금영수증</span>
+                          <span className="shrink-0 text-fluid-2xs font-medium text-gray-600">현금영수증·세금계산서</span>
                           <button
                             type="button"
                             role="switch"
                             aria-checked={item.cashbillIssueEnabled !== false}
-                            aria-label="현금영수증 발행 허용"
+                            aria-label="현금영수증·세금계산서 발행 허용"
                             disabled={cashbillSwitchId === item.id}
                             onClick={() => void handleCashbillToggle(item, item.cashbillIssueEnabled === false)}
                             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
@@ -1044,7 +1044,7 @@ export function AdminTeamLeadersPage() {
                           <span className="font-normal text-fluid-2xs text-gray-500">등록 허용</span>
                         </th>
                         <th className="px-2 py-3 text-center font-medium text-gray-700 w-[6.5rem] whitespace-nowrap">
-                          현금영수증
+                          현금영수증·세금계산서
                         </th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
                       </tr>
@@ -1094,7 +1094,7 @@ export function AdminTeamLeadersPage() {
                                   type="button"
                                   role="switch"
                                   aria-checked={on}
-                                  aria-label="현금영수증 발행 허용"
+                                  aria-label="현금영수증·세금계산서 발행 허용"
                                   disabled={cashbillSwitchId === item.id}
                                   onClick={() => void handleCashbillToggle(item, !on)}
                                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${

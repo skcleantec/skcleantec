@@ -329,6 +329,17 @@ export async function listTeamCashbillIssues(tenantId: string, userId: string) {
   };
 }
 
+export async function teamCashbillViewLink(tenantId: string, userId: string, issueId: string) {
+  await gate(tenantId, userId);
+  const row = await prisma.cashBillIssue.findFirst({
+    where: { id: issueId, tenantId, createdById: userId },
+    select: { id: true, ntsConfirmNum: true, kind: true },
+  });
+  if (!row) throw new CashbillIssueError('영수증을 찾을 수 없습니다.', 404);
+  if (!row.ntsConfirmNum || row.kind === 'CANCEL') throw new CashbillIssueError('승인번호가 나오면 볼 수 있어요.');
+  return { url: await ensureCashbillShareUrl(tenantId, row.id) };
+}
+
 export async function teamCashbillShareLink(tenantId: string, userId: string, issueId: string) {
   await gate(tenantId, userId);
   const row = await prisma.cashBillIssue.findFirst({

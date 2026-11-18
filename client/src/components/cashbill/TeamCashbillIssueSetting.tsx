@@ -39,7 +39,7 @@ export function TeamCashbillIssueSetting({ canEdit = true }: { canEdit?: boolean
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="text-fluid-sm font-medium text-slate-900">팀장도 발행할 수 있게</p>
-        <p className="text-fluid-2xs text-slate-500">끄면 팀장 화면에서 현금영수증이 사라집니다. 팀장별로도 끌 수 있습니다.</p>
+        <p className="text-fluid-2xs text-slate-500">현금영수증·세금계산서. 끄면 팀장 화면에서 사라집니다. 팀장별로도 끌 수 있습니다.</p>
       </div>
       <button
         type="button"
