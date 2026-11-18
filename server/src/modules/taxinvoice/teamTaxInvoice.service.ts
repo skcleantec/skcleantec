@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { CASHBILL_MODULE_ID, TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
 import { kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
@@ -43,8 +44,11 @@ async function tellOffice(tenantId: string, senderId: string, content: string) {
     select: { id: true },
   });
   if (admins.length > 0) {
+    // 같은 알림은 batchId 하나로 묶는다. 관리자 화면은 팀장 대화를 합쳐 보여 주므로 묶지 않으면 받는 사람 수만큼 겹쳐 보인다.
+    const batchId = randomUUID();
     await prisma.message.createMany({
       data: admins.map((admin) => ({
+        batchId,
         tenantId,
         senderId,
         receiverId: admin.id,
