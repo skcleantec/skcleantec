@@ -21,6 +21,7 @@ export type TenantBrandChannelView = {
       step: number;
       approved: number;
       templateCount: number;
+      templates?: { label: string; status: string; statusLabel: string; approvedAt: string | null }[];
       note: string;
       deposit: {
         grossKrw: number;
@@ -81,7 +82,15 @@ export function requestTenantBrandChannel(body: {
 export type PlatformBrandChannelReview = {
   lastCheckedAt: string | null;
   fees: { setupFeeKrw: number; customCopyFeeKrw: number };
-  summary: { linked: number; inReview: number; rejected: number; ready: number; needsLink: number; paymentPending: number };
+  summary: {
+    linked: number;
+    inReview: number;
+    rejected: number;
+    ready: number;
+    needsLink: number;
+    paymentPending: number;
+    recentlyApproved?: number;
+  };
   rows: {
     id: string;
     tenantId: string;
@@ -92,7 +101,7 @@ export type PlatformBrandChannelReview = {
     badge?: { label: string; tone: string };
     approved: number;
     templateCount: number;
-    templates: { label: string; status: string; statusLabel: string; rejectReason: string | null }[];
+    templates: { label: string; status: string; statusLabel: string; rejectReason: string | null; approvedAt?: string | null }[];
   }[];
 };
 

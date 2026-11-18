@@ -99,6 +99,12 @@ export async function listTenantBrandChannels(tenantId: string) {
               step: stepIndex(channel.status, approved),
               approved,
               templateCount: BRAND_CHANNEL_TEMPLATE_CODES.length,
+              templates: templates.map((item) => ({
+                label: ALIMTALK_TEMPLATE_LABELS[item.templateCode as AlimtalkTemplateCode] ?? item.providerTemplateName,
+                status: item.status,
+                statusLabel: templateStatusLabel(item.status),
+                approvedAt: item.approvedAt?.toISOString() ?? null,
+              })),
               deposit:
                 channel.status === 'PAYMENT_PENDING' && split
                   ? {
@@ -199,6 +205,15 @@ export async function listPlatformBrandChannels() {
       ready: templates.filter((row) => row.status === 'READY').length,
       needsLink: rows.filter((row) => row.status === 'REQUESTED').length,
       paymentPending: rows.filter((row) => row.status === 'PAYMENT_PENDING').length,
+      recentlyApproved: rows.filter((row) =>
+        row.templates.some(
+          (item) =>
+            isBrandChannelTemplateCode(item.templateCode) &&
+            item.status === 'APPROVED' &&
+            item.approvedAt != null &&
+            item.approvedAt >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        ),
+      ).length,
     },
     rows: rows.map((row) => ({
       id: row.id,
@@ -217,6 +232,7 @@ export async function listPlatformBrandChannels() {
         statusLabel: templateStatusLabel(item.status),
         rejectReason: item.rejectReason,
         submittedAt: item.submittedAt?.toISOString() ?? null,
+        approvedAt: item.approvedAt?.toISOString() ?? null,
         sendsFrom: item.status === 'APPROVED' && (row.status === 'ACTIVE' || row.status === 'LINKED') ? row.operatingCompany.name : '청소비서',
       })),
     })),

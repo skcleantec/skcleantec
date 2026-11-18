@@ -113,13 +113,13 @@ router.get('/brand-channel-copy', async (_req, res) => {
 
 router.get('/brand-channels', async (_req, res) => {
   const data = await listPlatformBrandChannels();
-  res.json({ ...data, lastCheckedAt: brandChannelLastCheckedAt() });
+  res.json({ ...data, lastCheckedAt: await brandChannelLastCheckedAt() });
 });
 
 router.post('/brand-channels/sync', platformSuperAdminOnly, async (_req, res) => {
   try {
     const result = await syncAlimtalkBrandChannels();
-    res.json({ ...result, lastCheckedAt: brandChannelLastCheckedAt() });
+    res.json({ ...result, lastCheckedAt: await brandChannelLastCheckedAt() });
   } catch (err) {
     const message = err instanceof Error ? err.message : '채널 심사를 확인하지 못했습니다.';
     res.status(502).json({ error: message.replace(/바로빌/g, '발송 서비스') });

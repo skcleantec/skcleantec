@@ -11,6 +11,7 @@ export type PlatformOpsEvent =
   | 'barobill_review'
   | 'barobill_link'
   | 'alimtalk_barobill'
+  | 'brand_channel'
   | 'link_slot'
   | 'signup_inquiry'
   | 'card_cancel_request';

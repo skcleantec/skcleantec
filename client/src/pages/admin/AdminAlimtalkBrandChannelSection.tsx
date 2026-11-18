@@ -49,6 +49,15 @@ function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
 }
 
+function monthDay(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' }).formatToParts(date);
+  const month = parts.find((part) => part.type === 'month')?.value ?? '';
+  const day = parts.find((part) => part.type === 'day')?.value ?? '';
+  return month && day ? `${month}/${day}` : '';
+}
+
 export function AdminAlimtalkBrandChannelSection() {
   const [view, setView] = useState<TenantBrandChannelView | null>(null);
   const [brandId, setBrandId] = useState('');
@@ -223,6 +232,18 @@ export function AdminAlimtalkBrandChannelSection() {
                         />
                       ) : null}
                     </div>
+                  ) : null}
+                  {row.channel?.templates && row.channel.templates.length > 0 ? (
+                    <ul className="mt-2 space-y-0.5">
+                      {row.channel.templates.map((item) => (
+                        <li key={item.label} className="text-[11px] text-gray-600">
+                          {item.label}
+                          {item.status === 'APPROVED'
+                            ? ` · 승인${item.approvedAt ? ` · ${monthDay(item.approvedAt)}` : ''}`
+                            : ` · ${item.statusLabel}`}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                   {row.channel?.note ? <p className="mt-1.5 text-fluid-2xs text-gray-500">{row.channel.note}</p> : null}
                 </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   fetchPlatformAlimtalkOverview,
   openPlatformAlimtalkPopup,
@@ -16,7 +17,14 @@ export function PlatformAlimtalkPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [tab, setTab] = useState<'send' | 'review'>('send');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'review' ? 'review' : 'send';
+  const setTab = (next: 'send' | 'review') => {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'review') params.set('tab', 'review');
+    else params.delete('tab');
+    setSearchParams(params, { replace: true });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
