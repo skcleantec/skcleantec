@@ -18,7 +18,7 @@ import { isSonEomneungNal } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
 import { LineMdIcon } from '../../components/ui/LineMdIcon';
 import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../../components/card-payment/CardPaymentDoneMark';
-import { CashbillDoneMark, inquiryHasIssuedCashbill } from '../../components/cashbill/CashbillDoneMark';
+import { CashbillDoneMark, TaxInvoiceDoneMark, inquiryHasIssuedCashbill, inquiryHasIssuedTaxInvoice } from '../../components/cashbill/CashbillDoneMark';
 import {
   formatDateCompactWithWeekday,
   formatPreferredDateInputYmd,
@@ -244,6 +244,7 @@ export function TeamSchedulePage() {
               </span>
               <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
               <CashbillDoneMark issued={inquiryHasIssuedCashbill(item)} />
+              <TaxInvoiceDoneMark issued={inquiryHasIssuedTaxInvoice(item)} />
               <TeamInquiryServiceKindListBadge item={item} />
               <TeamInquiryAreaListBadge item={item} />
               <TeamInquiryIntakeListChips item={item} />

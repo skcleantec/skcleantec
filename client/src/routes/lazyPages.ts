@@ -122,6 +122,9 @@ export const TeamCardPaymentPage = lazyWithRetry(() =>
 export const TeamCashbillPage = lazyWithRetry(() =>
   import('../pages/team/TeamCashbillPage').then((m) => ({ default: m.TeamCashbillPage }))
 );
+export const TeamTaxInvoicePage = lazyWithRetry(() =>
+  import('../pages/team/TeamTaxInvoicePage').then((m) => ({ default: m.TeamTaxInvoicePage }))
+);
 export const StaffInquiryCardPayEntry = lazyWithRetry(() =>
   import('../pages/admin/card-payment/StaffInquiryCardPayEntry').then((m) => ({
     default: m.StaffInquiryCardPayEntry,

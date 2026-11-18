@@ -62,6 +62,7 @@ import {
   TeamQuotationEditorPage,
   TeamCardPaymentPage,
   TeamCashbillPage,
+  TeamTaxInvoicePage,
   StaffInquiryCardPayEntry,
   AdminCardPaymentPage,
   AdminCardPaymentPgPage,
@@ -714,6 +715,16 @@ function App() {
               <FeatureGate module="mod_cashbill" redirectTo="/team/dashboard">
                 <SuspensePage>
                   <TeamCashbillPage />
+                </SuspensePage>
+              </FeatureGate>
+            }
+          />
+          <Route
+            path="taxinvoice"
+            element={
+              <FeatureGate module="mod_cashbill" redirectTo="/team/dashboard">
+                <SuspensePage>
+                  <TeamTaxInvoicePage />
                 </SuspensePage>
               </FeatureGate>
             }

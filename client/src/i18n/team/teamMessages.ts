@@ -321,9 +321,11 @@ export const teamMessages = {
   'team.crewAddress.empty': { ko: '등록된 주소가 없습니다.' },
 
   'team.modal.cardPayment': { ko: '카드결제' },
-  'team.modal.cashbill': { ko: '영수증' },
-  'team.layout.nav.cashbill': { ko: '영수증' },
-  'team.cashbill.pageTitle': { ko: '영수증' },
+  'team.modal.cashbill': { ko: '현금영수증' },
+  'team.layout.nav.cashbill': { ko: '현금영수증' },
+  'team.layout.nav.taxinvoice': { ko: '세금계산서' },
+  'team.cashbill.pageTitle': { ko: '현금영수증' },
+  'team.taxinvoice.pageTitle': { ko: '세금계산서' },
   'team.modal.cardPaymentTitle': {
     ko: 'PG가 연결된 업체만 카드결제를 엽니다. 연결 전에는 신청 안내가 나옵니다.',
   },

@@ -4,7 +4,7 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { CashbillIssueError } from './cashbillIssue.service.js';
 import {
   listTeamCashbillIssues,
-  requestTeamCashbillCancel,
+  cancelTeamCashbill,
   teamCashbillShareLink,
   teamCashbillViewLink,
   requestTeamCashbillCharge,
@@ -107,9 +107,10 @@ router.post('/issues/:id/cancel-request', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
-    res.json(await requestTeamCashbillCancel(tenantId, user.userId, req.params.id));
+    const requestId = typeof req.body?.requestId === 'string' ? req.body.requestId : undefined;
+    res.json(await cancelTeamCashbill(tenantId, user.userId, req.params.id, requestId));
   } catch (err) {
-    sendError(res, err, '취소 요청을 보내지 못했습니다.');
+    sendError(res, err, '취소하지 못했습니다.');
   }
 });
 

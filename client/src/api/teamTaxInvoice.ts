@@ -77,7 +77,7 @@ export type TeamTaxMine = {
   status: string;
   approvalReady: boolean;
   canSendReceipt: boolean;
-  canRequestOffice: boolean;
+  canCancel: boolean;
   createdAt: string;
 };
 
@@ -143,6 +143,15 @@ export async function fetchTeamTaxShare(id: string): Promise<TeamTaxShare> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/tax-invoices/issues/${encodeURIComponent(id)}/share`), { headers: headers(token) });
   if (!res.ok) throw await readError(res, '영수증 주소를 받지 못했습니다.');
   return res.json() as Promise<TeamTaxShare>;
+}
+
+export async function cancelTeamTaxInvoice(id: string): Promise<void> {
+  const token = tokenOrThrow();
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/tax-invoices/issues/${encodeURIComponent(id)}/cancel`), {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) throw await readError(res, '취소하지 못했습니다.');
 }
 
 export async function requestTeamTaxOffice(id: string): Promise<void> {

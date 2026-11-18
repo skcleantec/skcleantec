@@ -74,7 +74,7 @@ export function TeamCashbillIssueSheet({
   open,
   inquiryId,
   onClose,
-  showTaxTab = true,
+  showTaxTab = false,
   initialKind = 'cash',
 }: {
   open: boolean;

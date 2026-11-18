@@ -12,6 +12,7 @@ import {
 } from '../../api/inquiries';
 import { createOrderFollowup } from '../../api/orderFollowups';
 import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../card-payment/CardPaymentDoneMark';
+import { ReceiptIssuedBadges, inquiryHasIssuedCashbill, inquiryHasIssuedTaxInvoice } from '../cashbill/CashbillDoneMark';
 import {
   getAssignableScheduleUsers,
   type AssignableScheduleUsersResponse,
@@ -698,8 +699,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [historyLogs, setHistoryLogs] = useState<InquiryChangeLogEntry[]>([]);
   const [historyLogsLoading, setHistoryLogsLoading] = useState(false);
   const [cardPaid, setCardPaid] = useState(false);
+  const [cashIssued, setCashIssued] = useState(false);
+  const [taxIssued, setTaxIssued] = useState(false);
   useEffect(() => {
     setCardPaid(inquiryHasApprovedCardPayment(item ?? {}));
+    setCashIssued(inquiryHasIssuedCashbill(item ?? {}));
+    setTaxIssued(inquiryHasIssuedTaxInvoice(item ?? {}));
   }, [item?.id]);
   const [orderFormPhotoId, setOrderFormPhotoId] = useState<string | null>(
     !isCreate ? props.item.orderForm?.id ?? null : null
@@ -862,6 +867,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       .then((data) => {
         if (cancelled) return;
         setCardPaid(inquiryHasApprovedCardPayment(data as { cardPayments?: { id: string }[] }));
+        setCashIssued(inquiryHasIssuedCashbill(data as { cashBillIssues?: { id: string }[] }));
+        setTaxIssued(inquiryHasIssuedTaxInvoice(data as { taxInvoiceIssues?: { id: string }[] }));
         const raw = (data as { changeLogs?: InquiryChangeLogEntry[] }).changeLogs;
         setHistoryLogs(Array.isArray(raw) ? raw : []);
         const freshOrderForm =
@@ -2562,6 +2569,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                         HC—
                       </span>
                     )}
+                    <ReceiptIssuedBadges cash={cashIssued} tax={taxIssued} />
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">

@@ -21,7 +21,7 @@ import dbMarketplaceTeamRoutes from '../db-marketplace/dbMarketplace.team.routes
 import teamPlatformPromoRoutes from '../platform-partner-promo/teamPlatformPromo.routes.js';
 import quotationsTeamRoutes from '../quotations/quotations.team.routes.js';
 import { approvedCardPaymentFlag } from '../card-payment/cardPaymentInquiryFlag.js';
-import { issuedCashbillFlag } from '../cashbill/cashbillInquiryFlag.js';
+import { issuedCashbillFlag, issuedTaxInvoiceFlag } from '../cashbill/cashbillInquiryFlag.js';
 import teamCashbillRoutes from '../cashbill/teamCashbill.routes.js';
 import teamTaxInvoiceRoutes from '../taxinvoice/teamTaxInvoice.routes.js';
 import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
@@ -318,6 +318,7 @@ const teamInquiryInclude = {
   },
   ...approvedCardPaymentFlag,
   ...issuedCashbillFlag,
+  ...issuedTaxInvoiceFlag,
 } as const;
 
 /** 팀장 스케줄 달력 — changeLogs(80건)·정산·점검 등 상세 모달 전용 필드 제외 */
@@ -399,6 +400,7 @@ const teamScheduleInquirySelect = {
   inspectionChecklist: inspectionChecklistListInclude,
   ...approvedCardPaymentFlag,
   ...issuedCashbillFlag,
+  ...issuedTaxInvoiceFlag,
 } as const;
 
 /**

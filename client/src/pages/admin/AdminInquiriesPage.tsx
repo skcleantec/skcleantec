@@ -58,6 +58,7 @@ import {
   type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
+import { ReceiptIssuedBadges, inquiryHasIssuedCashbill, inquiryHasIssuedTaxInvoice } from '../../components/cashbill/CashbillDoneMark';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { isActiveNativePartnerShareSource } from '../../utils/tenantShareSettlement';
 import { externalTransferFeeForInquiryPatch } from '../../utils/inquiryPatchExternalFee';
@@ -628,6 +629,8 @@ interface InquiryItem {
   changeLogs?: InquiryChangeLogEntry[];
   /** 팀장 해피콜 완료 시각 */
   happyCallCompletedAt?: string | null;
+  cashBillIssues?: { id: string }[];
+  taxInvoiceIssues?: { id: string }[];
   /** 인천 주안 기준 직선거리(km), 서버가 주소 지오코딩 캐시로 계산 */
   distanceFromJuanKm?: number | null;
   /** 목록 API — 현장 검수 진행률 요약 */
@@ -4770,6 +4773,11 @@ export function AdminInquiriesPage() {
               ) : null}
             </h2>
             <p className="text-fluid-sm text-slate-500 mb-4">필요한 항목을 바로 수정한 뒤 저장하세요.</p>
+            {inquiryHasIssuedCashbill(editItem) || inquiryHasIssuedTaxInvoice(editItem) ? (
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                <ReceiptIssuedBadges cash={inquiryHasIssuedCashbill(editItem)} tax={inquiryHasIssuedTaxInvoice(editItem)} />
+              </div>
+            ) : null}
 
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-fluid-xs text-slate-500 border-b border-slate-100 pb-3 mb-4">
               {editItem.inquiryNumber ? (
