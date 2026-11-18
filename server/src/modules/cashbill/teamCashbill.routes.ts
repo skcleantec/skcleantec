@@ -71,6 +71,7 @@ router.post('/issues', async (req, res) => {
     extraReason?: string;
     requestId?: string;
     usage?: unknown;
+    taxKind?: unknown;
   };
   try {
     res.status(201).json(await teamIssueCashbill(tenantId, user.userId, body));

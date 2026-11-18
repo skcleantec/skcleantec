@@ -5,7 +5,7 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { readCashbillWalletBalance } from '../cashbill/cashbillWallet.js';
 import { teamCashbillVisible } from '../cashbill/teamCashbill.access.js';
-import { TaxInvoiceError, issueTaxInvoice } from './taxInvoice.service.js';
+import { TaxInvoiceError, issueTaxInvoice, taxInvoicePrintUrl } from './taxInvoice.service.js';
 import { listTaxInvoiceBuyers } from './taxInvoiceBuyer.service.js';
 import { ensureTaxInvoiceShareUrl } from './taxInvoiceShare.service.js';
 import { teamTaxInvoiceReasonRequired, teamTaxInvoiceTabVisible } from './teamTaxInvoice.access.js';
@@ -332,7 +332,7 @@ async function ownTax(tenantId: string, userId: string, issueId: string) {
 export async function teamTaxInvoiceViewLink(tenantId: string, userId: string, issueId: string) {
   const row = await ownTax(tenantId, userId, issueId);
   if (!row.ntsSendKey || row.barobillState === '5031') throw new TaxInvoiceError('승인번호가 나오면 볼 수 있어요.');
-  return { url: await ensureTaxInvoiceShareUrl(tenantId, row.id) };
+  return { url: await taxInvoicePrintUrl(tenantId, row.id) };
 }
 
 export async function teamTaxInvoiceShareLink(tenantId: string, userId: string, issueId: string) {

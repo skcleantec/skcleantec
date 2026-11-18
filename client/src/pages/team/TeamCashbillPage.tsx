@@ -128,6 +128,7 @@ export function TeamCashbillPage() {
                 <p className="text-fluid-2xs text-slate-500">
                   {whenText(item.createdAt)}
                   {item.usageLabel ? ` · ${item.usageLabel}` : ''}
+                  {item.taxKind === 'exempt' ? ' · 면세' : ' · 과세'}
                   {item.linked ? '' : ' · 연결 없음'}
                   {item.inquiryNumber ? ` · ${item.inquiryNumber}` : ''}
                 </p>

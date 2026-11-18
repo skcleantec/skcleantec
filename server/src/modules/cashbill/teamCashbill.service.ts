@@ -4,11 +4,14 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { readCashbillWalletBalance } from './cashbillWallet.js';
 import { cashbillRemaining } from './cashbillIssue.amounts.js';
-import { CashbillIssueError, issueCashbill } from './cashbillIssue.service.js';
+import { CashbillIssueError, cashbillPrintUrl, issueCashbill } from './cashbillIssue.service.js';
 import {
   teamCashbillCanShare,
+  teamCashbillDefaultTaxKind,
+  teamCashbillExemptLocked,
   teamCashbillOverTotalWarning,
   teamCashbillReasonRequired,
+  teamCashbillTaxKind,
   teamCashbillUsage,
   teamCashbillVisible,
 } from './teamCashbill.access.js';
@@ -119,13 +122,52 @@ async function linkedBrands(tenantId: string) {
       id: true,
       name: true,
       isDefault: true,
-      barobillMember: { select: { status: true, barobillUserId: true } },
+      barobillMember: { select: { status: true, barobillUserId: true, taxType: true } },
     },
     orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
   });
   return brands
     .filter((brand) => brand.barobillMember?.status === 'ACTIVE' && Boolean(brand.barobillMember.barobillUserId.trim()))
-    .map((brand) => ({ id: brand.id, name: brand.name }));
+    .map((brand) => ({ id: brand.id, name: brand.name, taxType: brand.barobillMember?.taxType ?? null }));
+}
+
+export async function readTeamCashbillIssueSetting(tenantId: string) {
+  const [tenant, members] = await Promise.all([
+    prisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: { teamCashbillIssueEnabled: true, teamCashbillDefaultTaxKind: true },
+    }),
+    prisma.barobillMember.findMany({
+      where: { tenantId, status: 'ACTIVE' },
+      select: { taxType: true, barobillUserId: true },
+    }),
+  ]);
+  const exemptLocked = teamCashbillExemptLocked(
+    members.filter((member) => member.barobillUserId.trim()).map((member) => member.taxType),
+  );
+  return {
+    enabled: tenant?.teamCashbillIssueEnabled !== false,
+    taxKind: teamCashbillDefaultTaxKind({ stored: tenant?.teamCashbillDefaultTaxKind, exemptLocked }),
+    exemptLocked,
+  };
+}
+
+export async function saveTeamCashbillIssueSetting(
+  tenantId: string,
+  input: { enabled?: unknown; taxKind?: unknown },
+) {
+  const current = await readTeamCashbillIssueSetting(tenantId);
+  const enabled = typeof input.enabled === 'boolean' ? input.enabled : current.enabled;
+  const taxKind = current.exemptLocked
+    ? 'exempt'
+    : input.taxKind === undefined
+      ? current.taxKind
+      : teamCashbillTaxKind(input.taxKind);
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { teamCashbillIssueEnabled: enabled, teamCashbillDefaultTaxKind: taxKind },
+  });
+  return { enabled, taxKind, exemptLocked: current.exemptLocked };
 }
 
 export async function teamCashbillAccess(tenantId: string, userId: string) {
@@ -139,13 +181,18 @@ export async function teamCashbillAccess(tenantId: string, userId: string) {
 
 export async function teamCashbillPrefill(tenantId: string, userId: string, inquiryId: string | null) {
   const { plan } = await gate(tenantId, userId);
-  const balance = await readCashbillWalletBalance(tenantId, plan);
-  const brands = await linkedBrands(tenantId);
+  const [balance, brands, setting] = await Promise.all([
+    readCashbillWalletBalance(tenantId, plan),
+    linkedBrands(tenantId),
+    readTeamCashbillIssueSetting(tenantId),
+  ]);
   const base = {
     walletShort: balance < CASHBILL_UNIT_PRICE_KRW,
     walletBalanceKrw: balance,
     unitKrw: CASHBILL_UNIT_PRICE_KRW,
     brands,
+    defaultTaxKind: setting.taxKind,
+    issueTaxType: null as string | null,
     customerName: '',
     customerPhone: '',
     defaultAmountWon: 0,
@@ -167,6 +214,7 @@ export async function teamCashbillPrefill(tenantId: string, userId: string, inqu
       serviceDepositAmount: true,
       serviceBalanceAmount: true,
       orderForm: { select: { totalAmount: true, depositAmount: true, balanceAmount: true } },
+      operatingCompany: { select: { barobillMember: { select: { taxType: true } } } },
     },
   });
   if (!inquiry) throw new CashbillIssueError('접수를 찾을 수 없습니다.', 404);
@@ -174,6 +222,7 @@ export async function teamCashbillPrefill(tenantId: string, userId: string, inqu
   const issued = await issuedSummary(tenantId, inquiryId);
   return {
     ...base,
+    issueTaxType: inquiry.operatingCompany?.barobillMember?.taxType ?? null,
     customerName: inquiry.customerName?.trim() ?? '',
     customerPhone: inquiry.customerPhone?.trim() ?? '',
     defaultAmountWon: money.balance,
@@ -196,6 +245,7 @@ export async function teamIssueCashbill(
     extraReason?: string;
     requestId?: string;
     usage?: unknown;
+    taxKind?: unknown;
   },
 ) {
   const { user, plan } = await gate(tenantId, userId);
@@ -239,6 +289,7 @@ export async function teamIssueCashbill(
     operatingCompanyId: input.operatingCompanyId,
     amount,
     usage: teamCashbillUsage(input.usage),
+    taxKind: teamCashbillTaxKind(input.taxKind),
     identity: input.identity,
     customerName: name,
     extraReason: reason || undefined,
@@ -289,6 +340,7 @@ export async function listTeamCashbillIssues(tenantId: string, userId: string) {
       totalWon: true,
       identityMasked: true,
       tradeUsage: true,
+      taxKind: true,
       ntsConfirmNum: true,
       barobillState: true,
       lastError: true,
@@ -318,6 +370,7 @@ export async function listTeamCashbillIssues(tenantId: string, userId: string) {
         totalWon: row.totalWon,
         identityMasked: row.identityMasked,
         usageLabel: row.tradeUsage === 2 ? '지출증빙' : '소득공제',
+        taxKind: teamCashbillTaxKind(row.taxKind),
         ntsConfirmNum: row.ntsConfirmNum,
         status,
         canRequestCancel: row.kind !== 'CANCEL' && issued && !cancelled && !row.cancelRequestedAt,
@@ -337,7 +390,7 @@ export async function teamCashbillViewLink(tenantId: string, userId: string, iss
   });
   if (!row) throw new CashbillIssueError('영수증을 찾을 수 없습니다.', 404);
   if (!row.ntsConfirmNum || row.kind === 'CANCEL') throw new CashbillIssueError('승인번호가 나오면 볼 수 있어요.');
-  return { url: await ensureCashbillShareUrl(tenantId, row.id) };
+  return { url: await cashbillPrintUrl(tenantId, row.id) };
 }
 
 export async function teamCashbillShareLink(tenantId: string, userId: string, issueId: string) {
