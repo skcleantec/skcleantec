@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.58';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.59';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -213,6 +213,8 @@ export type SoomgoBridgeStatus = {
   lastError?: string | null;
   /** /login — Chrome 프로필에 남은 세션 재사용 */
   reusedSession?: boolean;
+  /** /login — 다른 브랜드 세션을 지우고 요청 계정으로 다시 로그인 */
+  switchedAccount?: boolean;
   loginMode?: 'email' | 'kakao' | null;
   port?: number;
   /** 데스크톱 프로그램 semver */

@@ -415,7 +415,9 @@ export function useCrmSoomgoBridge({
       }
       const loginRes = await loginSoomgoBridge(creds.email, creds.password, creds.loginMode);
       if (!loginRes.loggedIn) throw new Error(loginRes.lastError ?? '숨고 로그인에 실패했습니다.');
-      if (loginRes.reusedSession) {
+      if (loginRes.switchedAccount) {
+        notify('작업 브랜드 숨고 계정으로 다시 로그인했습니다.');
+      } else if (loginRes.reusedSession) {
         notify('저장된 숨고 세션으로 연결했습니다.');
       }
       const preOpen = await refreshStatus({ lite: true });
