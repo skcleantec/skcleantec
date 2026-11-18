@@ -223,7 +223,7 @@ export function TeamCashbillIssueSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl"
+        className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-t-2xl lg:mt-6 lg:max-h-[calc(100%-1.5rem)] bg-white shadow-xl"
       >
         <div className="space-y-2 border-b border-slate-100 px-3 py-2">
           <div className="flex items-center justify-between">

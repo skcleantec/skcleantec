@@ -163,7 +163,7 @@ export function TeamTaxInvoiceSheet({
 
   const sheet = (
     <div className={`${STAFF_APP_SAFE_OVERLAY} fixed inset-0 z-[640] flex items-end justify-center bg-slate-900/45 pt-[max(1.5rem,env(safe-area-inset-top,0px),var(--cbiseo-safe-area-top,0px))] pb-[max(0px,env(safe-area-inset-bottom,0px),var(--cbiseo-safe-area-bottom,0px))]`}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-t-2xl lg:mt-6 lg:max-h-[calc(100%-1.5rem)] bg-white shadow-xl">
         <div className="space-y-2 border-b border-slate-100 px-3 py-2">
           <div className="flex items-center justify-between">
             <h2 id={titleId} className="text-fluid-sm font-semibold text-slate-900">영수증</h2>
