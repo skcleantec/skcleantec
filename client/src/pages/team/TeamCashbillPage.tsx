@@ -209,6 +209,7 @@ export function TeamCashbillPage() {
         open={sheetOpen}
         inquiryId={null}
         showTaxTab={taxOn}
+        initialKind={kind}
         onClose={() => {
           setSheetOpen(false);
           load();
