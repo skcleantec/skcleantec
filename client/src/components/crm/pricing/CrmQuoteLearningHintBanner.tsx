@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchTelecrmQuoteCrewLearningHints } from '../../../api/telecrmQuoteCrewLearning';
+import { sortExamplesLatestFirst } from './sortQuoteLearningExamples';
 import type {
   TelecrmQuoteCrewLearningExample,
   TelecrmQuoteCrewLearningHints,
@@ -74,14 +75,6 @@ function buildExampleLabel(ex: TelecrmQuoteCrewLearningExample): string {
     .join('·');
   if (rooms) parts.push(rooms);
   return parts.join(' · ');
-}
-
-function sortExamplesLatestFirst(list: TelecrmQuoteCrewLearningExample[]): TelecrmQuoteCrewLearningExample[] {
-  const t = (ex: TelecrmQuoteCrewLearningExample) => {
-    const v = ex.date ? new Date(ex.date).getTime() : NaN;
-    return Number.isNaN(v) ? -Infinity : v;
-  };
-  return [...list].sort((a, b) => t(b) - t(a)).slice(0, 5);
 }
 
 /** 차액 → 「1만원」 「5,000원」 */

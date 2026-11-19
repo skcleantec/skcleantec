@@ -3,12 +3,14 @@ import { ORDER_FORM_CLEANING_KIND_OPTIONS } from '@shared/orderFormCleaningKind'
 import { fetchTelecrmOrderOptions, type TelecrmOrderOptionDto } from '../../api/telecrm';
 import {
   fetchTelecrmPropertyChoiceOptions,
+  fetchTelecrmQuoteCrewLearningHints,
   previewTelecrmAiQuote,
 } from '../../api/telecrmQuoteCrewLearning';
-import type { TelecrmPropertyChoiceOption } from '@shared/telecrmQuoteCrewLearning';
+import type { TelecrmPropertyChoiceOption, TelecrmQuoteCrewLearningHints } from '@shared/telecrmQuoteCrewLearning';
 import { getToken } from '../../stores/auth';
 import { Button } from '../ui/Button';
 import { QuoteBottomBar, QuoteChip, quoteBottomButton, quoteCard } from './quoteChrome';
+import { QuoteAiSimilarCard } from './QuoteAiSimilarCard';
 
 type Props = {
   operatingCompanyId: string;
@@ -36,6 +38,9 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [amountWon, setAmountWon] = useState<number | null>(null);
   const [reason, setReason] = useState('');
+  const [reasonOpen, setReasonOpen] = useState(false);
+  const [hints, setHints] = useState<TelecrmQuoteCrewLearningHints | null>(null);
+  const [hintsReady, setHintsReady] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -54,11 +59,6 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
     };
   }, []);
 
-  useEffect(() => {
-    setAmountWon(null);
-    setReason('');
-  }, [pyeong, rooms, baths, balcony, oneRoom, cleaning, property, memo, picked]);
-
   const visibleOptions = showAllOptions ? options : options.slice(0, 24);
   const pyeongNum = Number(pyeong);
   const ready = Number.isFinite(pyeongNum) && pyeongNum > 0;
@@ -68,16 +68,42 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
     if (!token || !ready) return;
     setBusy(true);
     setError(null);
+    setHints(null);
+    setHintsReady(false);
     try {
-      const res = await previewTelecrmAiQuote(token, {
-        pyeong: pyeongNum,
-        roomCount: rooms ? Number(rooms) : null,
-        bathroomCount: baths ? Number(baths) : null,
-        balconyCount: balcony ? Number(balcony) : null,
+      const hintQuery = {
+        pyeong: String(pyeongNum),
+        roomCount: rooms || undefined,
+        bathroomCount: baths || undefined,
+        balconyCount: balcony || undefined,
+        propertyType: property || undefined,
         isOneRoom: oneRoom,
-        propertyType: property || null,
         operatingCompanyId,
-      });
+      };
+      const [quoteResult, hintRes] = await Promise.all([
+        previewTelecrmAiQuote(token, {
+          pyeong: pyeongNum,
+          roomCount: rooms ? Number(rooms) : null,
+          bathroomCount: baths ? Number(baths) : null,
+          balconyCount: balcony ? Number(balcony) : null,
+          isOneRoom: oneRoom,
+          propertyType: property || null,
+          operatingCompanyId,
+        }).then(
+          (value) => ({ ok: true as const, value }),
+          (error: unknown) => ({ ok: false as const, error }),
+        ),
+        fetchTelecrmQuoteCrewLearningHints(token, hintQuery).catch(() => null),
+      ]);
+      setHints(hintRes);
+      setHintsReady(true);
+      if (!quoteResult.ok) {
+        setAmountWon(null);
+        setReason('');
+        setError(quoteResult.error instanceof Error ? quoteResult.error.message : '추천가를 계산하지 못했어요.');
+        return;
+      }
+      const res = quoteResult.value;
       if (!res.quote) {
         setAmountWon(null);
         setReason('');
@@ -97,6 +123,7 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
       setReason(bits.filter(Boolean).join(' · '));
     } catch (e) {
       setAmountWon(null);
+      setHintsReady(true);
       setError(e instanceof Error ? e.message : '추천가를 계산하지 못했어요.');
     } finally {
       setBusy(false);
@@ -106,6 +133,9 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
   useEffect(() => {
     setAmountWon(null);
     setReason('');
+    setReasonOpen(false);
+    setHints(null);
+    setHintsReady(false);
     setError(null);
   }, [balcony, baths, cleaning, memo, oneRoom, picked, property, pyeong, rooms]);
 
@@ -221,8 +251,23 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
       {amountWon != null ? (
         <div className={`p-3 ${quoteCard}`}>
           <p className="text-fluid-lg font-semibold tabular-nums text-slate-900">{won(amountWon)}</p>
-          {reason ? <p className="mt-1 line-clamp-2 text-fluid-xs text-slate-600">{reason}</p> : null}
+          {reason ? (
+            <div className="mt-1">
+              <Button variant="quiet" size="sm" className="!px-0" onClick={() => setReasonOpen((prev) => !prev)}>
+                {reasonOpen ? '금액 근거 접기' : '금액 근거 보기'}
+              </Button>
+              {reasonOpen ? <p className="mt-1 text-fluid-xs text-slate-600">{reason}</p> : null}
+            </div>
+          ) : null}
         </div>
+      ) : null}
+      {hintsReady ? (
+        <QuoteAiSimilarCard
+          hints={hints}
+          onUseAmount={(amount, nextPyeong) => {
+            onUseQuote(String(Math.max(1, Math.round(amount / 10_000))), nextPyeong || pyeong);
+          }}
+        />
       ) : null}
 
       <QuoteBottomBar>
