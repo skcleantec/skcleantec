@@ -5908,3 +5908,27 @@ model PlatformTaxInvoiceIssue {
   @@index([buyerTenantId, createdAt(sort: Desc)])
   @@map("platform_tax_invoice_issues")
 }
+
+/// 견적 도우미 주소·면적 조회 결과. 업체별로 30일 보관.
+model QuickQuoteAreaCache {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  cacheKey  String   @map("cache_key") @db.VarChar(64)
+  payload   Json
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, cacheKey])
+  @@index([tenantId, expiresAt])
+  @@map("quick_quote_area_caches")
+}
+
+/// 견적 도우미 주소 조회 — 업체당 하루 횟수.
+model QuickQuoteLookupDay {
+  tenantId String @map("tenant_id")
+  dayKey   String @map("day_key") @db.VarChar(10)
+  count    Int    @default(0)
+
+  @@id([tenantId, dayKey])
+  @@map("quick_quote_lookup_days")
+}
