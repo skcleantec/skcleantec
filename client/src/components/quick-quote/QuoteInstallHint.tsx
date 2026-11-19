@@ -10,10 +10,12 @@ function alreadyInstalled(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches;
 }
 
-function hintText(): string {
-  const ua = navigator.userAgent;
-  if (/iPhone|iPad|iPod/i.test(ua)) return '아이폰: 공유 → 홈 화면에 추가';
-  return '안드로이드: 메뉴 → 홈 화면에 추가';
+function hintText(): string | null {
+  const ua = navigator.userAgent || '';
+  const iOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (iOS) return '공유 → 홈 화면에 추가';
+  if (/Android/i.test(ua)) return '메뉴 → 홈 화면에 추가';
+  return null;
 }
 
 /** 한 번 닫으면 다시 안 보여 준다. 이미 홈 화면에 있으면 숨긴다. */
@@ -26,18 +28,19 @@ export function QuoteInstallHint() {
     } catch {
       return;
     }
-    if (alreadyInstalled()) return;
+    if (alreadyInstalled() || !hintText()) return;
     setVisible(true);
   }, []);
 
   if (!visible) return null;
 
   return (
-    <p className="flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
+    <p className="flex items-center gap-2 px-3 pb-2 text-fluid-2xs leading-snug text-white/80">
       <span className="min-w-0 flex-1">{hintText()}</span>
       <Button
         variant="quiet"
         size="sm"
+        className="!text-white"
         onClick={() => {
           try {
             localStorage.setItem(DISMISS_KEY, '1');

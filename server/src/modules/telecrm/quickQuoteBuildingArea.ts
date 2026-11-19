@@ -1,6 +1,9 @@
-/** 건축물대장 전유·공용 면적을 집별로 모아 전용·공급으로 바꾼다. 1평 = 3.305785㎡. */
+/** 건축물대장 전유·공용 면적을 주거 평형으로 묶는다. 1평 = 3.305785㎡. */
 
 const SQM_PER_PYEONG = 3.305785;
+const CLUSTER_SQM = 0.5;
+const SUPPLY_RATIO_MIN = 1;
+const SUPPLY_RATIO_MAX = 1.6;
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
@@ -8,6 +11,11 @@ function round1(n: number): number {
 
 function toPyeong(sqm: number): number {
   return round1(sqm / SQM_PER_PYEONG);
+}
+
+function format1(n: number): string {
+  const rounded = round1(n);
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
 export type LedgerAreaRow = {
@@ -23,14 +31,16 @@ export type LedgerAreaRow = {
 
 export type QuickQuoteAreaGroup = {
   exclusiveSqm: number;
-  supplySqm: number;
-  supplyPyeong: number;
+  supplySqm: number | null;
+  supplyPyeong: number | null;
   households: number;
+  /** 전용 대비 공급이 1.0~1.6 밖이라 공급 숫자를 비운 평형 */
+  supplyUnconfirmed: boolean;
 };
 
 export type QuickQuoteAreaSummary =
   | { kind: 'groups'; groups: QuickQuoteAreaGroup[] }
-  | { kind: 'unit'; exclusiveSqm: number; supplySqm: number; supplyPyeong: number }
+  | { kind: 'unit'; exclusiveSqm: number; supplySqm: number | null; supplyPyeong: number | null; supplyUnconfirmed: boolean }
   | { kind: 'empty' };
 
 function normUnit(raw: string | null | undefined): string {
@@ -40,16 +50,68 @@ function normUnit(raw: string | null | undefined): string {
     .replace(/호$/, '');
 }
 
-/** 주차장·기계실·지하·옥탑 공용은 공급(주거공용)에 넣지 않는다. */
+function purposeText(row: LedgerAreaRow): string {
+  return `${row.mainPurpsCdNm ?? ''} ${row.etcPurps ?? ''}`;
+}
+
+/** 전유 용도가 아파트·공동주택·오피스텔(주거)인 줄. 상가·근린생활·업무시설은 제외. */
+function isResidentialExclusive(row: LedgerAreaRow): boolean {
+  const text = purposeText(row);
+  if (/상가|근린생활|업무시설|판매시설/.test(text)) return false;
+  return /아파트|공동주택|오피스텔/.test(text);
+}
+
+/** 주차장·기계실·전기실·지하층·관리사무소 공용은 공급에 넣지 않는다. */
 function isExcludedCommon(row: LedgerAreaRow): boolean {
-  const text = `${row.mainPurpsCdNm ?? ''} ${row.etcPurps ?? ''}`;
-  if (/주차|기계|전기|지하|탱크|정화|보일러/.test(text)) return true;
-  const flrGb = String(row.flrGbCd ?? '');
-  if (flrGb === '10' || flrGb === '30') return true;
+  const text = purposeText(row);
+  if (/주차|기계실|전기실|지하|관리사무소/.test(text)) return true;
+  if (String(row.flrGbCd ?? '') === '10') return true;
   const flr = String(row.flrNo ?? '');
   if (/^B/i.test(flr) || flr.startsWith('-')) return true;
   const n = Number(flr);
   return Number.isFinite(n) && n < 0;
+}
+
+type UnitCalc = {
+  exclusiveSqm: number;
+  supplySqm: number;
+  supplyPyeong: number;
+  supplyOk: boolean;
+};
+
+function mode(values: number[]): number | null {
+  if (!values.length) return null;
+  const counts = new Map<number, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  let best = values[0]!;
+  let bestCount = 0;
+  for (const [value, count] of counts) {
+    if (count > bestCount || (count === bestCount && value < best)) {
+      best = value;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function toGroup(units: UnitCalc[]): QuickQuoteAreaGroup {
+  const exclusive = mode(units.map((unit) => unit.exclusiveSqm)) ?? units[0]!.exclusiveSqm;
+  const ok = units.filter((unit) => unit.supplyOk);
+  const supplyPyeong = mode(ok.map((unit) => unit.supplyPyeong));
+  const supplySqm = mode(ok.map((unit) => unit.supplySqm));
+  return {
+    exclusiveSqm: exclusive,
+    supplySqm,
+    supplyPyeong,
+    households: units.length,
+    supplyUnconfirmed: supplyPyeong == null,
+  };
+}
+
+export function formatQuickQuoteAreaLine(group: QuickQuoteAreaGroup): string {
+  const supply =
+    group.supplyUnconfirmed || group.supplyPyeong == null ? '확인 필요' : `${format1(group.supplyPyeong)}평`;
+  return `전용 ${format1(group.exclusiveSqm)}㎡ · 공급 ${supply} · ${group.households}세대`;
 }
 
 export function summarizeExposAreas(
@@ -58,7 +120,7 @@ export function summarizeExposAreas(
 ): QuickQuoteAreaSummary {
   const wantDong = filter?.dongNm ? normUnit(filter.dongNm) : '';
   const wantHo = filter?.hoNm ? normUnit(filter.hoNm) : '';
-  const units = new Map<string, { exclusive: number; common: number }>();
+  const buckets = new Map<string, { exclusive: number; common: number; residential: boolean }>();
 
   for (const row of rows) {
     const dong = normUnit(row.dongNm);
@@ -69,47 +131,56 @@ export function summarizeExposAreas(
     if (!Number.isFinite(area) || area <= 0) continue;
     const gb = String(row.exposPubuseGbCd ?? '');
     const key = `${dong}|${ho}`;
-    const unit = units.get(key) ?? { exclusive: 0, common: 0 };
-    if (gb === '1') unit.exclusive += area;
-    else if (gb === '2' && !isExcludedCommon(row)) unit.common += area;
-    units.set(key, unit);
+    const bucket = buckets.get(key) ?? { exclusive: 0, common: 0, residential: false };
+    if (gb === '1') {
+      if (isResidentialExclusive(row)) {
+        bucket.exclusive += area;
+        bucket.residential = true;
+      }
+    } else if (gb === '2' && !isExcludedCommon(row)) {
+      bucket.common += area;
+    }
+    buckets.set(key, bucket);
   }
 
-  const usable = [...units.values()].filter((unit) => unit.exclusive > 0);
-  if (!usable.length) return { kind: 'empty' };
+  const units: UnitCalc[] = [];
+  for (const bucket of buckets.values()) {
+    if (!bucket.residential || bucket.exclusive <= 0) continue;
+    const exclusiveSqm = round1(bucket.exclusive);
+    const supplySqm = round1(bucket.exclusive + bucket.common);
+    const ratio = supplySqm / exclusiveSqm;
+    const supplyOk = ratio >= SUPPLY_RATIO_MIN && ratio <= SUPPLY_RATIO_MAX;
+    units.push({
+      exclusiveSqm,
+      supplySqm,
+      supplyPyeong: toPyeong(supplySqm),
+      supplyOk,
+    });
+  }
+  if (!units.length) return { kind: 'empty' };
 
   if (wantDong && wantHo) {
-    const unit = usable[0]!;
-    const supply = unit.exclusive + unit.common;
+    const group = toGroup(units);
     return {
       kind: 'unit',
-      exclusiveSqm: round1(unit.exclusive),
-      supplySqm: round1(supply),
-      supplyPyeong: toPyeong(supply),
+      exclusiveSqm: group.exclusiveSqm,
+      supplySqm: group.supplySqm,
+      supplyPyeong: group.supplyPyeong,
+      supplyUnconfirmed: group.supplyUnconfirmed,
     };
   }
 
-  const grouped = new Map<string, { exclusiveSqm: number; supplySum: number; households: number }>();
-  for (const unit of usable) {
-    const exclusiveSqm = round1(unit.exclusive);
-    const key = exclusiveSqm.toFixed(1);
-    const group = grouped.get(key) ?? { exclusiveSqm, supplySum: 0, households: 0 };
-    group.supplySum += unit.exclusive + unit.common;
-    group.households += 1;
-    grouped.set(key, group);
+  units.sort((a, b) => a.exclusiveSqm - b.exclusiveSqm);
+  const clusters: UnitCalc[][] = [];
+  for (const unit of units) {
+    const current = clusters[clusters.length - 1];
+    const anchor = current?.[0];
+    if (current && anchor && unit.exclusiveSqm - anchor.exclusiveSqm <= CLUSTER_SQM) current.push(unit);
+    else clusters.push([unit]);
   }
 
-  const groups = [...grouped.values()]
-    .map((group) => {
-      const supplySqm = group.supplySum / group.households;
-      return {
-        exclusiveSqm: group.exclusiveSqm,
-        supplySqm: round1(supplySqm),
-        supplyPyeong: toPyeong(supplySqm),
-        households: group.households,
-      };
-    })
-    .sort((a, b) => b.households - a.households || b.exclusiveSqm - a.exclusiveSqm);
-
+  const groups = clusters
+    .map((cluster) => toGroup(cluster))
+    .sort((a, b) => a.exclusiveSqm - b.exclusiveSqm);
   return { kind: 'groups', groups };
 }

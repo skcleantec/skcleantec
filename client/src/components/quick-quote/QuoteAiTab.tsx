@@ -8,6 +8,7 @@ import {
 import type { TelecrmPropertyChoiceOption } from '@shared/telecrmQuoteCrewLearning';
 import { getToken } from '../../stores/auth';
 import { Button } from '../ui/Button';
+import { QuoteBottomBar, QuoteChip, quoteBottomButton, quoteCard } from './quoteChrome';
 
 type Props = {
   operatingCompanyId: string;
@@ -16,14 +17,6 @@ type Props = {
 
 function won(amount: number): string {
   return `${Math.round(amount).toLocaleString('ko-KR')}원`;
-}
-
-function Chip({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
-  return (
-    <Button variant="quiet" size="sm" className={on ? '!bg-white shadow-thumb' : ''} onClick={onClick}>
-      {label}
-    </Button>
-  );
 }
 
 export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
@@ -60,6 +53,11 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    setAmountWon(null);
+    setReason('');
+  }, [pyeong, rooms, baths, balcony, oneRoom, cleaning, property, memo, picked]);
 
   const visibleOptions = showAllOptions ? options : options.slice(0, 24);
   const pyeongNum = Number(pyeong);
@@ -105,11 +103,17 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
     }
   };
 
+  useEffect(() => {
+    setAmountWon(null);
+    setReason('');
+    setError(null);
+  }, [balcony, baths, cleaning, memo, oneRoom, picked, property, pyeong, rooms]);
+
   const manwon = amountWon != null ? String(Math.max(1, Math.round(amountWon / 10_000))) : '';
 
   return (
     <div className="flex flex-col gap-2 px-3 pb-24 pt-2">
-      <label className="rounded-2xl bg-white p-3 shadow-card">
+      <label className="rounded-2xl border-2 border-[#1f4fb8] bg-white p-3">
         <span className="text-fluid-2xs text-slate-500">평수</span>
         <input
           inputMode="decimal"
@@ -127,7 +131,7 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
           ['화장실', baths, setBaths],
           ['베란다', balcony, setBalcony],
         ].map(([label, value, set]) => (
-          <label key={String(label)} className="rounded-2xl bg-white p-2 shadow-card">
+          <label key={String(label)} className={`p-2 ${quoteCard}`}>
             <span className="text-fluid-2xs text-slate-500">{label as string}</span>
             <input
               inputMode="numeric"
@@ -141,9 +145,9 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
       </div>
 
       <div className="flex flex-wrap gap-1">
-        <Chip on={oneRoom} label="원룸" onClick={() => setOneRoom((prev) => !prev)} />
+        <QuoteChip on={oneRoom} label="원룸" onClick={() => setOneRoom((prev) => !prev)} />
         {ORDER_FORM_CLEANING_KIND_OPTIONS.map((item) => (
-          <Chip
+          <QuoteChip
             key={item.value}
             on={cleaning === item.label}
             label={item.label}
@@ -155,7 +159,7 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
       {properties.length ? (
         <div className="flex flex-wrap gap-1">
           {properties.map((item) => (
-            <Chip
+            <QuoteChip
               key={item.value}
               on={property === item.value}
               label={item.label}
@@ -168,7 +172,7 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
       {options.length ? (
         <div className="flex flex-wrap gap-1">
           {visibleOptions.map((item) => (
-            <Chip
+            <QuoteChip
               key={item.id}
               on={picked.includes(item.id)}
               label={item.label}
@@ -185,7 +189,7 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
         </div>
       ) : null}
 
-      <label className="rounded-2xl bg-white p-3 shadow-card">
+      <label className={`p-3 ${quoteCard}`}>
         <span className="text-fluid-2xs text-slate-500">메모</span>
         <input
           value={memo}
@@ -197,35 +201,31 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
         />
       </label>
 
-      <Button variant="secondary" className="w-full" disabled={!ready || busy} onClick={() => void calc()}>
-        {busy ? '계산하는 중' : '추천가 보기'}
-      </Button>
-
       {error ? <p className="px-1 text-fluid-xs text-red-600">{error}</p> : null}
       {amountWon != null ? (
-        <div className="rounded-2xl bg-white p-3 shadow-card">
+        <div className={`p-3 ${quoteCard}`}>
           <p className="text-fluid-lg font-semibold tabular-nums text-slate-900">{won(amountWon)}</p>
           {reason ? <p className="mt-1 line-clamp-2 text-fluid-xs text-slate-600">{reason}</p> : null}
         </div>
       ) : null}
 
-      <div
-        className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[480px] px-3 pt-2"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
-        <Button
-          variant="primary"
-          size="lg"
-          className="w-full shadow-bar"
-          disabled={amountWon == null}
-          onClick={() => {
-            if (!manwon) return;
-            onUseQuote(manwon, pyeong);
-          }}
-        >
-          {amountWon != null ? '이 금액으로 견적 문구 만들기 →' : '추천가를 먼저 확인해 주세요'}
-        </Button>
-      </div>
+      <QuoteBottomBar>
+        {amountWon != null ? (
+          <Button variant="primary" size="lg" className={quoteBottomButton} onClick={() => onUseQuote(manwon, pyeong)}>
+            이 금액으로 견적 문구 만들기 →
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            size="lg"
+            className={quoteBottomButton}
+            disabled={!ready || busy}
+            onClick={() => void calc()}
+          >
+            {busy ? '계산하는 중' : '추천가 보기'}
+          </Button>
+        )}
+      </QuoteBottomBar>
     </div>
   );
 }

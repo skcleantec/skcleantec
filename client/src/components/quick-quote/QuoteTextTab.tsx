@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type RefObject } from 'react';
 import {
   applySoomgoQuotePlaceholders,
   computeSoomgoEventPriceWon,
@@ -7,13 +7,14 @@ import {
 import { quotePreviewSegments } from '@shared/quickQuotePreview';
 import { manwonDigitsToWon } from '@shared/quickQuoteArea';
 import { Button } from '../ui/Button';
+import { QuoteBottomBar, QuoteChip, quoteBottomButton, quoteCard } from './quoteChrome';
 import type { QuickQuoteKind } from '../../api/quickQuote';
 import { copyQuoteText, saveQuoteImages } from './quoteClipboard';
 
-function PreviewText({ text }: { text: string }) {
+function PreviewText({ text, boxRef }: { text: string; boxRef: RefObject<HTMLParagraphElement | null> }) {
   const parts = quotePreviewSegments(text);
   return (
-    <p className="whitespace-pre-wrap break-keep text-fluid-sm leading-relaxed text-slate-800">
+    <p ref={boxRef} className="select-text whitespace-pre-wrap break-keep text-fluid-sm leading-relaxed text-slate-800">
       {parts.map((part, i) =>
         part.emphasis ? (
           <strong key={i} className="font-semibold text-slate-900">
@@ -51,6 +52,7 @@ export function QuoteTextTab({
   const [stepIndex, setStepIndex] = useState(0);
   const [done, setDone] = useState<boolean[]>([]);
   const [busy, setBusy] = useState(false);
+  const previewRef = useRef<HTMLParagraphElement>(null);
 
   const quoteWon = manwonDigitsToWon(manwon);
   const payback = kind?.paybackWon ?? 0;
@@ -97,7 +99,17 @@ export function QuoteTextTab({
       if (current.type === 'text') {
         const ok = await copyQuoteText(current.text);
         if (!ok) {
-          onToast('복사하지 못했어요. 문구를 길게 눌러 복사해 주세요.');
+          const box = previewRef.current;
+          if (box) {
+            const selection = window.getSelection();
+            if (selection) {
+              const range = document.createRange();
+              range.selectNodeContents(box);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          }
+          onToast('복사가 안 됐어요. 길게 눌러 복사해 주세요');
           return;
         }
         onToast('복사했어요 · 숨고에 붙여넣기 하세요');
@@ -135,23 +147,20 @@ export function QuoteTextTab({
         {kinds.map((item) => {
           const on = item.id === kind?.id;
           return (
-            <Button
+            <QuoteChip
               key={item.id}
-              variant="quiet"
-              size="sm"
-              className={`shrink-0 ${on ? '!bg-white shadow-thumb' : ''}`}
+              on={on}
+              label={item.label}
               onClick={() => {
                 onKindId(item.id);
                 resetProgress();
               }}
-            >
-              {item.label}
-            </Button>
+            />
           );
         })}
       </div>
 
-      <label className="block rounded-2xl bg-white p-3 shadow-card">
+      <label className="block rounded-2xl border-2 border-[#1f4fb8] bg-white p-3">
         <span className="text-fluid-2xs text-slate-500">견적 (만원)</span>
         <input
           inputMode="numeric"
@@ -167,7 +176,7 @@ export function QuoteTextTab({
         />
       </label>
 
-      <label className="block rounded-2xl bg-white px-3 py-2 shadow-card">
+      <label className={`block px-3 py-2 ${quoteCard}`}>
         <span className="text-fluid-2xs text-slate-500">평수 (선택)</span>
         <input
           inputMode="decimal"
@@ -184,9 +193,9 @@ export function QuoteTextTab({
 
       <p className="px-1 text-fluid-2xs leading-snug text-slate-500">{priceLine}</p>
 
-      <div className="rounded-2xl bg-white p-3 shadow-card">
+      <div className={`p-3 ${quoteCard}`}>
         {current?.type === 'text' ? (
-          <PreviewText text={current.text} />
+          <PreviewText text={current.text} boxRef={previewRef} />
         ) : current?.type === 'images' ? (
           <div className="flex gap-2 overflow-x-auto">
             {current.urls.map((url) => (
@@ -221,20 +230,17 @@ export function QuoteTextTab({
         </ol>
       ) : null}
 
-      <div
-        className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[480px] px-3 pt-2"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
+      <QuoteBottomBar>
         <Button
           variant="primary"
           size="lg"
-          className="w-full shadow-bar"
+          className={quoteBottomButton}
           disabled={!current || busy}
           onClick={() => void onPrimary()}
         >
           {busy ? '잠시만요' : primaryLabel}
         </Button>
-      </div>
+      </QuoteBottomBar>
     </div>
   );
 }

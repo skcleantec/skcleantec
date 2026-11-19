@@ -11,11 +11,14 @@ import {
 } from '../../api/quickQuote';
 import { getToken } from '../../stores/auth';
 import { Button } from '../ui/Button';
+import { QuoteBottomBar, QuoteChip, quoteBottomButton, quoteCard } from './quoteChrome';
 
 type Props = { onUsePyeong: (pyeong: string) => void };
 
 function groupLine(group: QuickQuoteAreaGroup): string {
-  return `전용 ${formatArea1(group.exclusiveSqm)}㎡ · 공급 ${formatArea1(group.supplyPyeong)}평 · ${group.households}세대`;
+  const supply =
+    group.supplyUnconfirmed || group.supplyPyeong == null ? '확인 필요' : `${formatArea1(group.supplyPyeong)}평`;
+  return `전용 ${formatArea1(group.exclusiveSqm)}㎡ · 공급 ${supply} · ${group.households}세대`;
 }
 
 export function QuoteAddressTab({ onUsePyeong }: Props) {
@@ -28,6 +31,7 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
   const [unitKey, setUnitKey] = useState('');
   const [areas, setAreas] = useState<QuickQuoteAreasResult | null>(null);
   const [chosenSqm, setChosenSqm] = useState<number | null>(null);
+  const [showMinor, setShowMinor] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +61,7 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
       setUnitKey('');
       setAreas(null);
       setChosenSqm(null);
+      setShowMinor(false);
       if (!res.items.length) setError('주소를 찾지 못했어요.');
     });
   };
@@ -102,12 +107,18 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
     });
   };
 
+  const pickedGroup =
+    areas?.kind === 'groups' ? areas.groups.find((group) => group.exclusiveSqm === chosenSqm) : undefined;
   const supplyPyeong =
     areas?.kind === 'unit'
-      ? areas.supplyPyeong
-      : areas?.kind === 'groups'
-        ? (areas.groups.find((group) => group.exclusiveSqm === chosenSqm)?.supplyPyeong ?? null)
+      ? areas.supplyUnconfirmed
+        ? null
+        : areas.supplyPyeong
+      : pickedGroup && !pickedGroup.supplyUnconfirmed
+        ? pickedGroup.supplyPyeong
         : null;
+  const mainGroups = areas?.kind === 'groups' ? areas.groups.filter((group) => group.households >= 3) : [];
+  const minorGroups = areas?.kind === 'groups' ? areas.groups.filter((group) => group.households < 3) : [];
 
   return (
     <div className="flex flex-col gap-2 px-3 pb-24 pt-2">
@@ -115,7 +126,7 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
         <input
           value={q}
           placeholder="도로명, 건물명"
-          className="min-w-0 flex-1 rounded-xl bg-field px-3 py-2 text-fluid-sm text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-slate-300"
+          className="min-w-0 flex-1 rounded-xl border border-[#e6ebf2] bg-white px-3 py-2 text-fluid-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#1f4fb8]"
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') search();
@@ -147,15 +158,7 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
       {dongs.length ? (
         <div className="flex flex-wrap gap-1">
           {dongs.map((name) => (
-            <Button
-              key={name}
-              variant="quiet"
-              size="sm"
-              className={dong === name ? '!bg-white shadow-thumb' : ''}
-              onClick={() => chooseDong(name)}
-            >
-              {name}
-            </Button>
+            <QuoteChip key={name} on={dong === name} label={name} onClick={() => chooseDong(name)} />
           ))}
         </div>
       ) : null}
@@ -165,18 +168,15 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
           {units.map((unit) => {
             const key = `${unit.floor}|${unit.ho}`;
             return (
-              <Button
+              <QuoteChip
                 key={key}
-                variant="quiet"
-                size="sm"
-                className={unitKey === key ? '!bg-white shadow-thumb' : ''}
+                on={unitKey === key}
+                label={unit.floor ? `${unit.floor}층 ${unit.ho}` : unit.ho}
                 onClick={() => {
                   setUnitKey(key);
                   loadAreas(unit.ho);
                 }}
-              >
-                {unit.floor ? `${unit.floor}층 ${unit.ho}` : unit.ho}
-              </Button>
+              />
             );
           })}
         </div>
@@ -198,14 +198,34 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
       {busy ? <p className="text-fluid-xs text-slate-500">찾는 중</p> : null}
       {error ? <p className="text-fluid-xs text-red-600">{error}</p> : null}
 
-      {areas?.kind === 'groups'
-        ? areas.groups.map((group) => (
+      {mainGroups.map((group) => (
+        <Button
+          key={`main-${group.exclusiveSqm}-${group.households}`}
+          variant="quiet"
+          nowrap={false}
+          className={`!h-auto w-full justify-start px-3 py-2 text-left ${quoteCard} ${
+            chosenSqm === group.exclusiveSqm ? '!border-[#1f4fb8]' : ''
+          }`}
+          onClick={() => setChosenSqm(group.exclusiveSqm)}
+        >
+          {groupLine(group)}
+        </Button>
+      ))}
+
+      {minorGroups.length ? (
+        <Button variant="quiet" size="sm" className="self-start" onClick={() => setShowMinor((prev) => !prev)}>
+          {showMinor ? '기타 평형 접기' : `기타 평형 ${minorGroups.length}개 더보기`}
+        </Button>
+      ) : null}
+
+      {showMinor
+        ? minorGroups.map((group) => (
             <Button
-              key={`${group.exclusiveSqm}-${group.households}`}
+              key={`minor-${group.exclusiveSqm}-${group.households}`}
               variant="quiet"
               nowrap={false}
-              className={`!h-auto w-full justify-start rounded-2xl bg-white px-3 py-2 text-left shadow-card ${
-                chosenSqm === group.exclusiveSqm ? 'ring-2 ring-slate-900' : ''
+              className={`!h-auto w-full justify-start px-3 py-2 text-left ${quoteCard} ${
+                chosenSqm === group.exclusiveSqm ? '!border-[#1f4fb8]' : ''
               }`}
               onClick={() => setChosenSqm(group.exclusiveSqm)}
             >
@@ -215,16 +235,11 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
         : null}
 
       {areas?.kind === 'unit' ? (
-        <div className="rounded-2xl bg-white p-3 shadow-card text-fluid-sm text-slate-800">
-          <p>전용 {formatArea1(areas.exclusiveSqm)}㎡</p>
-          <p className="mt-1">
-            공급 {formatArea1(areas.supplySqm)}㎡ · {formatArea1(areas.supplyPyeong)}평
-          </p>
-        </div>
+        <div className={`${quoteCard} p-3 text-fluid-sm text-slate-800`}>{groupLine({ ...areas, households: 1 })}</div>
       ) : null}
 
       {areas?.kind === 'building' ? (
-        <div className="rounded-2xl bg-white p-3 shadow-card">
+        <div className={`${quoteCard} p-3`}>
           <p className="text-fluid-sm text-slate-900">건물 전체 {formatArea1(areas.totalSqm)}㎡</p>
           <p className="mt-1 text-fluid-xs text-slate-600">{areas.note}</p>
         </div>
@@ -232,14 +247,11 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
 
       <p className="px-1 text-fluid-2xs text-slate-500">국토교통부 공개자료</p>
 
-      <div
-        className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[480px] px-3 pt-2"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
+      <QuoteBottomBar>
         <Button
           variant="primary"
           size="lg"
-          className="w-full shadow-bar"
+          className={quoteBottomButton}
           disabled={supplyPyeong == null}
           onClick={() => {
             if (supplyPyeong == null) return;
@@ -250,7 +262,7 @@ export function QuoteAddressTab({ onUsePyeong }: Props) {
             ? `${formatArea1(supplyPyeong)}평으로 견적 문구 만들기 →`
             : '평수를 고른 뒤 문구를 만들 수 있어요'}
         </Button>
-      </div>
+      </QuoteBottomBar>
     </div>
   );
 }
