@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useCrmWorkBrand } from '../../hooks/useCrmWorkBrand';
 import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
@@ -17,16 +17,17 @@ import { QuoteAddressTab } from '../../components/quick-quote/QuoteAddressTab';
 import { QuoteMyPhrasesTab } from '../../components/quick-quote/QuoteMyPhrasesTab';
 import { QuotePhraseManager } from '../../components/quick-quote/QuotePhraseManager';
 import { useQuotePwaHead } from '../../components/quick-quote/useQuotePwaHead';
+import { QuoteDock, type QuoteDockTab } from '../../components/quick-quote/QuoteDock';
+import {
+  QuoteCustomerSearchInput,
+  QuoteCustomerSearchResults,
+} from '../../components/quick-quote/QuoteCustomerSearch';
 
 type QuoteTab = 'quote' | 'phrases' | 'ai' | 'area' | 'address';
 
-const TABS: { value: QuoteTab; label: string }[] = [
-  { value: 'quote', label: '견적 문구' },
-  { value: 'phrases', label: '내 문구' },
-  { value: 'ai', label: 'AI 견적' },
-  { value: 'area', label: '면적' },
-  { value: 'address', label: '평수' },
-];
+function dockOf(tab: QuoteTab): QuoteDockTab {
+  return tab === 'area' ? 'address' : tab;
+}
 
 function readTab(raw: string | null): QuoteTab {
   if (raw === 'phrases' || raw === 'ai' || raw === 'area' || raw === 'address' || raw === 'quote') return raw;
@@ -48,6 +49,19 @@ export function QuoteHelperPage() {
   const [pyeong, setPyeong] = useState('');
   const [phrasesOpen, setPhrasesOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [customerQuery, setCustomerQuery] = useState('');
+  const headRef = useRef<HTMLDivElement>(null);
+  const [headH, setHeadH] = useState(96);
+
+  useLayoutEffect(() => {
+    const el = headRef.current;
+    if (!el) return;
+    const sync = () => setHeadH(el.getBoundingClientRect().height);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const setTab = (next: QuoteTab) => {
     setSearchParams((prev) => {
@@ -110,7 +124,7 @@ export function QuoteHelperPage() {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-canvas">
-      <div className="sticky top-0 z-20">
+      <div ref={headRef} className="sticky top-0 z-[36]">
         <header className="bg-[#121828] text-white" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="flex items-center gap-2 px-3 py-2">
             <h1 className="shrink-0 text-fluid-sm font-semibold text-white">모바일 CRM</h1>
@@ -142,28 +156,13 @@ export function QuoteHelperPage() {
               </Button>
             </div>
           </div>
+          {!blocked ? (
+            <div className="px-3 pb-2.5">
+              <QuoteCustomerSearchInput value={customerQuery} onChange={setCustomerQuery} />
+            </div>
+          ) : null}
           <QuoteInstallHint />
         </header>
-        <div className="flex border-b border-[#e6ebf2] bg-white" role="tablist" aria-label="모바일 CRM 메뉴">
-          {TABS.map((item) => {
-            const on = tab === item.value;
-            return (
-              <Button
-                key={item.value}
-                variant="quiet"
-                size="sm"
-                role="tab"
-                aria-selected={on}
-                className={`min-w-0 flex-1 !rounded-none !border-x-0 !border-t-0 !border-b-2 !bg-transparent !px-0.5 !text-fluid-2xs !shadow-none ${
-                  on ? '!border-[#1f4fb8] !font-semibold !text-slate-900' : '!border-transparent !text-slate-500'
-                }`}
-                onClick={() => setTab(item.value)}
-              >
-                {item.label}
-              </Button>
-            );
-          })}
-        </div>
       </div>
 
       {blocked ? (
@@ -191,12 +190,15 @@ export function QuoteHelperPage() {
           onToast={setToast}
         />
       ) : tab === 'area' ? (
+        <>
+        <AreaSwitch tab={tab} onTab={setTab} />
         <QuoteAreaTab
           onUsePyeong={(next) => {
             setPyeong(next);
             setTab('quote');
           }}
         />
+        </>
       ) : tab === 'ai' ? (
         <QuoteAiTab
           operatingCompanyId={brand.activeOperatingCompanyId ?? ''}
@@ -207,6 +209,8 @@ export function QuoteHelperPage() {
           }}
         />
       ) : (
+        <>
+        <AreaSwitch tab={tab} onTab={setTab} />
         <QuoteAddressTab
           onUsePyeong={(next) => {
             setPyeong(next);
@@ -214,7 +218,32 @@ export function QuoteHelperPage() {
           }}
           onOpenArea={() => setTab('area')}
         />
+        </>
       )}
+
+      {customerQuery.trim() && !blocked && brand.activeOperatingCompanyId ? (
+        <QuoteCustomerSearchResults
+          query={customerQuery}
+          operatingCompanyId={brand.activeOperatingCompanyId}
+          top={headH}
+          onClose={() => setCustomerQuery('')}
+          onMakeQuote={(nextPyeong) => {
+            if (nextPyeong) setPyeong(nextPyeong);
+            setCustomerQuery('');
+            setTab('quote');
+          }}
+        />
+      ) : null}
+
+      {!blocked ? (
+        <QuoteDock
+          active={dockOf(tab)}
+          onChange={(next) => {
+            setCustomerQuery('');
+            setTab(next);
+          }}
+        />
+      ) : null}
 
       {phrasesOpen && brand.activeOperatingCompanyId ? (
         <QuotePhraseManager
@@ -237,6 +266,36 @@ export function QuoteHelperPage() {
           </p>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AreaSwitch({ tab, onTab }: { tab: QuoteTab; onTab: (next: QuoteTab) => void }) {
+  const items: { value: QuoteTab; label: string }[] = [
+    { value: 'address', label: '주소로 찾기' },
+    { value: 'area', label: '면적 계산' },
+  ];
+  return (
+    <div className="px-3 pt-2.5">
+      <div className="grid grid-cols-2 rounded-xl bg-slate-200/70 p-0.5" role="tablist" aria-label="평수">
+        {items.map((it) => {
+          const on = tab === it.value;
+          return (
+            <button
+              key={it.value}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => onTab(it.value)}
+              className={`rounded-[10px] py-1.5 text-fluid-xs ${
+                on ? 'bg-white font-semibold text-slate-900 shadow-sm' : 'font-medium text-slate-500'
+              }`}
+            >
+              {it.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

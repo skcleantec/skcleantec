@@ -142,7 +142,7 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
   const manwon = amountWon != null ? String(Math.max(1, Math.round(amountWon / 10_000))) : '';
 
   return (
-    <div className="flex flex-col gap-2 px-3 pb-24 pt-2">
+    <div className="flex flex-col gap-2 px-3 pb-40 pt-2">
       <label className="rounded-2xl border-2 border-[#1f4fb8] bg-white p-3">
         <span className="text-fluid-2xs text-slate-500">평수</span>
         <input

@@ -1,3 +1,4 @@
+import { QUOTE_DOCK_SPACE } from './QuoteDock';
 import type { ReactNode } from 'react';
 import { Button } from '../ui/Button';
 
@@ -9,8 +10,8 @@ export const quoteBottomButton =
 export function QuoteBottomBar({ children }: { children: ReactNode }) {
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[480px] bg-canvas px-3 pt-2"
-      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      className="fixed inset-x-0 z-30 mx-auto w-full max-w-[480px] px-3 pb-2"
+      style={{ bottom: QUOTE_DOCK_SPACE }}
     >
       {children}
     </div>
