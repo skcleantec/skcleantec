@@ -1,7 +1,7 @@
 {
-  "name": "청소비서 견적",
-  "short_name": "견적",
-  "description": "숫자만 넣으면 견적 문구가 완성됩니다.",
+  "name": "모바일 CRM",
+  "short_name": "모바일 CRM",
+  "description": "견적 문구, 내 문구, AI 견적, 평수",
   "start_url": "/m/quote",
   "scope": "/m/",
   "display": "standalone",

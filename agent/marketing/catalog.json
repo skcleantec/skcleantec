@@ -1,7 +1,7 @@
 {
   "product": "청소비서",
   "productEn": "CBISEO",
-  "updatedAt": "2026-11-18",
+  "updatedAt": "2026-11-19",
   "planMonthlyCoins": {
     "free": 70,
     "standard": 200,
@@ -33,7 +33,7 @@
     "pageBg": "#f1f5f9"
   },
   "adminGnb": [
-    { "label": "대시보드", "path": "/admin/dashboard" },
+    { "label": "대시보드", "path": "/admin/dashboard", "plain": "휴대폰 맨 위에 파란 모바일 CRM 카드. PC는 고객센터 옆 모바일 CRM." },
     { "label": "서비스접수", "path": "/admin/inquiries" },
     { "label": "스케쥴", "path": "/admin/schedule" },
     { "label": "가계부", "path": "/admin/my-ledger", "adminOnly": true, "soloOnly": true, "plain": "배정을 쓰지 않는 1인 업체 관리자만. 본인 월 수입·지출. 휴대폰 하단 탭에도 있다. 본사 업체에는 없다." },
@@ -56,6 +56,11 @@
     { "label": "세금계산서", "path": "/team/taxinvoice", "plain": "내가 발행한 세금계산서. + 새로 발행은 이 메뉴에서만. 버튼은 현금영수증과 같다." }
   ],
   "menus": {
+    "mobileCrm": {
+      "doc": "menus/mobile-crm.md",
+      "adminClickPath": "로그인 → 휴대폰 대시보드 파란 「모바일 CRM」 또는 PC 고객센터 옆 「모바일 CRM」",
+      "plain": "견적 문구, 내 문구, AI 견적, 면적, 평수. 내 문구는 한 줄 목록에서 복사하고, 공용·개인을 고친다. 카드 색 #1f4fb8."
+    },
     "teamReceipts": {
       "doc": "menus/team-receipts.md",
       "teamClickPath": "로그인 → 상단 「현금영수증」 또는 「세금계산서」",
