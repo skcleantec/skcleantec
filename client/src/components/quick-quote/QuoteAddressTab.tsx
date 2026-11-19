@@ -62,6 +62,8 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
   const [picked, setPicked] = useState<QuickQuoteAddressHit | null>(null);
   const [dongs, setDongs] = useState<string[]>([]);
   const [dong, setDong] = useState('');
+  const [dongInput, setDongInput] = useState('');
+  const [hoInput, setHoInput] = useState('');
   const [units, setUnits] = useState<QuickQuoteUnit[]>([]);
   const [unitKey, setUnitKey] = useState('');
   const [areas, setAreas] = useState<QuickQuoteAreasResult | null>(null);
@@ -149,6 +151,8 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
     if (!token) return;
     setPicked(hit);
     setDong('');
+    setDongInput('');
+    setHoInput('');
     setUnits([]);
     setUnitKey('');
     setAreas(null);
@@ -159,26 +163,15 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
     });
   };
 
-  const chooseDong = (next: string) => {
-    const token = getToken();
-    if (!token || !picked) return;
-    setDong(next);
-    setUnitKey('');
-    setAreas(null);
-    setChosenSqm(null);
-    void run(async () => {
-      const res = await fetchQuickQuoteUnits(token, picked, next);
-      setUnits(res.units);
-    });
-  };
-
-  const loadAreas = (nextHo?: string) => {
+  const loadAreas = (nextHo?: string, nextDong?: string) => {
     const token = getToken();
     if (!token || !picked) return;
     const hoName = nextHo ?? '';
+    const dongName = nextDong ?? '';
+    setDong(dongName);
     setChosenSqm(null);
     void run(async () => {
-      const res = await fetchQuickQuoteAreas(token, picked, dong || undefined, hoName || undefined, q.trim());
+      const res = await fetchQuickQuoteAreas(token, picked, dongName || undefined, hoName || undefined, q.trim());
       setAreas(res);
       if (res.kind === 'unit') setChosenSqm(res.exclusiveSqm);
     }, '평수를 찾는 중이에요');
@@ -254,44 +247,68 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
         </Button>
       ) : null}
 
-      {dongs.length ? (
-        <div className="flex flex-wrap gap-1">
-          {dongs.map((name) => (
-            <QuoteChip key={name} on={dong === name} label={name} onClick={() => chooseDong(name)} />
-          ))}
-        </div>
-      ) : null}
-
-      {units.length ? (
-        <div className="flex max-h-40 flex-wrap gap-1 overflow-y-auto">
-          {units.map((unit) => {
-            const key = `${unit.floor}|${unit.ho}`;
-            return (
-              <QuoteChip
-                key={key}
-                on={unitKey === key}
-                label={unit.floor ? `${String(unit.floor).replace(/층$/, '')}층 ${unit.ho}` : unit.ho}
-                onClick={() => {
-                  setUnitKey(key);
-                  loadAreas(unit.ho);
+      {picked ? (
+        <div className={`${quoteCard} p-3`}>
+          <p className="text-fluid-2xs font-semibold text-slate-700">동·호수로 찾기</p>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <label className="flex min-w-0 flex-1 items-center rounded-xl border border-[#e6ebf2] bg-white px-2.5 focus-within:border-[#1f4fb8]">
+              <input
+                value={dongInput}
+                inputMode="text"
+                placeholder="107"
+                aria-label="동"
+                className="min-w-0 flex-1 bg-transparent py-2 text-fluid-sm tabular-nums text-slate-900 outline-none placeholder:text-slate-300"
+                onChange={(e) => setDongInput(e.target.value.slice(0, 12))}
+              />
+              <span className="text-fluid-xs text-slate-500">동</span>
+            </label>
+            <label className="flex min-w-0 flex-1 items-center rounded-xl border border-[#e6ebf2] bg-white px-2.5 focus-within:border-[#1f4fb8]">
+              <input
+                value={hoInput}
+                inputMode="numeric"
+                placeholder="3101"
+                aria-label="호"
+                className="min-w-0 flex-1 bg-transparent py-2 text-fluid-sm tabular-nums text-slate-900 outline-none placeholder:text-slate-300"
+                onChange={(e) => setHoInput(e.target.value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 8))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && dongInput.trim()) {
+                    setUnitKey('');
+                    loadAreas(hoInput.trim(), dongInput.trim());
+                  }
                 }}
               />
-            );
-          })}
+              <span className="text-fluid-xs text-slate-500">호</span>
+            </label>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={busy || !dongInput.trim()}
+              onClick={() => {
+                setUnitKey('');
+                loadAreas(hoInput.trim(), dongInput.trim());
+              }}
+            >
+              찾기
+            </Button>
+          </div>
+          <p className="mt-1.5 text-fluid-2xs text-slate-500">
+            {dongs.length
+              ? `이 단지 동: ${dongs.length > 6 ? `${dongs.slice(0, 3).join(', ')} … ${dongs[dongs.length - 1]} (${dongs.length}개)` : dongs.join(', ')}`
+              : '호수를 비우면 그 동의 평형이 나와요.'}
+          </p>
+          <Button
+            variant="quiet"
+            size="sm"
+            className="mt-1 px-0"
+            disabled={busy}
+            onClick={() => {
+              setUnitKey('');
+              loadAreas();
+            }}
+          >
+            단지 전체 평형 보기
+          </Button>
         </div>
-      ) : null}
-
-      {picked ? (
-        <Button
-          variant="secondary"
-          disabled={busy}
-          onClick={() => {
-            setUnitKey('');
-            loadAreas();
-          }}
-        >
-          {dong ? '이 동의 평형 보기' : '이 단지의 평형 보기'}
-        </Button>
       ) : null}
 
       {busy ? (
@@ -366,12 +383,12 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
 
       {picked && areas && areas.kind !== 'empty' && (picked.building || '').trim() ? (
         <a
-          href={`https://m.land.naver.com/search/result/${encodeURIComponent((picked.building || '').trim())}`}
+          href={`https://search.naver.com/search.naver?query=${encodeURIComponent(`${(picked.building || '').trim()} 평면도`)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="self-start px-1 text-fluid-xs font-medium text-[#1f4fb8] underline underline-offset-2"
         >
-          평면도 보기 (네이버 부동산) ↗
+          평면도 보기 (네이버) ↗
         </a>
       ) : null}
 
