@@ -180,6 +180,8 @@ export type TelecrmCustomerLookupDto = {
   latestQuote: TelecrmConsultationQuoteDto | null;
   /** 이 번호로 견적보내기 한 기록 — 최신순 (예전 서버는 없을 수 있음) */
   sentQuotes?: TelecrmConsultationQuoteDto[];
+  /** 작업 브랜드엔 없고 같은 업체 다른 브랜드에만 기록이 있는 번호 */
+  otherBrand?: { id: string; name: string } | null;
 };
 
 export async function fetchTelecrmCustomerLookup(

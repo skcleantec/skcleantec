@@ -192,7 +192,7 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
   const visible = items.slice(0, shown);
 
   return (
-    <div className="flex flex-col gap-2 px-3 pb-24 pt-2">
+    <div className="flex flex-col gap-2 px-3 pb-40 pt-2">
       <div className="flex gap-2">
         <input
           value={q}

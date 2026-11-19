@@ -42,7 +42,7 @@ export function QuoteAreaTab({ onUsePyeong }: { onUsePyeong: (pyeong: string) =>
   const pct = Math.round(ratio * 100);
 
   return (
-    <div className="flex flex-col gap-2 px-3 pb-24 pt-2">
+    <div className="flex flex-col gap-2 px-3 pb-40 pt-2">
       <SegmentedControl
         ariaLabel="면적 방향"
         value={direction}

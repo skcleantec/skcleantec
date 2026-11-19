@@ -1432,15 +1432,42 @@ export function AdminLayout() {
               <a
                 href="/m/quote"
                 target={isCbiseoStaffNativeApp() ? undefined : '_blank'}
-                rel="noopener noreferrer"
-                title="모바일 CRM"
-                className="inline-flex items-center whitespace-nowrap rounded-lg px-2.5 py-1.5 text-fluid-xs font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+                title="모바일 CRM — 따로 열리는 창"
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-fluid-xs font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
                 onClick={(e) => {
-                  if (!isCbiseoStaffNativeApp()) return;
                   e.preventDefault();
-                  navigate('/m/quote');
+                  if (isCbiseoStaffNativeApp()) {
+                    navigate('/m/quote');
+                    return;
+                  }
+                  // 휴대폰 크기 창 하나만 — 이미 열려 있으면 그 창으로
+                  const w = 420;
+                  const h = Math.min(860, window.screen.availHeight - 40);
+                  const left = Math.max(0, window.screenX + window.outerWidth - w - 24);
+                  const top = Math.max(0, window.screenY + 60);
+                  const win = window.open(
+                    '',
+                    'cbiseo-mobile-crm',
+                    `popup=yes,width=${w},height=${h},left=${left},top=${top}`,
+                  );
+                  if (!win) {
+                    window.open('/m/quote', '_blank');
+                    return;
+                  }
+                  let already = false;
+                  try {
+                    already = win.location.pathname.startsWith('/m/quote');
+                  } catch {
+                    already = false;
+                  }
+                  if (!already) win.location.href = '/m/quote';
+                  win.focus();
                 }}
               >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M14 4h6v6M20 4l-9 9" />
+                  <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+                </svg>
                 모바일 CRM
               </a>
             ) : null}

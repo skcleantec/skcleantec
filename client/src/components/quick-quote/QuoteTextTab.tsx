@@ -162,7 +162,7 @@ export function QuoteTextTab({
         : `견적가 ${formatSoomgoQuoteWon(quoteWon)}`;
 
   return (
-    <div className="flex flex-col gap-2 px-3 pb-24 pt-2">
+    <div className="flex flex-col gap-2 px-3 pb-40 pt-2">
       <div className="flex gap-1 overflow-x-auto pb-0.5">
         {kinds.map((item) => {
           const on = item.id === kind?.id;
