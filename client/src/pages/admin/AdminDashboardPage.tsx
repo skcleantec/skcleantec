@@ -1,3 +1,5 @@
+import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
+import { canAccessTelecrm } from '../../utils/telecrmDashboardAccess';
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getDashboardStats, getDashboardInquiryBreakdown, type DashboardStats, type DashboardInquiryBreakdown } from '../../api/dashboard';
@@ -24,6 +26,7 @@ export function AdminDashboardPage() {
   const token = getToken();
   const { tenantName } = useAdminStaffSession();
   const showTelecrmDashboard = useTelecrmDashboardVisible();
+  const tenantCaps = useTenantCapabilities();
   const { items: promoItems } = usePlatformPromos('admin');
   const mobilePromoItems = useMemo(() => filterPromosForMobile(promoItems), [promoItems]);
   const desktopPromoItems = useMemo(() => filterPromosForDesktop(promoItems), [promoItems]);
@@ -136,7 +139,7 @@ export function AdminDashboardPage() {
 
       {/* 모바일 — 기존 세로 순서 유지 */}
       <div className="lg:hidden space-y-4">
-        {showTelecrmDashboard ? (
+        {showTelecrmDashboard && canAccessTelecrm(tenantCaps.telecrm) ? (
           <Link
             to="/m/quote"
             className="block rounded-2xl bg-[#1f4fb8] px-3 py-2 text-fluid-sm font-semibold text-white shadow-card"

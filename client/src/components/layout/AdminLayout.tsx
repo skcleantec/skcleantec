@@ -27,7 +27,7 @@ import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
-import { useTelecrmDashboardVisible } from '../../hooks/useTelecrmDashboardVisible';
+import { canAccessTelecrm, canShowTelecrmDashboard } from '../../utils/telecrmDashboardAccess';
 import { performStaffLogout } from '../../utils/staffLogout';
 import { clearTeamPreviewSession } from '../../utils/teamPreviewSession';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
@@ -246,7 +246,6 @@ function AdminGnbItemContent({
 }
 
 export function AdminLayout() {
-  const showMobileCrm = useTelecrmDashboardVisible();
   const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const [initialSession] = useState(readInitialAdminSession);
   const navigate = useNavigate();
@@ -310,6 +309,11 @@ export function AdminLayout() {
     () => initialSession?.effectiveStaffAdmin ?? false,
   );
   const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(() => initialSession?.staffMe ?? null);
+  // 레이아웃은 AdminStaffSessionProvider 바깥이라 컨텍스트 대신 여기 상태로 판단
+  const showMobileCrm = Boolean(meRole) && canShowTelecrmDashboard({
+    role: meRole,
+    marketerPermissions: staffMe?.marketerPermissions ?? null,
+  });
   const [meUserId, setMeUserId] = useState<string | null>(() => initialSession?.meUserId ?? null);
   const [meName, setMeName] = useState<string | null>(() => initialSession?.meName ?? null);
   const [meEmail, setMeEmail] = useState<string | null>(() => initialSession?.meEmail ?? null);
@@ -1424,7 +1428,7 @@ export function AdminLayout() {
               </svg>
               고객센터
             </a>
-            {showMobileCrm ? (
+            {showMobileCrm && canAccessTelecrm(tenantTelecrm) ? (
               <a
                 href="/m/quote"
                 target={isCbiseoStaffNativeApp() ? undefined : '_blank'}
