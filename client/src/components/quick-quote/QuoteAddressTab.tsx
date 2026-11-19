@@ -18,6 +18,7 @@ type Props = { onUsePyeong: (pyeong: string) => void; onOpenArea: () => void };
 const RECENT_KEY = 'cbiseo.quoteAddress.recent';
 const PAGE_WINDOW = 10;
 const EMPTY_AREA_NOTE = '이 단지는 공개자료에 집별 면적이 아직 없어요(신축이면 등록 전일 수 있어요)';
+const UNIT_MISS_NOTE = '이 호수는 공개자료에서 못 찾았어요. 단지 평형에서 골라 주세요';
 
 function groupLine(group: QuickQuoteAreaGroup): string {
   const supply =
@@ -294,6 +295,10 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
       {busy ? <p className="text-fluid-xs text-slate-500">찾는 중</p> : null}
       {error ? <p className="text-fluid-xs text-red-600">{error}</p> : null}
 
+      {areas?.kind === 'groups' && areas.note ? (
+        <p className="px-1 text-fluid-xs text-slate-600">{areas.note}</p>
+      ) : null}
+
       {mainGroups.map((group) => (
         <Button
           key={`main-${group.exclusiveSqm}-${group.households}`}
@@ -331,7 +336,9 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
         : null}
 
       {areas?.kind === 'unit' ? (
-        <div className={`${quoteCard} p-3 text-fluid-sm text-slate-800`}>{groupLine({ ...areas, households: 1 })}</div>
+        <div className={`${quoteCard} p-3 text-fluid-sm text-slate-800`}>
+          {areas.line || groupLine({ ...areas, households: 1 })}
+        </div>
       ) : null}
 
       {areas?.kind === 'building' ? (
@@ -347,9 +354,11 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
       {areas?.kind === 'empty' ? (
         <div className={`${quoteCard} p-3`}>
           <p className="text-fluid-xs text-slate-700">{areas.note || EMPTY_AREA_NOTE}</p>
-          <Button variant="secondary" size="sm" className="mt-2" onClick={onOpenArea}>
-            면적 계산으로 가기
-          </Button>
+          {areas.note === UNIT_MISS_NOTE ? null : (
+            <Button variant="secondary" size="sm" className="mt-2" onClick={onOpenArea}>
+              면적 계산으로 가기
+            </Button>
+          )}
         </div>
       ) : null}
 

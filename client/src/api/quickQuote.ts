@@ -135,13 +135,14 @@ export type QuickQuoteAreaGroup = {
 };
 
 export type QuickQuoteAreasResult =
-  | { kind: 'groups'; groups: QuickQuoteAreaGroup[] }
+  | { kind: 'groups'; groups: QuickQuoteAreaGroup[]; note?: string }
   | {
       kind: 'unit';
       exclusiveSqm: number;
       supplySqm: number | null;
       supplyPyeong: number | null;
       supplyUnconfirmed?: boolean;
+      line?: string;
     }
   | { kind: 'building'; totalSqm: number; note: string }
   | { kind: 'empty'; note?: string };

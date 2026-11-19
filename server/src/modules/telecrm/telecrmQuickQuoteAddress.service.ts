@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { summarizeExposAreas, type LedgerAreaRow, type QuickQuoteAreaSummary } from './quickQuoteBuildingArea.js';
+import {
+  presentExposAreas,
+  summarizeExposAreas,
+  UNIT_MISS_NOTE,
+  type LedgerAreaRow,
+  type QuickQuoteAreaSummary,
+} from './quickQuoteBuildingArea.js';
 import {
   ADDRESS_EMPTY_NOTICE,
   ADDRESS_PAGE_SIZE,
@@ -52,7 +58,8 @@ export type QuickQuoteAddressPage = {
 export type QuickQuoteUnit = { floor: string; ho: string };
 
 export type QuickQuoteAreasResult =
-  | Exclude<QuickQuoteAreaSummary, { kind: 'empty' }>
+  | Exclude<QuickQuoteAreaSummary, { kind: 'empty' | 'unit' }> & { note?: string }
+  | (Extract<QuickQuoteAreaSummary, { kind: 'unit' }> & { line: string })
   | { kind: 'building'; totalSqm: number; note: string }
   | { kind: 'empty'; note?: string };
 
@@ -495,9 +502,8 @@ function platWithLot(plat: PlatKeys, lot: RelLot): PlatKeys {
   return { ...plat, lnbrMnnm: lot.bun, lnbrSlno: lot.ji, mtYn: lot.mtYn };
 }
 
-async function summarizePlat(plat: PlatKeys, dong: string, ho: string): Promise<QuickQuoteAreaSummary> {
-  const rows = await fetchLedgerRows(plat, dong, ho);
-  return summarizeExposAreas(rows, dong || ho ? { dongNm: dong, hoNm: ho } : undefined);
+async function fetchComplexRows(plat: PlatKeys): Promise<LedgerAreaRow[]> {
+  return fetchLedgerRows(plat, '', '');
 }
 
 function lotsFromTitle(items: Record<string, unknown>[]): RelLot[] {
@@ -567,6 +573,41 @@ function orderedRelLots(relJibun: string, keyword: string): RelLot[] {
   return [...preferred, ...rest].slice(0, cap);
 }
 
+async function loadComplexRows(
+  tenantId: string,
+  plat: PlatKeys,
+  related: string,
+  typed: string,
+): Promise<LedgerAreaRow[]> {
+  const key = cacheKey({ kind: 'expos-rows', ...plat, rel: related, q: typed });
+  return cached(tenantId, key, async () => {
+    const own = await fetchComplexRows(plat);
+    if (summarizeExposAreas(own).kind !== 'empty') return own;
+
+    const tried = new Set<string>([
+      lotId({ bun: plat.lnbrMnnm, ji: plat.lnbrSlno, mtYn: plat.mtYn === '1' ? '1' : '0' }),
+    ]);
+    const tryLot = async (lot: RelLot): Promise<LedgerAreaRow[] | null> => {
+      const id = lotId(lot);
+      if (tried.has(id)) return null;
+      tried.add(id);
+      const rows = await fetchComplexRows(platWithLot(plat, lot));
+      return summarizeExposAreas(rows).kind === 'empty' ? null : rows;
+    };
+
+    for (const lot of orderedRelLots(related, typed)) {
+      const rows = await tryLot(lot);
+      if (rows) return rows;
+    }
+    for (const lot of await fetchRepresentativeLots(plat)) {
+      if (tried.size > AREA_RETRY_LOTS + 4) break;
+      const rows = await tryLot(lot);
+      if (rows) return rows;
+    }
+    return own;
+  });
+}
+
 export async function lookupQuickQuoteAreas(
   tenantId: string,
   plat: PlatKeys,
@@ -579,39 +620,16 @@ export async function lookupQuickQuoteAreas(
   const ho = hoNm?.trim() ?? '';
   const related = (relJibun ?? '').trim().slice(0, 500);
   const typed = (keyword ?? '').trim().slice(0, 80);
-  const key = cacheKey({ kind: 'areas3', ...plat, dong, ho, rel: related, q: typed });
-  return cached(tenantId, key, async () => {
-    let summary = await summarizePlat(plat, dong, ho);
-    if (summary.kind !== 'empty') return summary;
-    if (dong || ho) return EMPTY_AREAS;
+  const rows = await loadComplexRows(tenantId, plat, related, typed);
+  const presented = presentExposAreas(rows, dong || ho ? { dongNm: dong, hoNm: ho } : undefined);
+  if (presented.kind !== 'empty') return presented;
+  if (dong || ho) return { kind: 'empty', note: UNIT_MISS_NOTE };
 
-    const tried = new Set<string>([
-      lotId({ bun: plat.lnbrMnnm, ji: plat.lnbrSlno, mtYn: plat.mtYn === '1' ? '1' : '0' }),
-    ]);
-    const tryLot = async (lot: RelLot): Promise<QuickQuoteAreaSummary | null> => {
-      const id = lotId(lot);
-      if (tried.has(id)) return null;
-      tried.add(id);
-      const next = await summarizePlat(platWithLot(plat, lot), '', '');
-      return next.kind === 'empty' ? null : next;
-    };
-
-    for (const lot of orderedRelLots(related, typed)) {
-      const next = await tryLot(lot);
-      if (next) return next;
-    }
-    for (const lot of await fetchRepresentativeLots(plat)) {
-      if (tried.size > AREA_RETRY_LOTS + 4) break;
-      const next = await tryLot(lot);
-      if (next) return next;
-    }
-
-    const totalSqm = await fetchTitleSqm(plat);
-    if (totalSqm == null) return EMPTY_AREAS;
-    return {
-      kind: 'building' as const,
-      totalSqm,
-      note: '이 주소는 집별 면적이 없어 건물 전체 면적만 보여 드려요.',
-    };
-  });
+  const totalSqm = await fetchTitleSqm(plat);
+  if (totalSqm == null) return EMPTY_AREAS;
+  return {
+    kind: 'building',
+    totalSqm,
+    note: '이 주소는 집별 면적이 없어 건물 전체 면적만 보여 드려요.',
+  };
 }

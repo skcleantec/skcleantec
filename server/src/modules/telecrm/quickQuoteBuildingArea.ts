@@ -43,11 +43,38 @@ export type QuickQuoteAreaSummary =
   | { kind: 'unit'; exclusiveSqm: number; supplySqm: number | null; supplyPyeong: number | null; supplyUnconfirmed: boolean }
   | { kind: 'empty' };
 
-function normUnit(raw: string | null | undefined): string {
-  return String(raw ?? '')
+/** "제107동", "107동", "107", "A-1동", "3101호"를 같은 동·호로 본다. */
+export function normUnit(raw: string | null | undefined): string {
+  const compact = String(raw ?? '')
+    .trim()
+    .toLowerCase()
     .replace(/\s+/g, '')
-    .replace(/동$/, '')
-    .replace(/호$/, '');
+    .replace(/-/g, '')
+    .replace(/제/g, '')
+    .replace(/동/g, '')
+    .replace(/호/g, '')
+    .replace(/층/g, '');
+  return compact.replace(/^([a-z]*)0+(?=\d)/, '$1');
+}
+
+export const UNIT_MISS_NOTE = '이 호수는 공개자료에서 못 찾았어요. 단지 평형에서 골라 주세요';
+
+function withSuffix(raw: string, suffix: string): string {
+  const text = raw.replace(/\s+/g, '');
+  if (!text) return '';
+  return text.includes(suffix) ? text : `${text}${suffix}`;
+}
+
+export function formatQuickQuoteUnitLine(
+  dong: string,
+  ho: string,
+  unit: { exclusiveSqm: number; supplyPyeong: number | null; supplyUnconfirmed?: boolean },
+): string {
+  const place = [withSuffix(dong, '동'), withSuffix(ho, '호')].filter(Boolean).join(' ');
+  const supply =
+    unit.supplyUnconfirmed || unit.supplyPyeong == null ? '확인 필요' : `${format1(unit.supplyPyeong)}평`;
+  const body = `전용 ${format1(unit.exclusiveSqm)}㎡ · 공급 ${supply}`;
+  return place ? `${place} · ${body}` : body;
 }
 
 function purposeText(row: LedgerAreaRow): string {
@@ -183,4 +210,34 @@ export function summarizeExposAreas(
     .map((cluster) => toGroup(cluster))
     .sort((a, b) => a.exclusiveSqm - b.exclusiveSqm);
   return { kind: 'groups', groups };
+}
+
+export type PresentedExposAreas =
+  | { kind: 'groups'; groups: QuickQuoteAreaGroup[]; note?: string }
+  | {
+      kind: 'unit';
+      exclusiveSqm: number;
+      supplySqm: number | null;
+      supplyPyeong: number | null;
+      supplyUnconfirmed: boolean;
+      line: string;
+    }
+  | { kind: 'empty' };
+
+/** 동·호는 원본 행에서 걸러 낸다. 그 집·동이 없으면 단지 전체 평형을 그대로 돌려준다. */
+export function presentExposAreas(
+  rows: LedgerAreaRow[],
+  filter?: { dongNm?: string; hoNm?: string },
+): PresentedExposAreas {
+  const dong = filter?.dongNm?.trim() ?? '';
+  const ho = filter?.hoNm?.trim() ?? '';
+  const summary = summarizeExposAreas(rows, dong || ho ? { dongNm: dong, hoNm: ho } : undefined);
+  if (summary.kind === 'unit') {
+    return { ...summary, line: formatQuickQuoteUnitLine(dong, ho, summary) };
+  }
+  if (summary.kind === 'groups') return summary;
+  if (!dong && !ho) return { kind: 'empty' };
+  const all = summarizeExposAreas(rows);
+  if (all.kind === 'groups') return { kind: 'groups', groups: all.groups, note: UNIT_MISS_NOTE };
+  return { kind: 'empty' };
 }

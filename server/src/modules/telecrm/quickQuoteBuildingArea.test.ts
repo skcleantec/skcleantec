@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatQuickQuoteAreaLine, summarizeExposAreas } from './quickQuoteBuildingArea.js';
+import {
+  formatQuickQuoteAreaLine,
+  formatQuickQuoteUnitLine,
+  normUnit,
+  presentExposAreas,
+  summarizeExposAreas,
+  UNIT_MISS_NOTE,
+} from './quickQuoteBuildingArea.js';
 
 const apt = { mainPurpsCdNm: '아파트' };
 
@@ -77,6 +84,58 @@ test('같은 평형 공급은 가장 흔한 평이다', () => {
   assert.equal(summary.groups.length, 1);
   assert.equal(summary.groups[0]?.households, 4);
   assert.equal(summary.groups[0]?.supplyPyeong, Math.round((112.4 / 3.305785) * 10) / 10);
+});
+
+test('제107동과 107동, 3101호와 3101은 같은 집이다', () => {
+  assert.equal(normUnit('제107동'), normUnit('107동'));
+  assert.equal(normUnit('107동'), normUnit('107'));
+  assert.equal(normUnit('3101호'), normUnit('3101'));
+  assert.equal(normUnit('A-1동'), normUnit('a1'));
+  assert.equal(normUnit(' 0107 '), '107');
+  const summary = presentExposAreas(
+    [
+      { exposPubuseGbCd: '1', area: '84.9', dongNm: '제107동', hoNm: '3101호', ...apt },
+      { exposPubuseGbCd: '2', area: '33.45', dongNm: '제107동', hoNm: '3101호', mainPurpsCdNm: '계단' },
+      { exposPubuseGbCd: '1', area: '59.9', dongNm: '제108동', hoNm: '3101호', ...apt },
+    ],
+    { dongNm: '107동', hoNm: '3101' },
+  );
+  assert.equal(summary.kind, 'unit');
+  if (summary.kind !== 'unit') return;
+  assert.equal(summary.line, '107동 3101호 · 전용 84.9㎡ · 공급 35.8평');
+  assert.equal(formatQuickQuoteUnitLine('107동', '3101', summary), summary.line);
+});
+
+test('동만 고르면 그 동 평형만 남긴다', () => {
+  const summary = presentExposAreas(
+    [
+      { exposPubuseGbCd: '1', area: '84.9', dongNm: '제107동', hoNm: '3101호', ...apt },
+      { exposPubuseGbCd: '2', area: '33.45', dongNm: '제107동', hoNm: '3101호', mainPurpsCdNm: '계단' },
+      { exposPubuseGbCd: '1', area: '59.9', dongNm: '제108동', hoNm: '101호', ...apt },
+      { exposPubuseGbCd: '2', area: '20', dongNm: '제108동', hoNm: '101호', mainPurpsCdNm: '계단' },
+    ],
+    { dongNm: '107' },
+  );
+  assert.equal(summary.kind, 'groups');
+  if (summary.kind !== 'groups') return;
+  assert.equal(summary.note, undefined);
+  assert.equal(summary.groups.length, 1);
+  assert.equal(summary.groups[0]?.exclusiveSqm, 84.9);
+});
+
+test('없는 호수는 단지 전체 평형을 그대로 보여 준다', () => {
+  const summary = presentExposAreas(
+    [
+      { exposPubuseGbCd: '1', area: '84.9', dongNm: '제107동', hoNm: '3101호', ...apt },
+      { exposPubuseGbCd: '2', area: '33.45', dongNm: '제107동', hoNm: '3101호', mainPurpsCdNm: '계단' },
+    ],
+    { dongNm: '109동', hoNm: '101' },
+  );
+  assert.equal(summary.kind, 'groups');
+  if (summary.kind !== 'groups') return;
+  assert.equal(summary.note, UNIT_MISS_NOTE);
+  assert.equal(summary.groups.length, 1);
+  assert.equal(summary.groups[0]?.exclusiveSqm, 84.9);
 });
 
 test('동·호를 고르면 그 집 한 줄이다', () => {
