@@ -70,6 +70,9 @@ function resolveAdminResumePath(from: RouterLocation | undefined): string {
   if (!from?.pathname) return fallback;
   const p = from.pathname;
   if (p === '/login' || p === '/admin/login') return fallback;
+  if (p === '/m/quote' || p.startsWith('/m/quote/')) {
+    return `${p}${from.search ?? ''}${from.hash ?? ''}`;
+  }
   if (p === '/team' || p.startsWith('/team/')) return fallback;
   if (p === '/crew' || p.startsWith('/crew/')) return fallback;
   if (p === '/admin' || p.startsWith('/admin/')) {
@@ -113,6 +116,9 @@ function resolveCrewResumePath(from: RouterLocation | undefined): string {
 }
 
 function resolveDualTokenResumePath(from: RouterLocation | undefined): string {
+  if (from?.pathname === '/m/quote' || from?.pathname?.startsWith('/m/quote/')) {
+    return resolveAdminResumePath(from);
+  }
   if (from?.pathname?.startsWith('/team')) return resolveTeamResumePath(from);
   if (from?.pathname?.startsWith('/admin')) return resolveAdminResumePath(from);
   return '/admin/dashboard';

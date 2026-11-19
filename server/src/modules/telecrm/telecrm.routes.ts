@@ -22,6 +22,7 @@ import { telecrmSoomgoMessagePresetsRouter } from './telecrmSoomgoMessagePresets
 import { telecrmAiRouter } from './telecrmAi.routes.js';
 import { telecrmQuoteCrewLearningRouter } from './telecrmQuoteCrewLearning.routes.js';
 import { crmQuickScheduleRouter } from './crmQuickSchedule.routes.js';
+import { telecrmQuickQuoteRouter } from './telecrmQuickQuote.routes.js';
 
 const router = Router();
 router.use(authMiddleware, requireFeature('mod_telecrm'), requireTelecrmUserAccess);
@@ -41,6 +42,7 @@ router.use('/soomgo-message-presets', telecrmSoomgoMessagePresetsRouter);
 router.use('/ai', telecrmAiRouter);
 router.use('/quote-learning', telecrmQuoteCrewLearningRouter);
 router.use('/quick-schedule', crmQuickScheduleRouter);
+router.use('/quick-quote', telecrmQuickQuoteRouter);
 router.use('/', telecrmMobileRouter);
 
 export const telecrmRoutes = router;

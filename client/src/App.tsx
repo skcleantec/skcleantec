@@ -191,6 +191,7 @@ import {
   TelecrmSoomgoSettingsPage,
   TelecrmSoomgoPresetsSettingsPage,
   TelecrmCallActivityPage,
+  QuoteHelperPage,
 } from './routes/lazyPages';
 
 function SuspensePage({ children }: { children: ReactNode }) {
@@ -204,6 +205,16 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/m/quote"
+          element={
+            <ProtectedRoute>
+              <SuspensePage>
+                <QuoteHelperPage />
+              </SuspensePage>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/signup" element={<TenantSignupPage />} />
         <Route path="/r/:code" element={<ReferrerSignupRedirectPage />} />
         <Route path="/forgot-password" element={<TenantForgotPasswordPage />} />

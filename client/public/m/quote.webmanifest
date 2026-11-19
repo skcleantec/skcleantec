@@ -1,0 +1,25 @@
+{
+  "name": "청소비서 견적",
+  "short_name": "견적",
+  "description": "숫자만 넣으면 견적 문구가 완성됩니다.",
+  "start_url": "/m/quote",
+  "scope": "/m/",
+  "display": "standalone",
+  "background_color": "#F1F4F9",
+  "theme_color": "#F1F4F9",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/icons/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -28,6 +28,30 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/app-icon-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      (function () {
+        var path = location.pathname;
+        if (path !== '/m/quote' && path.indexOf('/m/quote/') !== 0) return;
+        var link = document.querySelector('link[rel="manifest"]');
+        if (link) link.setAttribute('href', '/m/quote.webmanifest');
+        var theme = document.querySelector('meta[name="theme-color"]');
+        if (theme) theme.setAttribute('content', '#F1F4F9');
+        function meta(name, content) {
+          var el = document.querySelector('meta[name="' + name + '"]');
+          if (!el) {
+            el = document.createElement('meta');
+            el.setAttribute('name', name);
+            el.setAttribute('data-quote-pwa', '1');
+            document.head.appendChild(el);
+          }
+          el.setAttribute('content', content);
+        }
+        meta('apple-mobile-web-app-capable', 'yes');
+        meta('mobile-web-app-capable', 'yes');
+        meta('apple-mobile-web-app-status-bar-style', 'default');
+        meta('apple-mobile-web-app-title', '견적');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

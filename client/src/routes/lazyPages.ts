@@ -653,6 +653,9 @@ export const TelecrmCallActivityPage = lazyWithRetry(() =>
     default: m.TelecrmCallActivityPage,
   }))
 );
+export const QuoteHelperPage = lazyWithRetry(() =>
+  import('../pages/m/QuoteHelperPage').then((m) => ({ default: m.QuoteHelperPage })),
+);
 export const PlatformReceiptsPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformReceiptsPage').then((m) => ({
     default: m.PlatformReceiptsPage,

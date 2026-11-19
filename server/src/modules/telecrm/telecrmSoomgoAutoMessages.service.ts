@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { parseSoomgoMessageSteps } from '../../lib/soomgoMessagePresets.js';
 import type { SoomgoIntakeAutoTriggerKind } from '../../lib/soomgoMessagePresets.js';
+import { QUICK_QUOTE_TRIGGER_KIND } from './telecrmQuickQuote.constants.js';
 import {
   isSoomgoIntakeAutoTriggerKind,
   SOOMGO_INTAKE_AUTO_TRIGGER_KINDS,
@@ -208,9 +209,12 @@ export async function upsertTelecrmSoomgoAutoMessage(
   return serializeAutoRow(updated);
 }
 
-/** 수동 매크로 목록 — 자동 트리거 프리셋 제외 */
+/** 수동 매크로 목록 — 자동 트리거·견적 도우미 종류 제외 */
 export function manualSoomgoPresetWhereExtra() {
   return {
-    OR: [{ triggerKind: null }, { triggerKind: { notIn: [...SOOMGO_ALL_AUTO_TRIGGER_KINDS] } }],
+    OR: [
+      { triggerKind: null },
+      { triggerKind: { notIn: [...SOOMGO_ALL_AUTO_TRIGGER_KINDS, QUICK_QUOTE_TRIGGER_KIND] } },
+    ],
   };
 }
