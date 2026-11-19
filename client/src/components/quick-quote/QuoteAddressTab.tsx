@@ -68,11 +68,13 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
   const [chosenSqm, setChosenSqm] = useState<number | null>(null);
   const [showMinor, setShowMinor] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState('');
   const [error, setError] = useState<string | null>(null);
   const searchSeq = useRef(0);
 
-  const run = async (work: () => Promise<void>) => {
+  const run = async (work: () => Promise<void>, label = '찾는 중이에요') => {
     setBusy(true);
+    setBusyLabel(label);
     setError(null);
     try {
       await work();
@@ -179,7 +181,7 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
       const res = await fetchQuickQuoteAreas(token, picked, dong || undefined, hoName || undefined, q.trim());
       setAreas(res);
       if (res.kind === 'unit') setChosenSqm(res.exclusiveSqm);
-    });
+    }, '평수를 찾는 중이에요');
   };
 
   const pickedGroup =
@@ -268,7 +270,7 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
               <QuoteChip
                 key={key}
                 on={unitKey === key}
-                label={unit.floor ? `${unit.floor}층 ${unit.ho}` : unit.ho}
+                label={unit.floor ? `${String(unit.floor).replace(/층$/, '')}층 ${unit.ho}` : unit.ho}
                 onClick={() => {
                   setUnitKey(key);
                   loadAreas(unit.ho);
@@ -292,7 +294,28 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
         </Button>
       ) : null}
 
-      {busy ? <p className="text-fluid-xs text-slate-500">찾는 중</p> : null}
+      {busy ? (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/35 p-6"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-full max-w-[260px] rounded-2xl bg-white px-5 py-4 text-center shadow-xl">
+            <span
+              className="mx-auto block h-7 w-7 animate-spin rounded-full border-[3px] border-slate-200 border-t-[#1f4fb8]"
+              aria-hidden
+            />
+            <p className="mt-3 text-fluid-sm font-semibold text-slate-900">{busyLabel || '찾는 중이에요'}</p>
+            {busyLabel === '평수를 찾는 중이에요' ? (
+              <p className="mt-1 text-fluid-2xs leading-relaxed text-slate-500">
+                처음 보는 단지는 30초쯤 걸려요.
+                <br />
+                한 번 찾은 단지는 다음부터 바로 나와요.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       {error ? <p className="text-fluid-xs text-red-600">{error}</p> : null}
 
       {areas?.kind === 'groups' && areas.note ? (
@@ -339,6 +362,17 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
         <div className={`${quoteCard} p-3 text-fluid-sm text-slate-800`}>
           {areas.line || groupLine({ ...areas, households: 1 })}
         </div>
+      ) : null}
+
+      {picked && areas && areas.kind !== 'empty' && (picked.building || '').trim() ? (
+        <a
+          href={`https://m.land.naver.com/search/result/${encodeURIComponent((picked.building || '').trim())}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="self-start px-1 text-fluid-xs font-medium text-[#1f4fb8] underline underline-offset-2"
+        >
+          평면도 보기 (네이버 부동산) ↗
+        </a>
       ) : null}
 
       {areas?.kind === 'building' ? (
