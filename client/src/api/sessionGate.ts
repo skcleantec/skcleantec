@@ -25,6 +25,7 @@ export type AuthRejectionReason = 'http_401' | 'ws_close' | 'me_check';
 
 function detectScopeFromPath(pathname: string): 'admin' | 'team' | 'crew' | 'unknown' {
   if (pathname.startsWith('/admin')) return 'admin';
+  if (pathname === '/m/quote' || pathname.startsWith('/m/quote/')) return 'admin';
   if (pathname.startsWith('/team')) return 'team';
   if (pathname.startsWith('/crew')) return 'crew';
   return 'unknown';
