@@ -144,19 +144,26 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-1">
-        <QuoteChip on={oneRoom} label="원룸" onClick={() => setOneRoom((prev) => !prev)} />
-        {ORDER_FORM_CLEANING_KIND_OPTIONS.map((item) => (
-          <QuoteChip
-            key={item.value}
-            on={cleaning === item.label}
-            label={item.label}
-            onClick={() => setCleaning((prev) => (prev === item.label ? '' : item.label))}
-          />
-        ))}
-      </div>
+      <section className={`p-3 ${quoteCard}`} aria-label="청소 종류">
+        <p className="mb-1.5 flex items-baseline justify-between text-fluid-2xs font-semibold text-slate-700">
+          청소 종류 <span className="font-normal text-slate-400">하나 고르기</span>
+        </p>
+        <div className="flex flex-wrap gap-1">
+          {ORDER_FORM_CLEANING_KIND_OPTIONS.map((item) => (
+            <QuoteChip
+              key={item.value}
+              on={cleaning === item.label}
+              label={item.label}
+              onClick={() => setCleaning((prev) => (prev === item.label ? '' : item.label))}
+            />
+          ))}
+        </div>
+      </section>
 
-      {properties.length ? (
+      <section className={`p-3 ${quoteCard}`} aria-label="건물 형태">
+        <p className="mb-1.5 flex items-baseline justify-between text-fluid-2xs font-semibold text-slate-700">
+          건물 형태 <span className="font-normal text-slate-400">하나 고르기</span>
+        </p>
         <div className="flex flex-wrap gap-1">
           {properties.map((item) => (
             <QuoteChip
@@ -166,27 +173,36 @@ export function QuoteAiTab({ operatingCompanyId, onUseQuote }: Props) {
               onClick={() => setProperty((prev) => (prev === item.value ? '' : item.value))}
             />
           ))}
+          <QuoteChip on={oneRoom} label="원룸" onClick={() => setOneRoom((prev) => !prev)} />
         </div>
-      ) : null}
+      </section>
 
       {options.length ? (
-        <div className="flex flex-wrap gap-1">
-          {visibleOptions.map((item) => (
-            <QuoteChip
-              key={item.id}
-              on={picked.includes(item.id)}
-              label={item.label}
-              onClick={() =>
-                setPicked((prev) => (prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]))
-              }
-            />
-          ))}
-          {options.length > 24 && !showAllOptions ? (
-            <Button variant="quiet" size="sm" onClick={() => setShowAllOptions(true)}>
-              옵션 더 보기
-            </Button>
-          ) : null}
-        </div>
+        <section className={`p-3 ${quoteCard}`} aria-label="추가 옵션">
+          <p className="mb-1.5 flex items-baseline justify-between text-fluid-2xs font-semibold text-slate-700">
+            <span>
+              추가 옵션{picked.length ? <span className="ml-1 text-blue-700">{picked.length}개 선택</span> : null}
+            </span>
+            <span className="font-normal text-slate-400">여러 개 고르기</span>
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {visibleOptions.map((item) => (
+              <QuoteChip
+                key={item.id}
+                on={picked.includes(item.id)}
+                label={item.label}
+                onClick={() =>
+                  setPicked((prev) => (prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]))
+                }
+              />
+            ))}
+            {options.length > 24 && !showAllOptions ? (
+              <Button variant="quiet" size="sm" onClick={() => setShowAllOptions(true)}>
+                옵션 더 보기
+              </Button>
+            ) : null}
+          </div>
+        </section>
       ) : null}
 
       <label className={`p-3 ${quoteCard}`}>
