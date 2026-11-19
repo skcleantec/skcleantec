@@ -50,6 +50,19 @@
         meta('mobile-web-app-capable', 'yes');
         meta('apple-mobile-web-app-status-bar-style', 'default');
         meta('apple-mobile-web-app-title', '견적');
+        // 홈 화면 설치 — 크롬이 주는 설치 이벤트를 화면이 뜨기 전에 잡아 둔다
+        window.addEventListener('beforeinstallprompt', function (e) {
+          e.preventDefault();
+          window.__cbiseoQuoteInstallPrompt = e;
+          window.dispatchEvent(new Event('cbiseo:quote-install-ready'));
+        });
+        window.addEventListener('appinstalled', function () {
+          window.__cbiseoQuoteInstallPrompt = null;
+          window.dispatchEvent(new Event('cbiseo:quote-installed'));
+        });
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/m/quote-sw.js', { scope: '/m/' }).catch(function () {});
+        }
       })();
     </script>
   </head>
