@@ -83,39 +83,59 @@ export function QuoteTextTab({
     setDone([]);
   };
 
-  const markAndAdvance = () => {
+  const markAndAdvance = (index = stepIndex) => {
     setDone((prev) => {
       const next = [...prev];
-      next[stepIndex] = true;
+      next[index] = true;
       return next;
     });
-    if (stepIndex < applied.length - 1) setStepIndex(stepIndex + 1);
+    setStepIndex(index < applied.length - 1 ? index + 1 : index);
+  };
+
+  /** 문구 한 칸 복사 — 하단 「복사하기」·미리보기·목록 터치 공통 */
+  const copyTextStep = async (index: number) => {
+    const step = applied[index];
+    if (!step || step.type !== 'text' || busy) return;
+    setBusy(true);
+    try {
+      const ok = await copyQuoteText(step.text);
+      if (!ok) {
+        setStepIndex(index);
+        window.setTimeout(() => {
+          const box = previewRef.current;
+          const selection = window.getSelection();
+          if (box && selection) {
+            const range = document.createRange();
+            range.selectNodeContents(box);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }, 0);
+        onToast('복사가 안 됐어요. 길게 눌러 복사해 주세요');
+        return;
+      }
+      onToast('복사했어요 · 숨고에 붙여넣기 하세요');
+      markAndAdvance(index);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 미리보기 글 터치 — 길게 눌러 일부를 고른 경우는 복사하지 않음 */
+  const onPreviewTap = () => {
+    const selected = window.getSelection()?.toString() ?? '';
+    if (selected.trim()) return;
+    void copyTextStep(stepIndex);
   };
 
   const onPrimary = async () => {
     if (!current || busy) return;
+    if (current.type === 'text') {
+      await copyTextStep(stepIndex);
+      return;
+    }
     setBusy(true);
     try {
-      if (current.type === 'text') {
-        const ok = await copyQuoteText(current.text);
-        if (!ok) {
-          const box = previewRef.current;
-          if (box) {
-            const selection = window.getSelection();
-            if (selection) {
-              const range = document.createRange();
-              range.selectNodeContents(box);
-              selection.removeAllRanges();
-              selection.addRange(range);
-            }
-          }
-          onToast('복사가 안 됐어요. 길게 눌러 복사해 주세요');
-          return;
-        }
-        onToast('복사했어요 · 숨고에 붙여넣기 하세요');
-        markAndAdvance();
-        return;
-      }
       const result = await saveQuoteImages(current.urls);
       if (result === 'cancelled') return;
       if (result === 'opened') onToast('사진이 새 탭에 열렸어요. 길게 눌러 저장하세요.');
@@ -195,7 +215,24 @@ export function QuoteTextTab({
 
       <div className={`p-3 ${quoteCard}`}>
         {current?.type === 'text' ? (
-          <PreviewText text={current.text} boxRef={previewRef} />
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="문구 복사하기"
+            onClick={onPreviewTap}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                void copyTextStep(stepIndex);
+              }
+            }}
+            className="-m-1 cursor-pointer rounded-xl p-1 transition-colors active:bg-sky-50"
+          >
+            <PreviewText text={current.text} boxRef={previewRef} />
+            <p className="mt-2 text-right text-fluid-2xs font-medium text-[#1f4fb8]/80">
+              {done[stepIndex] ? '✓ 복사됨 · 다시 누르면 또 복사' : '글을 누르면 바로 복사돼요'}
+            </p>
+          </div>
         ) : current?.type === 'images' ? (
           <div className="flex gap-2 overflow-x-auto">
             {current.urls.map((url) => (
@@ -216,7 +253,11 @@ export function QuoteTextTab({
                 size="sm"
                 nowrap={false}
                 className={`!h-auto w-full !justify-start gap-2 !px-2 !py-1.5 ${index === stepIndex ? '!bg-white shadow-thumb' : ''}`}
-                onClick={() => setStepIndex(index)}
+                onClick={() => {
+                  if (step.type === 'text') void copyTextStep(index);
+                  else setStepIndex(index);
+                }}
+                aria-label={step.type === 'text' ? `${index + 1}번 문구 복사하기` : `${index + 1}번 사진 보기`}
               >
                 <span className={`shrink-0 ${done[index] ? 'text-emerald-600' : 'text-slate-400'}`}>
                   {done[index] ? (step.type === 'text' ? '✓복사됨' : '✓저장') : `${index + 1}`}
