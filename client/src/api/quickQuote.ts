@@ -119,14 +119,21 @@ export type QuickQuoteUnit = { floor: string; ho: string };
 
 export type QuickQuoteAreaGroup = {
   exclusiveSqm: number;
-  supplySqm: number;
-  supplyPyeong: number;
+  supplySqm: number | null;
+  supplyPyeong: number | null;
   households: number;
+  supplyUnconfirmed?: boolean;
 };
 
 export type QuickQuoteAreasResult =
   | { kind: 'groups'; groups: QuickQuoteAreaGroup[] }
-  | { kind: 'unit'; exclusiveSqm: number; supplySqm: number; supplyPyeong: number }
+  | {
+      kind: 'unit';
+      exclusiveSqm: number;
+      supplySqm: number | null;
+      supplyPyeong: number | null;
+      supplyUnconfirmed?: boolean;
+    }
   | { kind: 'building'; totalSqm: number; note: string }
   | { kind: 'empty' };
 

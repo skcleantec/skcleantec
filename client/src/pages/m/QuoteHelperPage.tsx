@@ -9,7 +9,6 @@ import {
 } from '../../api/quickQuote';
 import { getToken } from '../../stores/auth';
 import { Button } from '../../components/ui/Button';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { QuoteInstallHint } from '../../components/quick-quote/QuoteInstallHint';
 import { QuoteTextTab } from '../../components/quick-quote/QuoteTextTab';
 import { QuoteAreaTab } from '../../components/quick-quote/QuoteAreaTab';
@@ -84,7 +83,7 @@ export function QuoteHelperPage() {
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 1600);
+    const timer = window.setTimeout(() => setToast(null), 1500);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -108,41 +107,63 @@ export function QuoteHelperPage() {
   }, [brand.loading, canUseCrm, load, permissions.loading, permissions.me, role]);
 
   return (
-    <div
-      className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-canvas"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
-    >
-      <header className="sticky top-0 z-20 space-y-2 bg-canvas px-3 pb-2 pt-2">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-fluid-sm font-semibold text-slate-900">견적</h1>
-          <Button
-            variant="quiet"
-            size="sm"
-            disabled={blocked || !brand.activeOperatingCompanyId}
-            onClick={() => setPhrasesOpen(true)}
-          >
-            문구 관리
-          </Button>
+    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-canvas">
+      <div className="sticky top-0 z-20">
+        <header className="bg-[#121828] text-white" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="flex items-center gap-2 px-3 py-2">
+            <h1 className="shrink-0 text-fluid-sm font-semibold text-white">견적 도우미</h1>
+            <div className="ml-auto flex min-w-0 items-center gap-1">
+              {brand.items.length > 0 ? (
+                <label className="min-w-0">
+                  <span className="sr-only">브랜드</span>
+                  <select
+                    className="max-w-[8.5rem] truncate rounded-lg bg-white/10 px-2 py-1 text-fluid-xs text-white outline-none"
+                    value={brand.active?.slug ?? ''}
+                    onChange={(e) => brand.switchBrand(e.target.value)}
+                  >
+                    {brand.items.map((item) => (
+                      <option key={item.operatingCompanyId} value={item.slug} className="text-slate-900">
+                        {item.displayName || item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <Button
+                variant="quiet"
+                size="sm"
+                className="!text-white"
+                disabled={blocked || !brand.activeOperatingCompanyId}
+                onClick={() => setPhrasesOpen(true)}
+              >
+                문구 관리
+              </Button>
+            </div>
+          </div>
+          <QuoteInstallHint />
+        </header>
+        <div className="flex border-b border-[#e6ebf2] bg-white" role="tablist" aria-label="견적 도우미 메뉴">
+          {TABS.map((item) => {
+            const on = tab === item.value;
+            return (
+              <Button
+                key={item.value}
+                variant="quiet"
+                size="sm"
+                role="tab"
+                aria-selected={on}
+                nowrap={false}
+                className={`min-w-0 flex-1 !rounded-none !border-x-0 !border-t-0 !border-b-2 !bg-transparent !px-1 !shadow-none ${
+                  on ? '!border-[#1f4fb8] !font-semibold !text-slate-900' : '!border-transparent !text-slate-500'
+                }`}
+                onClick={() => setTab(item.value)}
+              >
+                {item.label}
+              </Button>
+            );
+          })}
         </div>
-        {brand.showSwitcher ? (
-          <label className="block">
-            <span className="sr-only">브랜드</span>
-            <select
-              className="w-full rounded-xl bg-field px-2 py-1.5 text-fluid-xs text-slate-800 outline-none focus:ring-2 focus:ring-slate-300"
-              value={brand.active?.slug ?? ''}
-              onChange={(e) => brand.switchBrand(e.target.value)}
-            >
-              {brand.items.map((item) => (
-                <option key={item.operatingCompanyId} value={item.slug}>
-                  {item.displayName || item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        <QuoteInstallHint />
-        <SegmentedControl ariaLabel="견적 도우미 메뉴" value={tab} onChange={setTab} options={TABS} />
-      </header>
+      </div>
 
       {blocked ? (
         <p className="px-4 py-10 text-center text-fluid-sm text-slate-700">CRM 사용이 켜진 계정만 쓸 수 있어요.</p>

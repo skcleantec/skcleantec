@@ -112,8 +112,8 @@ async function cached<T>(tenantId: string, key: string, load: () => Promise<T>):
   return value;
 }
 
-async function getJson(url: URL): Promise<unknown> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
+async function getJson(url: URL, timeoutMs = 12_000): Promise<unknown> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error('LOOKUP_FAILED');
   return res.json();
 }
@@ -182,7 +182,7 @@ async function ledger(url: string, params: Record<string, string>): Promise<unkn
     if (value) target.searchParams.set(name, value);
   }
   try {
-    return await getJson(target);
+    return await getJson(target, 20_000);
   } catch (e) {
     logFail('ledger', e);
     throw new Error('LOOKUP_FAILED');
@@ -255,38 +255,123 @@ export async function listQuickQuoteUnits(
   });
 }
 
+const LEDGER_PAGE_SIZES = [1000, 100];
+const LEDGER_SPLIT_AT = 1000;
+
+function ledgerTotal(body: unknown): number {
+  const total = Number((body as { response?: { body?: { totalCount?: string } } }).response?.body?.totalCount ?? 0);
+  return Number.isFinite(total) && total > 0 ? total : 0;
+}
+
+function toLedgerRow(item: Record<string, unknown>): LedgerAreaRow {
+  return {
+    exposPubuseGbCd: text(item, ['exposPubuseGbCd']),
+    area: text(item, ['area']),
+    dongNm: text(item, ['dongNm']),
+    hoNm: text(item, ['hoNm']),
+    flrGbCd: text(item, ['flrGbCd']),
+    flrNo: text(item, ['flrNo']),
+    mainPurpsCdNm: text(item, ['mainPurpsCdNm']),
+    etcPurps: text(item, ['etcPurps']),
+  };
+}
+
+function pageSignature(items: Record<string, unknown>[]): string {
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (!first || !last) return '';
+  return `${text(first, ['dongNm'])}|${text(first, ['hoNm'])}|${text(first, ['area'])}|${text(last, ['hoNm'])}|${text(last, ['area'])}|${items.length}`;
+}
+
+async function fetchLedgerPage(
+  base: Record<string, string>,
+  page: number,
+  sizeIndex = 0,
+): Promise<{ items: Record<string, unknown>[]; total: number; size: number }> {
+  const size = LEDGER_PAGE_SIZES[sizeIndex] ?? 100;
+  const body = await ledger(LEDGER_AREA, { ...base, numOfRows: String(size), pageNo: String(page) });
+  if (!ledgerOk(body)) {
+    if (sizeIndex < LEDGER_PAGE_SIZES.length - 1) return fetchLedgerPage(base, page, sizeIndex + 1);
+    throw new Error('LOOKUP_FAILED');
+  }
+  return { items: ledgerItems(body), total: ledgerTotal(body), size };
+}
+
+/** totalCount까지 페이지를 모두 읽는다. 같은 페이지가 반복되면 멈춘다. */
+async function fetchAllLedgerPages(base: Record<string, string>): Promise<LedgerAreaRow[]> {
+  const rows: LedgerAreaRow[] = [];
+  let total = 0;
+  let previous = '';
+  let sizeIndex = 0;
+  const pageCap = 400;
+  for (let page = 1; page <= pageCap; page += 1) {
+    const packed = await fetchLedgerPage(base, page, sizeIndex);
+    const used = LEDGER_PAGE_SIZES.indexOf(packed.size);
+    if (used >= 0) sizeIndex = used;
+    if (page === 1) total = packed.total;
+    if (!packed.items.length) break;
+    const signature = pageSignature(packed.items);
+    if (signature && signature === previous) break;
+    previous = signature;
+    for (const item of packed.items) rows.push(toLedgerRow(item));
+    if (total > 0 && rows.length >= total) break;
+    if (packed.items.length < packed.size && (total === 0 || rows.length >= total)) break;
+  }
+  return rows;
+}
+
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      out[index] = await fn(items[index]!);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
+async function listLedgerDongs(plat: PlatKeys): Promise<string[]> {
+  try {
+    const rows = await juso(JUSO_DETAIL, 'JUSO_DETAIL_KEY', {
+      admCd: plat.admCd,
+      rnMgtSn: plat.rnMgtSn,
+      udrtYn: plat.udrtYn,
+      buldMnnm: plat.buldMnnm,
+      buldSlno: plat.buldSlno,
+      searchType: 'dong',
+    });
+    return [...new Set(rows.map((row) => text(row, ['dongNm'])).filter(Boolean))];
+  } catch {
+    return [];
+  }
+}
+
 async function fetchLedgerRows(plat: PlatKeys, dongNm: string, hoNm: string): Promise<LedgerAreaRow[]> {
-  const base = {
+  const base: Record<string, string> = {
     sigunguCd: plat.admCd.slice(0, 5),
     bjdongCd: plat.admCd.slice(5, 10),
     platGbCd: plat.mtYn === '1' ? '1' : '0',
     bun: pad4(plat.lnbrMnnm),
     ji: pad4(plat.lnbrSlno),
-    numOfRows: '100',
     ...(dongNm ? { dongNm } : {}),
     ...(hoNm ? { hoNm } : {}),
   };
-  const rows: LedgerAreaRow[] = [];
-  for (let page = 1; page <= 20; page += 1) {
-    const body = await ledger(LEDGER_AREA, { ...base, pageNo: String(page) });
-    if (!ledgerOk(body)) throw new Error('LOOKUP_FAILED');
-    const items = ledgerItems(body);
-    for (const item of items) {
-      rows.push({
-        exposPubuseGbCd: text(item, ['exposPubuseGbCd']),
-        area: text(item, ['area']),
-        dongNm: text(item, ['dongNm']),
-        hoNm: text(item, ['hoNm']),
-        flrGbCd: text(item, ['flrGbCd']),
-        flrNo: text(item, ['flrNo']),
-        mainPurpsCdNm: text(item, ['mainPurpsCdNm']),
-        etcPurps: text(item, ['etcPurps']),
-      });
-    }
-    const total = Number((body as { response?: { body?: { totalCount?: string } } }).response?.body?.totalCount ?? 0);
-    if (!items.length || rows.length >= total || items.length < 100) break;
-  }
-  return rows;
+  if (dongNm || hoNm) return fetchAllLedgerPages(base);
+
+  const first = await fetchLedgerPage(base, 1);
+  if (!first.items.length) return [];
+  if (first.total > 0 && first.total <= LEDGER_SPLIT_AT) return fetchAllLedgerPages(base);
+
+  const dongs = await listLedgerDongs(plat);
+  if (dongs.length < 2) return fetchAllLedgerPages(base);
+  const parts = await mapPool(dongs, 4, (dong) => fetchAllLedgerPages({ ...base, dongNm: dong }));
+  const merged = parts.flat();
+  if (!merged.length || (first.total > 0 && merged.length < first.total * 0.8)) return fetchAllLedgerPages(base);
+  return merged;
 }
 
 async function fetchTitleSqm(plat: PlatKeys): Promise<number | null> {
@@ -314,11 +399,12 @@ export async function lookupQuickQuoteAreas(
 ): Promise<QuickQuoteAreasResult> {
   const dong = dongNm?.trim() ?? '';
   const ho = hoNm?.trim() ?? '';
-  const key = cacheKey({ kind: 'areas', ...plat, dong, ho });
+  const key = cacheKey({ kind: 'areas2', ...plat, dong, ho });
   return cached(tenantId, key, async () => {
     const rows = await fetchLedgerRows(plat, dong, ho);
     const summary = summarizeExposAreas(rows, dong || ho ? { dongNm: dong, hoNm: ho } : undefined);
     if (summary.kind !== 'empty') return summary;
+    if (dong || ho) return { kind: 'empty' as const };
     const totalSqm = await fetchTitleSqm(plat);
     if (totalSqm == null) return { kind: 'empty' as const };
     return {

@@ -10,6 +10,7 @@ import {
 } from '@shared/quickQuoteArea';
 import { Button } from '../ui/Button';
 import { SegmentedControl } from '../ui/SegmentedControl';
+import { QuoteBottomBar, QuoteChip, quoteBottomButton, quoteCard } from './quoteChrome';
 
 type Direction = 'exclusiveToSupply' | 'supplyToExclusive';
 type Unit = 'pyeong' | 'sqm';
@@ -52,22 +53,16 @@ export function QuoteAreaTab({ onUsePyeong }: { onUsePyeong: (pyeong: string) =>
         ]}
       />
       <div className="flex gap-1">
-        {KINDS.map((key) => {
-          const on = key === kind;
-          return (
-            <Button
-              key={key}
-              variant="quiet"
-              size="sm"
-              className={on ? '!bg-white shadow-thumb' : ''}
-              onClick={() => setKind(key)}
-            >
-              {QUOTE_AREA_BUILDING_LABELS[key]}
-            </Button>
-          );
-        })}
+        {KINDS.map((key) => (
+          <QuoteChip
+            key={key}
+            on={key === kind}
+            label={QUOTE_AREA_BUILDING_LABELS[key]}
+            onClick={() => setKind(key)}
+          />
+        ))}
       </div>
-      <div className="rounded-2xl bg-white p-3 shadow-card">
+      <div className="rounded-2xl border-2 border-[#1f4fb8] bg-white p-3">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-fluid-2xs text-slate-500">{direction === 'exclusiveToSupply' ? '전용' : '공급'}</span>
           <SegmentedControl
@@ -92,7 +87,7 @@ export function QuoteAreaTab({ onUsePyeong }: { onUsePyeong: (pyeong: string) =>
       </div>
 
       {result ? (
-        <div className="rounded-2xl bg-white p-3 shadow-card text-fluid-sm text-slate-800">
+        <div className={`p-3 text-fluid-sm text-slate-800 ${quoteCard}`}>
           <p>
             전용 {formatArea1(result.exclusiveSqm)}㎡ · {formatArea1(sqmToPyeong(result.exclusiveSqm))}평
           </p>
@@ -104,14 +99,11 @@ export function QuoteAreaTab({ onUsePyeong }: { onUsePyeong: (pyeong: string) =>
 
       <p className="px-1 text-fluid-2xs leading-snug text-slate-500">공급은 전용률 {pct}% 기준 어림값이에요.</p>
 
-      <div
-        className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[480px] px-3 pt-2"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
+      <QuoteBottomBar>
         <Button
           variant="primary"
           size="lg"
-          className="w-full shadow-bar"
+          className={quoteBottomButton}
           disabled={!result}
           onClick={() => {
             if (!result) return;
@@ -120,7 +112,7 @@ export function QuoteAreaTab({ onUsePyeong }: { onUsePyeong: (pyeong: string) =>
         >
           {result ? `${formatArea1(result.supplyPyeong)}평으로 견적 문구 만들기 →` : '평수를 입력해 주세요'}
         </Button>
-      </div>
+      </QuoteBottomBar>
     </div>
   );
 }
