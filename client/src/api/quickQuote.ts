@@ -100,3 +100,78 @@ export async function reorderQuickQuoteKinds(
   });
   return readKinds(res, false);
 }
+
+export type QuickQuoteAddressHit = {
+  road: string;
+  jibun: string;
+  building: string;
+  admCd: string;
+  rnMgtSn: string;
+  udrtYn: string;
+  buldMnnm: string;
+  buldSlno: string;
+  lnbrMnnm: string;
+  lnbrSlno: string;
+  mtYn: string;
+};
+
+export type QuickQuoteUnit = { floor: string; ho: string };
+
+export type QuickQuoteAreaGroup = {
+  exclusiveSqm: number;
+  supplySqm: number;
+  supplyPyeong: number;
+  households: number;
+};
+
+export type QuickQuoteAreasResult =
+  | { kind: 'groups'; groups: QuickQuoteAreaGroup[] }
+  | { kind: 'unit'; exclusiveSqm: number; supplySqm: number; supplyPyeong: number }
+  | { kind: 'building'; totalSqm: number; note: string }
+  | { kind: 'empty' };
+
+async function readLookup<T>(res: Response): Promise<T> {
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error || '주소를 찾지 못했어요.');
+  return data as T;
+}
+
+export async function searchQuickQuoteAddress(token: string, q: string) {
+  const params = new URLSearchParams({ q });
+  const res = await fetch(`${API}/address?${params}`, { headers: headers(token) });
+  return readLookup<{ items: QuickQuoteAddressHit[] }>(res);
+}
+
+export async function fetchQuickQuoteUnits(
+  token: string,
+  address: Pick<QuickQuoteAddressHit, 'admCd' | 'rnMgtSn' | 'udrtYn' | 'buldMnnm' | 'buldSlno'>,
+  dongNm?: string,
+) {
+  const params = new URLSearchParams({
+    admCd: address.admCd,
+    rnMgtSn: address.rnMgtSn,
+    udrtYn: address.udrtYn,
+    buldMnnm: address.buldMnnm,
+    buldSlno: address.buldSlno,
+  });
+  if (dongNm) params.set('dongNm', dongNm);
+  const res = await fetch(`${API}/units?${params}`, { headers: headers(token) });
+  return readLookup<{ dongs: string[]; units: QuickQuoteUnit[] }>(res);
+}
+
+export async function fetchQuickQuoteAreas(token: string, address: QuickQuoteAddressHit, dongNm?: string, hoNm?: string) {
+  const params = new URLSearchParams({
+    admCd: address.admCd,
+    rnMgtSn: address.rnMgtSn,
+    udrtYn: address.udrtYn,
+    buldMnnm: address.buldMnnm,
+    buldSlno: address.buldSlno,
+    lnbrMnnm: address.lnbrMnnm,
+    lnbrSlno: address.lnbrSlno,
+    mtYn: address.mtYn,
+  });
+  if (dongNm) params.set('dongNm', dongNm);
+  if (hoNm) params.set('hoNm', hoNm);
+  const res = await fetch(`${API}/areas?${params}`, { headers: headers(token) });
+  return readLookup<QuickQuoteAreasResult>(res);
+}

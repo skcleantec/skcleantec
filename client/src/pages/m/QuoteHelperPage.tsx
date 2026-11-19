@@ -13,7 +13,8 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { QuoteInstallHint } from '../../components/quick-quote/QuoteInstallHint';
 import { QuoteTextTab } from '../../components/quick-quote/QuoteTextTab';
 import { QuoteAreaTab } from '../../components/quick-quote/QuoteAreaTab';
-import { QuoteSoonTab } from '../../components/quick-quote/QuoteSoonTab';
+import { QuoteAiTab } from '../../components/quick-quote/QuoteAiTab';
+import { QuoteAddressTab } from '../../components/quick-quote/QuoteAddressTab';
 import { QuotePhraseManager } from '../../components/quick-quote/QuotePhraseManager';
 import { useQuotePwaHead } from '../../components/quick-quote/useQuotePwaHead';
 
@@ -173,9 +174,21 @@ export function QuoteHelperPage() {
           }}
         />
       ) : tab === 'ai' ? (
-        <QuoteSoonTab title="AI 견적" />
+        <QuoteAiTab
+          operatingCompanyId={brand.activeOperatingCompanyId ?? ''}
+          onUseQuote={(nextManwon, nextPyeong) => {
+            setManwon(nextManwon);
+            setPyeong(nextPyeong);
+            setTab('quote');
+          }}
+        />
       ) : (
-        <QuoteSoonTab title="주소로 평수" />
+        <QuoteAddressTab
+          onUsePyeong={(next) => {
+            setPyeong(next);
+            setTab('quote');
+          }}
+        />
       )}
 
       {phrasesOpen && brand.activeOperatingCompanyId ? (
