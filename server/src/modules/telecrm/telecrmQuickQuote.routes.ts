@@ -174,7 +174,8 @@ router.get('/address', requireStaffPermission('crm.view', 'crm.settings'), async
     return;
   }
   try {
-    res.json({ items: await searchQuickQuoteAddress(tenantId, q) });
+    const page = Math.min(20, Math.max(1, Number(req.query.page) || 1));
+    res.json(await searchQuickQuoteAddress(tenantId, q, page));
   } catch (e) {
     if (sendQuickQuoteError(res, e)) return;
     throw e;
@@ -229,6 +230,8 @@ router.get('/areas', requireStaffPermission('crm.view', 'crm.settings'), async (
         { admCd, rnMgtSn, udrtYn, buldMnnm, buldSlno, lnbrMnnm, lnbrSlno, mtYn },
         queryText(req.query.dongNm, 40),
         queryText(req.query.hoNm, 40),
+        queryText(req.query.relJibun, 500),
+        queryText(req.query.q, 80),
       ),
     );
   } catch (e) {

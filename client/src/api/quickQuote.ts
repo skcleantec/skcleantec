@@ -105,6 +105,8 @@ export type QuickQuoteAddressHit = {
   road: string;
   jibun: string;
   building: string;
+  apartment?: boolean;
+  relJibun?: string;
   admCd: string;
   rnMgtSn: string;
   udrtYn: string;
@@ -113,6 +115,13 @@ export type QuickQuoteAddressHit = {
   lnbrMnnm: string;
   lnbrSlno: string;
   mtYn: string;
+};
+
+export type QuickQuoteAddressPage = {
+  items: QuickQuoteAddressHit[];
+  total: number;
+  page: number;
+  notice: string | null;
 };
 
 export type QuickQuoteUnit = { floor: string; ho: string };
@@ -135,7 +144,7 @@ export type QuickQuoteAreasResult =
       supplyUnconfirmed?: boolean;
     }
   | { kind: 'building'; totalSqm: number; note: string }
-  | { kind: 'empty' };
+  | { kind: 'empty'; note?: string };
 
 async function readLookup<T>(res: Response): Promise<T> {
   const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -143,10 +152,10 @@ async function readLookup<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-export async function searchQuickQuoteAddress(token: string, q: string) {
-  const params = new URLSearchParams({ q });
+export async function searchQuickQuoteAddress(token: string, q: string, page = 1) {
+  const params = new URLSearchParams({ q, page: String(page) });
   const res = await fetch(`${API}/address?${params}`, { headers: headers(token) });
-  return readLookup<{ items: QuickQuoteAddressHit[] }>(res);
+  return readLookup<QuickQuoteAddressPage>(res);
 }
 
 export async function fetchQuickQuoteUnits(
@@ -166,7 +175,13 @@ export async function fetchQuickQuoteUnits(
   return readLookup<{ dongs: string[]; units: QuickQuoteUnit[] }>(res);
 }
 
-export async function fetchQuickQuoteAreas(token: string, address: QuickQuoteAddressHit, dongNm?: string, hoNm?: string) {
+export async function fetchQuickQuoteAreas(
+  token: string,
+  address: QuickQuoteAddressHit,
+  dongNm?: string,
+  hoNm?: string,
+  keyword?: string,
+) {
   const params = new URLSearchParams({
     admCd: address.admCd,
     rnMgtSn: address.rnMgtSn,
@@ -179,6 +194,8 @@ export async function fetchQuickQuoteAreas(token: string, address: QuickQuoteAdd
   });
   if (dongNm) params.set('dongNm', dongNm);
   if (hoNm) params.set('hoNm', hoNm);
+  if (address.relJibun) params.set('relJibun', address.relJibun.slice(0, 500));
+  if (keyword) params.set('q', keyword);
   const res = await fetch(`${API}/areas?${params}`, { headers: headers(token) });
   return readLookup<QuickQuoteAreasResult>(res);
 }
