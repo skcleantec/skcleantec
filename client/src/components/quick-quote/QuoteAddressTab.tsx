@@ -61,11 +61,11 @@ export function QuoteAddressTab({ onUsePyeong, onOpenArea }: Props) {
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const [picked, setPicked] = useState<QuickQuoteAddressHit | null>(null);
   const [dongs, setDongs] = useState<string[]>([]);
-  const [dong, setDong] = useState('');
+  const [, setDong] = useState('');
   const [dongInput, setDongInput] = useState('');
   const [hoInput, setHoInput] = useState('');
-  const [units, setUnits] = useState<QuickQuoteUnit[]>([]);
-  const [unitKey, setUnitKey] = useState('');
+  const [, setUnits] = useState<QuickQuoteUnit[]>([]);
+  const [, setUnitKey] = useState('');
   const [areas, setAreas] = useState<QuickQuoteAreasResult | null>(null);
   const [chosenSqm, setChosenSqm] = useState<number | null>(null);
   const [showMinor, setShowMinor] = useState(false);
