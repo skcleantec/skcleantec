@@ -26,9 +26,9 @@ export function useQuotePwaHead() {
     ensureMeta('apple-mobile-web-app-capable', 'yes');
     ensureMeta('mobile-web-app-capable', 'yes');
     ensureMeta('apple-mobile-web-app-status-bar-style', 'default');
-    ensureMeta('apple-mobile-web-app-title', '견적');
+    ensureMeta('apple-mobile-web-app-title', '모바일 CRM');
     const prevTitle = document.title;
-    document.title = '청소비서 견적';
+    document.title = '모바일 CRM';
     return () => {
       if (link) link.href = prevHref;
       if (theme) theme.content = prevTheme;

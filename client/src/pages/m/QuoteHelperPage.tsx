@@ -14,20 +14,22 @@ import { QuoteTextTab } from '../../components/quick-quote/QuoteTextTab';
 import { QuoteAreaTab } from '../../components/quick-quote/QuoteAreaTab';
 import { QuoteAiTab } from '../../components/quick-quote/QuoteAiTab';
 import { QuoteAddressTab } from '../../components/quick-quote/QuoteAddressTab';
+import { QuoteMyPhrasesTab } from '../../components/quick-quote/QuoteMyPhrasesTab';
 import { QuotePhraseManager } from '../../components/quick-quote/QuotePhraseManager';
 import { useQuotePwaHead } from '../../components/quick-quote/useQuotePwaHead';
 
-type QuoteTab = 'quote' | 'ai' | 'area' | 'address';
+type QuoteTab = 'quote' | 'phrases' | 'ai' | 'area' | 'address';
 
 const TABS: { value: QuoteTab; label: string }[] = [
   { value: 'quote', label: '견적 문구' },
+  { value: 'phrases', label: '내 문구' },
   { value: 'ai', label: 'AI 견적' },
-  { value: 'area', label: '면적 계산' },
-  { value: 'address', label: '주소로 평수' },
+  { value: 'area', label: '면적' },
+  { value: 'address', label: '평수' },
 ];
 
 function readTab(raw: string | null): QuoteTab {
-  if (raw === 'ai' || raw === 'area' || raw === 'address' || raw === 'quote') return raw;
+  if (raw === 'phrases' || raw === 'ai' || raw === 'area' || raw === 'address' || raw === 'quote') return raw;
   return 'quote';
 }
 
@@ -111,7 +113,7 @@ export function QuoteHelperPage() {
       <div className="sticky top-0 z-20">
         <header className="bg-[#121828] text-white" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="flex items-center gap-2 px-3 py-2">
-            <h1 className="shrink-0 text-fluid-sm font-semibold text-white">견적 도우미</h1>
+            <h1 className="shrink-0 text-fluid-sm font-semibold text-white">모바일 CRM</h1>
             <div className="ml-auto flex min-w-0 items-center gap-1">
               {brand.items.length > 0 ? (
                 <label className="min-w-0">
@@ -142,7 +144,7 @@ export function QuoteHelperPage() {
           </div>
           <QuoteInstallHint />
         </header>
-        <div className="flex border-b border-[#e6ebf2] bg-white" role="tablist" aria-label="견적 도우미 메뉴">
+        <div className="flex border-b border-[#e6ebf2] bg-white" role="tablist" aria-label="모바일 CRM 메뉴">
           {TABS.map((item) => {
             const on = tab === item.value;
             return (
@@ -152,8 +154,7 @@ export function QuoteHelperPage() {
                 size="sm"
                 role="tab"
                 aria-selected={on}
-                nowrap={false}
-                className={`min-w-0 flex-1 !rounded-none !border-x-0 !border-t-0 !border-b-2 !bg-transparent !px-1 !shadow-none ${
+                className={`min-w-0 flex-1 !rounded-none !border-x-0 !border-t-0 !border-b-2 !bg-transparent !px-0.5 !text-fluid-2xs !shadow-none ${
                   on ? '!border-[#1f4fb8] !font-semibold !text-slate-900' : '!border-transparent !text-slate-500'
                 }`}
                 onClick={() => setTab(item.value)}
@@ -171,6 +172,8 @@ export function QuoteHelperPage() {
         <p className="px-4 py-10 text-center text-fluid-sm text-red-600">{brand.loadError}</p>
       ) : !brand.loading && !brand.activeOperatingCompanyId ? (
         <p className="px-4 py-10 text-center text-fluid-sm text-slate-700">브랜드를 선택한 뒤 다시 열어 주세요.</p>
+      ) : tab === 'phrases' ? (
+        <QuoteMyPhrasesTab canEditShared={canEdit} onToast={setToast} />
       ) : brand.loading || loading ? (
         <p className="px-4 py-10 text-center text-fluid-xs text-slate-500">불러오는 중</p>
       ) : error ? (

@@ -47,10 +47,51 @@ export async function createTelecrmSoomgoMessagePreset(
   return data;
 }
 
+export type SoomgoPresetUseState = {
+  presetId: string;
+  favorite: boolean;
+  useCount: number;
+  lastUsedAt: string | null;
+};
+
+export async function fetchTelecrmSoomgoPresetUseStates(token: string): Promise<SoomgoPresetUseState[]> {
+  const res = await fetch(`${API}/soomgo-message-presets/use-states`, { headers: authHeaders(token) });
+  const data = (await res.json()) as { error?: string; states?: SoomgoPresetUseState[] };
+  if (!res.ok) throw new Error(data.error ?? '문구 기록을 불러오지 못했어요.');
+  return data.states ?? [];
+}
+
+export async function markTelecrmSoomgoPresetUsed(token: string, id: string): Promise<SoomgoPresetUseState> {
+  const res = await fetch(`${API}/soomgo-message-presets/${id}/used`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  const data = (await res.json()) as SoomgoPresetUseState & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '사용 기록을 남기지 못했어요.');
+  return data;
+}
+
+export async function setTelecrmSoomgoPresetFavorite(
+  token: string,
+  id: string,
+  favorite: boolean,
+): Promise<SoomgoPresetUseState> {
+  const res = await fetch(`${API}/soomgo-message-presets/${id}/favorite`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify({ favorite }),
+  });
+  const data = (await res.json()) as SoomgoPresetUseState & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '즐겨찾기를 바꾸지 못했어요.');
+  return data;
+}
+
 export async function updateTelecrmSoomgoMessagePreset(
   token: string,
   id: string,
-  patch: Partial<Pick<SoomgoMessagePresetDto, 'label' | 'steps' | 'slotNumber' | 'sortOrder' | 'isActive'>>,
+  patch: Partial<Pick<SoomgoMessagePresetDto, 'label' | 'steps' | 'slotNumber' | 'sortOrder' | 'isActive'>> & {
+    ownerScope?: 'shared' | 'personal';
+  },
 ): Promise<SoomgoMessagePresetDto> {
   const res = await fetch(`${API}/soomgo-message-presets/${id}`, {
     method: 'PATCH',

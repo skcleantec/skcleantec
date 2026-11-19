@@ -27,6 +27,7 @@ import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
+import { useTelecrmDashboardVisible } from '../../hooks/useTelecrmDashboardVisible';
 import { performStaffLogout } from '../../utils/staffLogout';
 import { clearTeamPreviewSession } from '../../utils/teamPreviewSession';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
@@ -245,6 +246,7 @@ function AdminGnbItemContent({
 }
 
 export function AdminLayout() {
+  const showMobileCrm = useTelecrmDashboardVisible();
   const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const [initialSession] = useState(readInitialAdminSession);
   const navigate = useNavigate();
@@ -1422,6 +1424,22 @@ export function AdminLayout() {
               </svg>
               고객센터
             </a>
+            {showMobileCrm ? (
+              <a
+                href="/m/quote"
+                target={isCbiseoStaffNativeApp() ? undefined : '_blank'}
+                rel="noopener noreferrer"
+                title="모바일 CRM"
+                className="inline-flex items-center whitespace-nowrap rounded-lg px-2.5 py-1.5 text-fluid-xs font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+                onClick={(e) => {
+                  if (!isCbiseoStaffNativeApp()) return;
+                  e.preventDefault();
+                  navigate('/m/quote');
+                }}
+              >
+                모바일 CRM
+              </a>
+            ) : null}
             {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
             {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
             {adminToken ? (

@@ -327,6 +327,96 @@ router.put('/auto-messages/:triggerKind', requireStaffPermission('crm.settings')
   }
 });
 
+async function findVisibleManualPreset(tenantId: string, userId: string, presetId: string) {
+  return prisma.telecrmSoomgoMessagePreset.findFirst({
+    where: {
+      AND: [
+        { id: presetId, tenantId },
+        { OR: [{ ownerUserId: null }, { ownerUserId: userId }] },
+        manualSoomgoPresetWhereExtra(),
+      ],
+    },
+  });
+}
+
+router.get('/use-states', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const rows = await prisma.telecrmSoomgoPresetUse.findMany({
+    where: { tenantId, userId: user.userId },
+    select: { presetId: true, favorite: true, useCount: true, lastUsedAt: true },
+  });
+  res.json({
+    states: rows.map((row) => ({
+      presetId: row.presetId,
+      favorite: row.favorite,
+      useCount: row.useCount,
+      lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
+    })),
+  });
+});
+
+router.post('/:id/used', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const preset = await findVisibleManualPreset(tenantId, user.userId, String(req.params.id));
+  if (!preset) {
+    res.status(404).json({ error: '문구를 찾을 수 없어요.' });
+    return;
+  }
+  const row = await prisma.telecrmSoomgoPresetUse.upsert({
+    where: {
+      tenantId_userId_presetId: { tenantId, userId: user.userId, presetId: preset.id },
+    },
+    create: {
+      tenantId,
+      userId: user.userId,
+      presetId: preset.id,
+      useCount: 1,
+      lastUsedAt: new Date(),
+    },
+    update: { useCount: { increment: 1 }, lastUsedAt: new Date() },
+  });
+  res.json({
+    presetId: row.presetId,
+    favorite: row.favorite,
+    useCount: row.useCount,
+    lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
+  });
+});
+
+router.put('/:id/favorite', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const preset = await findVisibleManualPreset(tenantId, user.userId, String(req.params.id));
+  if (!preset) {
+    res.status(404).json({ error: '문구를 찾을 수 없어요.' });
+    return;
+  }
+  const favorite = (req.body as { favorite?: unknown }).favorite === true;
+  const row = await prisma.telecrmSoomgoPresetUse.upsert({
+    where: {
+      tenantId_userId_presetId: { tenantId, userId: user.userId, presetId: preset.id },
+    },
+    create: {
+      tenantId,
+      userId: user.userId,
+      presetId: preset.id,
+      favorite,
+    },
+    update: { favorite },
+  });
+  res.json({
+    presetId: row.presetId,
+    favorite: row.favorite,
+    useCount: row.useCount,
+    lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
+  });
+});
+
 router.get('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
@@ -435,6 +525,26 @@ router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (
   }
   if (sortOrder != null) data.sortOrder = parseSortOrder(sortOrder, existing.sortOrder);
   if (typeof isActive === 'boolean') data.isActive = isActive;
+
+  const ownerScopeRaw = (req.body as { ownerScope?: string }).ownerScope;
+  if (ownerScopeRaw === 'shared' || ownerScopeRaw === 'personal') {
+    if (isSoomgoAutoTriggerKind(existing.triggerKind)) {
+      res.status(400).json({ error: '자동 메시지는 공용·개인으로 바꿀 수 없어요.' });
+      return;
+    }
+    const nextOwner = ownerScopeRaw === 'personal' ? user.userId : null;
+    if (nextOwner !== existing.ownerUserId) {
+      if (!(await denyUnlessCanCreateTelecrmCatalog(res, user, ownerScopeRaw))) return;
+      const movedCount = await prisma.telecrmSoomgoMessagePreset.count({
+        where: { tenantId, ownerUserId: nextOwner, ...manualSoomgoPresetWhereExtra() },
+      });
+      if (movedCount >= SOOMGO_MESSAGE_PRESET_MAX) {
+        res.status(400).json({ error: '그쪽으로는 더 옮길 수 없어요.' });
+        return;
+      }
+      data.ownerUserId = nextOwner;
+    }
+  }
 
   const updated = await prisma.telecrmSoomgoMessagePreset.update({ where: { id }, data });
   res.json(serializePreset(updated));
