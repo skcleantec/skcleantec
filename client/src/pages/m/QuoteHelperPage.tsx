@@ -209,6 +209,7 @@ export function QuoteHelperPage() {
             setPyeong(next);
             setTab('quote');
           }}
+          onOpenArea={() => setTab('area')}
         />
       )}
 

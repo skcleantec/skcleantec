@@ -2,18 +2,36 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { summarizeExposAreas, type LedgerAreaRow, type QuickQuoteAreaSummary } from './quickQuoteBuildingArea.js';
+import {
+  ADDRESS_EMPTY_NOTICE,
+  ADDRESS_PAGE_SIZE,
+  AREA_EMPTY_NOTE,
+  addressAnchorForms,
+  addressAttemptAnchors,
+  addressSearchAttempts,
+  isKeywordAddressError,
+  parseRelJibun,
+  sanitizeAddressKeyword,
+  SOFT_ADDRESS_ERRORS,
+  sortAddressRows,
+  type RelLot,
+} from './quickQuoteAddressQuery.js';
 
 const DAILY_CAP = 300;
 const CACHE_MS = 30 * 24 * 60 * 60 * 1000;
+const AREA_RETRY_LOTS = 5;
 const JUSO_SEARCH = 'https://business.juso.go.kr/addrlink/addrLinkApi.do';
 const JUSO_DETAIL = 'https://business.juso.go.kr/addrlink/addrDetailApi.do';
 const LEDGER_AREA = 'https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo';
 const LEDGER_TITLE = 'https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo';
+const LEDGER_RECAP = 'https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo';
 
 export type QuickQuoteAddressHit = {
   road: string;
   jibun: string;
   building: string;
+  apartment: boolean;
+  relJibun: string;
   admCd: string;
   rnMgtSn: string;
   udrtYn: string;
@@ -24,11 +42,19 @@ export type QuickQuoteAddressHit = {
   mtYn: string;
 };
 
+export type QuickQuoteAddressPage = {
+  items: QuickQuoteAddressHit[];
+  total: number;
+  page: number;
+  notice: string | null;
+};
+
 export type QuickQuoteUnit = { floor: string; ho: string };
 
 export type QuickQuoteAreasResult =
-  | QuickQuoteAreaSummary
-  | { kind: 'building'; totalSqm: number; note: string };
+  | Exclude<QuickQuoteAreaSummary, { kind: 'empty' }>
+  | { kind: 'building'; totalSqm: number; note: string }
+  | { kind: 'empty'; note?: string };
 
 type AddressKeys = {
   admCd: string;
@@ -135,7 +161,15 @@ function text(row: Record<string, unknown>, keys: string[]): string {
   return '';
 }
 
+type JusoPage = { rows: Record<string, unknown>[]; total: number; errorCode: string };
+
 async function juso(url: string, keyName: string, params: Record<string, string>): Promise<Record<string, unknown>[]> {
+  const page = await jusoPage(url, keyName, params);
+  if (page.errorCode !== '0') throw new Error('LOOKUP_FAILED');
+  return page.rows;
+}
+
+async function jusoPage(url: string, keyName: string, params: Record<string, string>): Promise<JusoPage> {
   const key = envKey(keyName);
   if (!key) throw new Error('LOOKUP_UNAVAILABLE');
   const target = new URL(url);
@@ -149,9 +183,73 @@ async function juso(url: string, keyName: string, params: Record<string, string>
     logFail('address', e);
     throw new Error('LOOKUP_FAILED');
   }
-  const results = (body as { results?: { common?: { errorCode?: string }; juso?: unknown } }).results;
-  if (String(results?.common?.errorCode ?? '') !== '0') throw new Error('LOOKUP_FAILED');
-  return asRows(results?.juso);
+  const results = (body as { results?: { common?: { errorCode?: string; totalCount?: string }; juso?: unknown } })
+    .results;
+  const errorCode = String(results?.common?.errorCode ?? '');
+  const total = Number(results?.common?.totalCount ?? 0);
+  return {
+    rows: asRows(results?.juso),
+    total: Number.isFinite(total) ? total : 0,
+    errorCode,
+  };
+}
+
+function compactRelJibun(raw: string, keyword: string): string {
+  const lots = parseRelJibun(raw);
+  if (!lots.length) return '';
+  const numbers = new Set((keyword.match(/\d{3,4}/g) ?? []).map((item) => String(Number(item))));
+  const preferred = numbers.size ? lots.filter((lot) => numbers.has(String(Number(lot.bun)))) : [];
+  const rest = lots.filter((lot) => !preferred.includes(lot));
+  return [...preferred, ...rest]
+    .slice(0, 12)
+    .map((lot) => `${lot.mtYn === '1' ? '산 ' : ''}${lot.bun}${lot.ji !== '0' ? `-${lot.ji}` : ''}`)
+    .join(', ');
+}
+
+function mapAddressHit(row: Record<string, unknown>, keyword: string): QuickQuoteAddressHit | null {
+  const hit: QuickQuoteAddressHit = {
+    road: text(row, ['roadAddr']),
+    jibun: text(row, ['jibunAddr']),
+    building: text(row, ['bdNm']),
+    apartment: text(row, ['bdKdcd']) === '1',
+    relJibun: compactRelJibun(text(row, ['relJibun']), keyword),
+    admCd: text(row, ['admCd']),
+    rnMgtSn: text(row, ['rnMgtSn']),
+    udrtYn: text(row, ['udrtYn']) || '0',
+    buldMnnm: text(row, ['buldMnnm']),
+    buldSlno: text(row, ['buldSlno']) || '0',
+    lnbrMnnm: text(row, ['lnbrMnnm']),
+    lnbrSlno: text(row, ['lnbrSlno']) || '0',
+    mtYn: text(row, ['mtYn']) || '0',
+  };
+  if (!hit.admCd || !hit.rnMgtSn || !hit.road) return null;
+  return hit;
+}
+
+async function searchAddressOnce(keyword: string, page: number): Promise<JusoPage> {
+  const clean = sanitizeAddressKeyword(keyword);
+  const query = clean.length >= 2 ? clean : keyword.trim();
+  let pageRes = await jusoPage(JUSO_SEARCH, 'JUSO_SEARCH_KEY', {
+    currentPage: String(page),
+    countPerPage: String(ADDRESS_PAGE_SIZE),
+    keyword: query,
+    addInfoYn: 'Y',
+  });
+  if (isKeywordAddressError(pageRes.errorCode)) {
+    const again = sanitizeAddressKeyword(query);
+    if (again.length >= 2 && again !== query) {
+      pageRes = await jusoPage(JUSO_SEARCH, 'JUSO_SEARCH_KEY', {
+        currentPage: String(page),
+        countPerPage: String(ADDRESS_PAGE_SIZE),
+        keyword: again,
+        addInfoYn: 'Y',
+      });
+    }
+  }
+  if (pageRes.errorCode && pageRes.errorCode !== '0' && !SOFT_ADDRESS_ERRORS.has(pageRes.errorCode)) {
+    throw new Error('LOOKUP_FAILED');
+  }
+  return pageRes;
 }
 
 function pad4(raw: string): string {
@@ -189,30 +287,45 @@ async function ledger(url: string, params: Record<string, string>): Promise<unkn
   }
 }
 
-export async function searchQuickQuoteAddress(tenantId: string, keyword: string): Promise<QuickQuoteAddressHit[]> {
+export async function searchQuickQuoteAddress(
+  tenantId: string,
+  keyword: string,
+  page = 1,
+): Promise<QuickQuoteAddressPage> {
   const q = keyword.trim();
-  const key = cacheKey({ kind: 'address', q });
+  const currentPage = Math.min(20, Math.max(1, Math.floor(page) || 1));
+  const key = cacheKey({ kind: 'address2', q, page: String(currentPage) });
   return cached(tenantId, key, async () => {
-    const rows = await juso(JUSO_SEARCH, 'JUSO_SEARCH_KEY', {
-      currentPage: '1',
-      countPerPage: '10',
-      keyword: q,
-    });
-    return rows
-      .map((row) => ({
-        road: text(row, ['roadAddr']),
-        jibun: text(row, ['jibunAddr']),
-        building: text(row, ['bdNm']),
-        admCd: text(row, ['admCd']),
-        rnMgtSn: text(row, ['rnMgtSn']),
-        udrtYn: text(row, ['udrtYn']) || '0',
-        buldMnnm: text(row, ['buldMnnm']),
-        buldSlno: text(row, ['buldSlno']) || '0',
-        lnbrMnnm: text(row, ['lnbrMnnm']),
-        lnbrSlno: text(row, ['lnbrSlno']) || '0',
-        mtYn: text(row, ['mtYn']) || '0',
-      }))
-      .filter((row) => row.admCd && row.rnMgtSn && row.road);
+    const attempts = addressSearchAttempts(q);
+    let found: JusoPage | null = null;
+    for (const attempt of attempts) {
+      const pageRes = await searchAddressOnce(attempt, currentPage);
+      if (pageRes.errorCode !== '0' || !pageRes.rows.length) continue;
+      const anchors = addressAttemptAnchors(q, attempt).flatMap(addressAnchorForms);
+      if (anchors.length) {
+        const mentioned = pageRes.rows.some((row) => {
+          const blob = [text(row, ['roadAddr']), text(row, ['jibunAddr']), text(row, ['bdNm']), text(row, ['emdNm'])].join(' ');
+          return anchors.some((anchor) => blob.includes(anchor));
+        });
+        if (!mentioned) continue;
+      }
+      found = pageRes;
+      break;
+    }
+    if (!found) {
+      return { items: [], total: 0, page: currentPage, notice: ADDRESS_EMPTY_NOTICE };
+    }
+    const ranked = sortAddressRows(
+      found.rows.map((row) => ({
+        ...row,
+        bdKdcd: text(row, ['bdKdcd']),
+        bdNm: text(row, ['bdNm']),
+      })),
+    );
+    const items = ranked
+      .map((row) => mapAddressHit(row, q))
+      .filter((hit): hit is QuickQuoteAddressHit => hit != null);
+    return { items, total: found.total, page: currentPage, notice: null };
   });
 }
 
@@ -374,6 +487,58 @@ async function fetchLedgerRows(plat: PlatKeys, dongNm: string, hoNm: string): Pr
   return merged;
 }
 
+function lotId(lot: RelLot): string {
+  return `${lot.mtYn}:${pad4(lot.bun)}:${pad4(lot.ji)}`;
+}
+
+function platWithLot(plat: PlatKeys, lot: RelLot): PlatKeys {
+  return { ...plat, lnbrMnnm: lot.bun, lnbrSlno: lot.ji, mtYn: lot.mtYn };
+}
+
+async function summarizePlat(plat: PlatKeys, dong: string, ho: string): Promise<QuickQuoteAreaSummary> {
+  const rows = await fetchLedgerRows(plat, dong, ho);
+  return summarizeExposAreas(rows, dong || ho ? { dongNm: dong, hoNm: ho } : undefined);
+}
+
+function lotsFromTitle(items: Record<string, unknown>[]): RelLot[] {
+  const lots: RelLot[] = [];
+  for (const item of items) {
+    const bun = text(item, ['bun']);
+    if (bun) {
+      lots.push({
+        bun,
+        ji: text(item, ['ji']) || '0',
+        mtYn: text(item, ['platGbCd']) === '1' ? '1' : '0',
+      });
+    }
+    lots.push(...parseRelJibun(text(item, ['platPlc', 'newPlatPlc'])));
+  }
+  return lots;
+}
+
+async function fetchRepresentativeLots(plat: PlatKeys): Promise<RelLot[]> {
+  const params = {
+    sigunguCd: plat.admCd.slice(0, 5),
+    bjdongCd: plat.admCd.slice(5, 10),
+    platGbCd: plat.mtYn === '1' ? '1' : '0',
+    bun: pad4(plat.lnbrMnnm),
+    ji: pad4(plat.lnbrSlno),
+    numOfRows: '5',
+    pageNo: '1',
+  };
+  const lots: RelLot[] = [];
+  for (const url of [LEDGER_RECAP, LEDGER_TITLE]) {
+    try {
+      const body = await ledger(url, params);
+      if (!ledgerOk(body)) continue;
+      lots.push(...lotsFromTitle(ledgerItems(body)));
+    } catch (e) {
+      if (e instanceof Error && e.message === 'LOOKUP_UNAVAILABLE') throw e;
+    }
+  }
+  return lots;
+}
+
 async function fetchTitleSqm(plat: PlatKeys): Promise<number | null> {
   const body = await ledger(LEDGER_TITLE, {
     sigunguCd: plat.admCd.slice(0, 5),
@@ -391,22 +556,58 @@ async function fetchTitleSqm(plat: PlatKeys): Promise<number | null> {
   return Number.isFinite(total) && total > 0 ? Math.round(total * 10) / 10 : null;
 }
 
+const EMPTY_AREAS = { kind: 'empty' as const, note: AREA_EMPTY_NOTE };
+
+function orderedRelLots(relJibun: string, keyword: string): RelLot[] {
+  const lots = parseRelJibun(relJibun);
+  const numbers = new Set((keyword.match(/\d{3,4}/g) ?? []).map((item) => String(Number(item))));
+  const preferred = numbers.size ? lots.filter((lot) => numbers.has(String(Number(lot.bun)))) : [];
+  const rest = lots.filter((lot) => !preferred.includes(lot));
+  const cap = preferred.length ? Math.min(8, preferred.length) : AREA_RETRY_LOTS;
+  return [...preferred, ...rest].slice(0, cap);
+}
+
 export async function lookupQuickQuoteAreas(
   tenantId: string,
   plat: PlatKeys,
   dongNm?: string,
   hoNm?: string,
+  relJibun?: string,
+  keyword?: string,
 ): Promise<QuickQuoteAreasResult> {
   const dong = dongNm?.trim() ?? '';
   const ho = hoNm?.trim() ?? '';
-  const key = cacheKey({ kind: 'areas2', ...plat, dong, ho });
+  const related = (relJibun ?? '').trim().slice(0, 500);
+  const typed = (keyword ?? '').trim().slice(0, 80);
+  const key = cacheKey({ kind: 'areas3', ...plat, dong, ho, rel: related, q: typed });
   return cached(tenantId, key, async () => {
-    const rows = await fetchLedgerRows(plat, dong, ho);
-    const summary = summarizeExposAreas(rows, dong || ho ? { dongNm: dong, hoNm: ho } : undefined);
+    let summary = await summarizePlat(plat, dong, ho);
     if (summary.kind !== 'empty') return summary;
-    if (dong || ho) return { kind: 'empty' as const };
+    if (dong || ho) return EMPTY_AREAS;
+
+    const tried = new Set<string>([
+      lotId({ bun: plat.lnbrMnnm, ji: plat.lnbrSlno, mtYn: plat.mtYn === '1' ? '1' : '0' }),
+    ]);
+    const tryLot = async (lot: RelLot): Promise<QuickQuoteAreaSummary | null> => {
+      const id = lotId(lot);
+      if (tried.has(id)) return null;
+      tried.add(id);
+      const next = await summarizePlat(platWithLot(plat, lot), '', '');
+      return next.kind === 'empty' ? null : next;
+    };
+
+    for (const lot of orderedRelLots(related, typed)) {
+      const next = await tryLot(lot);
+      if (next) return next;
+    }
+    for (const lot of await fetchRepresentativeLots(plat)) {
+      if (tried.size > AREA_RETRY_LOTS + 4) break;
+      const next = await tryLot(lot);
+      if (next) return next;
+    }
+
     const totalSqm = await fetchTitleSqm(plat);
-    if (totalSqm == null) return { kind: 'empty' as const };
+    if (totalSqm == null) return EMPTY_AREAS;
     return {
       kind: 'building' as const,
       totalSqm,
