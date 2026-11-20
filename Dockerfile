@@ -59,6 +59,7 @@ COPY --from=build /app/server/package.json ./
 COPY --from=build /app/server/package-lock.json ./
 COPY --from=build /app/server/node_modules ./node_modules
 COPY --from=build /app/server/dist ./dist
+COPY --from=build /app/server/src/modules/telecrm/prompts ./src/modules/telecrm/prompts
 COPY --from=build /app/server/prisma ./prisma
 COPY --from=build /app/server/scripts ./scripts
 COPY --from=build /app/server/assets/sk-team-leader-training ./assets/sk-team-leader-training

@@ -23,6 +23,7 @@ import { telecrmAiRouter } from './telecrmAi.routes.js';
 import { telecrmQuoteCrewLearningRouter } from './telecrmQuoteCrewLearning.routes.js';
 import { crmQuickScheduleRouter } from './crmQuickSchedule.routes.js';
 import { telecrmQuickQuoteRouter } from './telecrmQuickQuote.routes.js';
+import { telecrmResponseCardsRouter } from './telecrmResponseCards.routes.js';
 
 const router = Router();
 router.use(authMiddleware, requireFeature('mod_telecrm'), requireTelecrmUserAccess);
@@ -43,6 +44,7 @@ router.use('/ai', telecrmAiRouter);
 router.use('/quote-learning', telecrmQuoteCrewLearningRouter);
 router.use('/quick-schedule', crmQuickScheduleRouter);
 router.use('/quick-quote', telecrmQuickQuoteRouter);
+router.use('/response-cards', telecrmResponseCardsRouter);
 router.use('/', telecrmMobileRouter);
 
 export const telecrmRoutes = router;
