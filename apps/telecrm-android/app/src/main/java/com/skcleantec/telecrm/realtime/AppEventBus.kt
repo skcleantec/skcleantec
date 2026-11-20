@@ -51,8 +51,15 @@ object AppEventBus {
         inboxRefreshListeners.remove(listener)
     }
 
+    /** 마지막 연결 상태 — 화면이 나중에 열려도(연결은 서비스가 먼저 맺음) 바로 맞는 표시를 한다 */
+    @Volatile
+    var lastConnected: Boolean = false
+        private set
+
     fun addConnectionListener(listener: (Boolean) -> Unit) {
         connectionListeners.add(listener)
+        val now = lastConnected
+        onMain { runCatching { listener(now) } }
     }
 
     fun removeConnectionListener(listener: (Boolean) -> Unit) {
@@ -89,6 +96,7 @@ object AppEventBus {
     }
 
     fun emitConnection(connected: Boolean) {
+        lastConnected = connected
         onMain { connectionListeners.forEach { runCatching { it(connected) } } }
     }
 

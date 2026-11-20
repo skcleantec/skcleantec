@@ -60,6 +60,48 @@ class DialFragment : Fragment() {
     private var smsTemplates = listOf<SmsTemplateDto>()
     private var pendingPrefill: AppEventBus.DialPrefill? = null
     private var searchJob: Job? = null
+    /** 번호 위 이름이 가리키는 번호(숫자만) — 번호를 고치면 이름을 숨긴다 */
+    private var nameShownForDigits: String? = null
+
+    private fun showDialCustomerName(label: String?, muted: Boolean, digits: String?) {
+        val b = _binding ?: return
+        if (label.isNullOrBlank()) {
+            b.dialCustomerName.visibility = View.GONE
+            nameShownForDigits = null
+            return
+        }
+        b.dialCustomerName.text = label
+        b.dialCustomerName.setTextColor(
+            androidx.core.content.ContextCompat.getColor(
+                requireContext(),
+                if (muted) R.color.slate_500 else R.color.slate_900,
+            ),
+        )
+        b.dialCustomerName.textSize = if (muted) 14f else 20f
+        b.dialCustomerName.visibility = View.VISIBLE
+        nameShownForDigits = digits
+    }
+
+    /** 조회 결과에서 「이름 · 닉네임」을 뽑아 번호 위에 보여 준다 */
+    private fun applyDialCustomerName(json: org.json.JSONObject, phone: String) {
+        val digits = phone.filter { it.isDigit() }
+        if (digits.length < 8) {
+            showDialCustomerName(null, false, null)
+            return
+        }
+        when (json.optString("match")) {
+            "existing" -> {
+                val c = json.optJSONObject("customer")
+                val name = c?.optString("name").orEmpty().trim()
+                val nick = c?.optString("nickname").orEmpty().trim()
+                val label = listOfNotNull(name.takeIf { it.isNotEmpty() }, nick.takeIf { it.isNotEmpty() && it != name })
+                    .joinToString(" · ")
+                showDialCustomerName(label.ifBlank { "이름 없는 고객" }, false, digits)
+            }
+            "new" -> showDialCustomerName("처음 보는 번호", true, digits)
+            else -> showDialCustomerName(null, false, null)
+        }
+    }
 
     private val refreshListener = { loadSmsTemplates() }
 
@@ -82,6 +124,7 @@ class DialFragment : Fragment() {
             lookupState,
         )
         binding.searchError.visibility = View.GONE
+        showDialCustomerName(null, false, null)
         binding.inputPhone.setText(phone)
         lookupState.selectedPhone = phone
         lookupState.selectedInquiryId = inquiryId
@@ -114,6 +157,10 @@ class DialFragment : Fragment() {
             updatePhoneClearUi()
 
             updateActionRowVisibility()
+            val typed = s?.toString()?.filter { it.isDigit() }.orEmpty()
+            if (nameShownForDigits != null && typed != nameShownForDigits) {
+                showDialCustomerName(null, false, null)
+            }
 
         }
 
@@ -418,6 +465,8 @@ class DialFragment : Fragment() {
 
             result.onSuccess { json ->
 
+
+                applyDialCustomerName(json, phone)
                 CustomerLookupUi.render(
                     requireContext(),
                     json,

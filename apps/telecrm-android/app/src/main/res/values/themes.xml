@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.TelecrmInternal" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.TelecrmInternal" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">@color/slate_900</item>
         <item name="colorPrimaryVariant">@color/slate_800</item>
         <item name="colorOnPrimary">@color/white</item>
@@ -13,6 +13,8 @@
         <item name="android:windowLightNavigationBar">true</item>
         <item name="materialButtonStyle">@style/Widget.Telecrm.Button.Primary</item>
         <item name="textInputStyle">@style/Widget.Telecrm.TextInputLayout</item>
+        <item name="android:editTextColor">@color/slate_900</item>
+        <item name="android:textColorHint">@color/slate_400</item>
         <item name="materialCardViewStyle">@style/Widget.Telecrm.Card</item>
         <item name="android:fontFamily">sans-serif</item>
         <item name="fontFamily">sans-serif</item>

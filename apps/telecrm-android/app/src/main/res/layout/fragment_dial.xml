@@ -32,6 +32,19 @@
                     android:text="@string/dial_pad_title"
                     android:textAppearance="@style/TextAppearance.Telecrm.SectionLabel" />
 
+                <TextView
+                    android:id="@+id/dialCustomerName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textColor="@color/slate_900"
+                    android:textSize="20sp"
+                    android:visibility="gone" />
+
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
