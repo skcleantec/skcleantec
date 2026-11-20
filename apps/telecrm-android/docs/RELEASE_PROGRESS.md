@@ -11,14 +11,14 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 40 |
-| **최신 versionName** | `0.9.0-internal` |
+| **최신 versionCode** | 41 |
+| **최신 versionName** | `0.9.1-internal` |
 | **targetSdk** | **36** |
 | **Play 공개 테스트** | v30 AAB · API 36 |
-| **Play 내부 테스트** | **v40 AAB** 로컬 빌드 · Play Console 업로드는 별도 |
+| **Play 내부 테스트** | **v41 AAB** 로컬 빌드 · Play Console 업로드는 별도 |
 | **Play 비공개 테스트** | v35 기준 · v38 승격은 별도 |
-| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · 스토어 최신은 v35 · **v40 AAB는 로컬 빌드만** |
-| **sideload (`/telecrm-app`)** | v40 · Railway staging·production LATEST=MIN=40 |
+| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · 스토어 최신은 v35 · **v41 AAB는 로컬 빌드만** |
+| **sideload (`/telecrm-app`)** | v41 · Railway staging·production LATEST=MIN=41 |
 | **release 최적화** | `isMinifyEnabled` + `isShrinkResources` + R8 fullMode |
 
 ---
@@ -51,6 +51,23 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v41 · `0.9.1-internal` — 2026-11-20
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | AAB만 빌드 · Play Console 업로드는 아직 안 함 (v40이 전화 기능 필수 선언으로 검토에서 막힘) |
+| **AAB** | `apps/telecrm-android/dist/telecrm-play-0.9.1-internal-41.aab` |
+| **AAB SHA256** | `c14348f967ebe40fddd9df950cd0aae1ec2b5f9f9387e75c263296db5e8d5e9e` |
+| **mapping** | `apps/telecrm-android/dist/telecrm-play-0.9.1-internal-41-mapping.txt` |
+| **sideload APK** | `apps/telecrm-android/dist/telecrm-release-0.9.1-internal.apk` |
+| **APK SHA256** | `d068c84b803723176702fce4edc59927a1b66c0535ac436fb490a11a68be1529` |
+| **Git** | `21bd01db` — 전화 없는 기기 확인을 걸기·다이얼 두 곳에 맞게 넣는다 |
+| **변경 요약** | 전화 기능이 없는 기기에도 설치 · 연결 표시·로그인 글자·다이얼 고객 이름은 v40과 같음 |
+| **서버/CRM** | 서버 소스는 그대로 · Railway staging·production LATEST=MIN=41 |
+| **검증** | `bundlePlayRelease` · `assembleSideloadRelease` · aapt2 badging `uses-feature-not-required: android.hardware.telephony` |
+| **Play 권장 조치** | R8 minify·리소스 축소 유지 · 화면 잠금·Display API 재도입 없음 |
+| **메모** | Release `telecrm-v0.9.1-internal` · 설치 페이지 `/telecrm-app` · Play 업로드는 별도 |
 
 ### v40 · `0.9.0-internal` — 2026-11-20
 
