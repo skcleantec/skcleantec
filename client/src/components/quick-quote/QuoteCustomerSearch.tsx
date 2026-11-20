@@ -97,6 +97,10 @@ function buildTimeline(r: TelecrmCustomerLookupDto): TimelineRow[] {
 
 /** 이 창을 띄운 청소비서 창이 있으면 그 창에서 열고, 없으면 새 탭 */
 function openInCbiseo(path: string) {
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'cbiseo-crm:open-path', path }, window.location.origin);
+    return;
+  }
   const opener = window.opener as Window | null;
   try {
     if (opener && !opener.closed && opener.location.origin === window.location.origin) {
@@ -425,7 +429,16 @@ function CustomerCard({
       ) : null}
 
       <div className="grid grid-cols-3 gap-1.5 px-2.5 pb-2.5">
-        <a href={`tel:${digitsOf(phone)}`} className={`${act} border-[#1f4fb8] bg-[#1f4fb8] text-white`}>
+        <a
+          href={`tel:${digitsOf(phone)}`}
+          className={`${act} border-[#1f4fb8] bg-[#1f4fb8] text-white`}
+          onClick={(e) => {
+            // 겹쳐 열린 창에서는 바깥 화면이 전화를 건다(앱에서 안쪽 링크가 막히는 경우 대비)
+            if (window.parent === window) return;
+            e.preventDefault();
+            window.parent.postMessage({ type: 'cbiseo-crm:tel', phone }, window.location.origin);
+          }}
+        >
           {Icon.call}전화
         </a>
         <button
