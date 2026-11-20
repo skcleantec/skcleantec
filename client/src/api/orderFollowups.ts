@@ -38,6 +38,8 @@ export interface OrderFollowupInquiryBrief {
 
 export interface OrderFollowupItem {
   id: string;
+  /** 영업 브랜드 */
+  operatingCompanyId?: string | null;
   inquiryId: string | null;
   inquiry: OrderFollowupInquiryBrief | null;
   customerName: string;
