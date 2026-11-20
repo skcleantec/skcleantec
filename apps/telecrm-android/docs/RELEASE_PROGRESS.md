@@ -7,18 +7,18 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-11-03)
+## 현재 상태 (최종 갱신: 2026-11-20)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 39 |
-| **최신 versionName** | `0.8.9-internal` |
+| **최신 versionCode** | 40 |
+| **최신 versionName** | `0.9.0-internal` |
 | **targetSdk** | **36** |
 | **Play 공개 테스트** | v30 AAB · API 36 |
-| **Play 내부 테스트** | **v39 AAB** 로컬 빌드 · Play Console 업로드는 별도 |
+| **Play 내부 테스트** | **v40 AAB** 로컬 빌드 · Play Console 업로드는 별도 |
 | **Play 비공개 테스트** | v35 기준 · v38 승격은 별도 |
-| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · 스토어 최신은 v35 · **v38 AAB는 로컬 빌드만** |
-| **sideload (`/telecrm-app`)** | 아직 v38 · v39 Play 업로드 전이라 Railway는 그대로 |
+| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · 스토어 최신은 v35 · **v40 AAB는 로컬 빌드만** |
+| **sideload (`/telecrm-app`)** | v40 · Railway staging·production LATEST=MIN=40 |
 | **release 최적화** | `isMinifyEnabled` + `isShrinkResources` + R8 fullMode |
 
 ---
@@ -51,6 +51,22 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v40 · `0.9.0-internal` — 2026-11-20
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | AAB만 빌드 · Play Console 업로드는 아직 안 함 |
+| **AAB** | `apps/telecrm-android/dist/telecrm-play-0.9.0-internal-40.aab` |
+| **AAB SHA256** | `78b5c423914e57eb4ab45a26c48a8ae00b1631fe71320c0455b435e840ab2a8b` |
+| **mapping** | `apps/telecrm-android/dist/telecrm-play-0.9.0-internal-40-mapping.txt` |
+| **sideload APK** | `apps/telecrm-android/dist/telecrm-release-0.9.0-internal.apk` |
+| **APK SHA256** | `b4310a0cc2ec505d3cd88c6b47bf41eff5365ee9156fb0c9aad910b7515a665e` |
+| **Git** | `e2424348` 기능 위에 versionCode 40 |
+| **변경 요약** | 연결 표시가 실제와 맞음 · 로그인 글자가 보임 · 다이얼 번호 위에 고객 이름 |
+| **서버/CRM** | 서버 소스는 그대로 · Railway staging·production LATEST=MIN=40 |
+| **검증** | `assembleSideloadRelease` · `bundlePlayRelease` |
+| **메모** | Release `telecrm-v0.9.0-internal` · Play 업로드는 별도 · 다크 모드 로그인 글자는 기기에서 확인 |
 
 ### v39 · `0.8.9-internal` — 2026-11-03
 
