@@ -375,6 +375,8 @@ model Tenant {
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
   telecrmAiUsageLogs TelecrmAiUsageLog[]
   telecrmAiSummaries TelecrmAiSummary[]
+  telecrmResponseCards TelecrmResponseCard[]
+  telecrmResponseSearchLogs TelecrmResponseSearchLog[]
   alimtalkWallet TenantAlimtalkWallet?
   alimtalkTemplateSettings TenantAlimtalkTemplateSetting[]
   alimtalkSendLogs AlimtalkSendLog[]
@@ -1782,6 +1784,7 @@ model OperatingCompany {
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSmsTemplates         TelecrmSmsTemplate[]
+  telecrmResponseCards        TelecrmResponseCard[]
   telecrmScriptCategories     TelecrmScriptCategory[]
   orderFormBrandCustomerLinkConfigs OrderFormBrandCustomerLinkConfig[]
   barobillMemberId String?         @unique @map("barobill_member_id")
@@ -2266,6 +2269,9 @@ model User {
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
   telecrmAiUsageLogs           TelecrmAiUsageLog[]
   telecrmAiSummaries           TelecrmAiSummary[]
+  telecrmResponseCardsCreated  TelecrmResponseCard[] @relation("TelecrmResponseCardCreatedBy")
+  telecrmResponseCardsApproved TelecrmResponseCard[] @relation("TelecrmResponseCardApprovedBy")
+  telecrmResponseSearchLogs    TelecrmResponseSearchLog[]
   quickPasteAiUsageLogs        QuickPasteAiUsageLog[]
   planUpgradeRequestsRequested TenantPlanUpgradeRequest[] @relation("TenantPlanUpgradeRequestRequester")
   platformBoardPosts           PlatformBoardPost[]
@@ -5524,6 +5530,59 @@ model TelecrmAiSummary {
   @@unique([tenantId, chatId, contentHash])
   @@index([tenantId, inquiryId])
   @@map("telecrm_ai_summaries")
+}
+
+/// 텔레CRM 상담 대응 카드 — 업체·브랜드별. 승인된 카드만 상담 검색에 나온다.
+model TelecrmResponseCard {
+  id                 String            @id @default(uuid())
+  tenantId           String            @map("tenant_id")
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String?           @map("operating_company_id")
+  operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
+  code               String            @db.VarChar(16)
+  category           String            @db.VarChar(40)
+  title              String            @db.VarChar(200)
+  triggers           Json
+  intent             String            @db.Text
+  responses          Json
+  avoid              Json
+  rule               String            @default("") @db.Text
+  sources            Json
+  wonInCall          Boolean           @default(false) @map("won_in_call")
+  /// draft | approved | archived
+  status             String            @default("draft") @db.VarChar(16)
+  embedding          Json?
+  useCount           Int               @default(0) @map("use_count")
+  upCount            Int               @default(0) @map("up_count")
+  downCount          Int               @default(0) @map("down_count")
+  createdById        String?           @map("created_by_id")
+  createdBy          User?             @relation("TelecrmResponseCardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedById       String?           @map("approved_by_id")
+  approvedBy         User?             @relation("TelecrmResponseCardApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt         DateTime?         @map("approved_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([tenantId, operatingCompanyId, status])
+  @@map("telecrm_response_cards")
+}
+
+/// 텔레CRM 대응 카드 검색 기록 — 결과 0건은 카드 없음 집계용. 원문 상담은 저장하지 않는다.
+model TelecrmResponseSearchLog {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  q           String   @db.VarChar(300)
+  resultCount Int      @map("result_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, resultCount, createdAt])
+  @@map("telecrm_response_search_logs")
 }
 
 /// 플랫폼 공통 솔라피 알림톡 서식 (카카오 승인 templateId)
