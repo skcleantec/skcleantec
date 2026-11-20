@@ -1,3 +1,4 @@
+import { useRememberedState } from '../../hooks/useRememberedState';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh } from '../../utils/listRefreshDisplay';
@@ -258,11 +259,11 @@ export function AdminReviewPaybackPanel({ token }: Props) {
   const [loading, setLoading] = useState(true);
   const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<ReviewPaybackStatus | ''>('');
-  const [unseenOnly, setUnseenOnly] = useState(false);
-  const [search, setSearch] = useState('');
-  const [datePreset, setDatePreset] = useState<DateRangePresetId>('thisMonth');
-  const [monthKey, setMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
+  const [filterStatus, setFilterStatus] = useRememberedState<ReviewPaybackStatus | ''>('reviewPayback.filterStatus', '');
+  const [unseenOnly, setUnseenOnly] = useRememberedState('reviewPayback.unseenOnly', false);
+  const [search, setSearch] = useRememberedState('reviewPayback.search', '');
+  const [datePreset, setDatePreset] = useRememberedState<DateRangePresetId>('reviewPayback.datePreset', 'thisMonth');
+  const [monthKey, setMonthKey] = useRememberedState('reviewPayback.monthKey', () => kstTodayYmd().slice(0, 7));
   const [detail, setDetail] = useState<ReviewPaybackListItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [memoDraft, setMemoDraft] = useState('');

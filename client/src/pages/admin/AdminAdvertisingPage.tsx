@@ -1,3 +1,4 @@
+import { useRememberedState } from '../../hooks/useRememberedState';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
@@ -95,10 +96,10 @@ export function AdminAdvertisingPage() {
   const isAdmin = role === 'ADMIN';
   const [searchParams, setSearchParams] = useSearchParams();
   const [marketers, setMarketers] = useState<{ id: string; name: string; email: string }[]>([]);
-  const [marketerFilter, setMarketerFilter] = useState<string>('');
+  const [marketerFilter, setMarketerFilter] = useRememberedState<string>('advertising.marketerFilter', '');
 
-  const [periodPreset, setPeriodPreset] = useState<DateRangePresetId>('thisMonth');
-  const [{ from, to }, setRange] = useState(() => computeDateRangeFromPreset('thisMonth')!);
+  const [periodPreset, setPeriodPreset] = useRememberedState<DateRangePresetId>('advertising.periodPreset', 'thisMonth');
+  const [{ from, to }, setRange] = useRememberedState('advertising.range', () => computeDateRangeFromPreset('thisMonth')!);
   const [analytics, setAnalytics] = useState<AdvertisingAnalytics | null>(null);
   const [history, setHistory] = useState<HistorySession[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);

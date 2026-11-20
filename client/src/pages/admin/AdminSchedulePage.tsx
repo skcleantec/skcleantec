@@ -1,3 +1,4 @@
+import { useRememberedState } from '../../hooks/useRememberedState';
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -862,8 +863,8 @@ export function AdminSchedulePage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useRememberedState('adminSchedule.year', now.getFullYear());
+  const [month, setMonth] = useRememberedState('adminSchedule.month', now.getMonth() + 1);
   const [items, setItems] = useState<ScheduleItem[]>([]);
   const itemsLengthRef = useRef(0);
   itemsLengthRef.current = items.length;
