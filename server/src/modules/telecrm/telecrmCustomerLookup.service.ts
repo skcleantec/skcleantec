@@ -172,6 +172,11 @@ function upsertCandidate(
   prev.inquiryCount += patch.inquiryCount ?? 1;
 }
 
+function phoneDigitsEndWith(stored: string | null | undefined, suffix: string): boolean {
+  const digits = normalizeKrPhoneDigits(stored ?? '');
+  return digits.length >= suffix.length && digits.endsWith(suffix);
+}
+
 function mapToCandidates(map: Map<string, CandidateAcc>): TelecrmCustomerCandidate[] {
   return [...map.entries()]
     .map(([key, row]) => ({
@@ -541,6 +546,110 @@ export async function lookupTelecrmCustomersBatch(
   return { items };
 }
 
+const PHONE_SUFFIX_CANDIDATE_MAX = 30;
+
+/** 4~9자리 — 같은 브랜드 접수·후속연락 중 그 숫자로 끝나는 번호만 사람 단위로 묶는다. */
+async function searchTelecrmCustomerByPhoneSuffix(
+  tenantId: string,
+  operatingCompanyId: string,
+  rawPhone: string,
+  suffix: string,
+): Promise<TelecrmCustomerLookupResult> {
+  const last4 = suffix.slice(-4);
+  const phoneWhere = {
+    tenantId,
+    operatingCompanyId,
+    OR: [{ customerPhone: { endsWith: last4 } }, { customerPhone2: { endsWith: last4 } }],
+  };
+  const [inquiryRows, followupRows] = await Promise.all([
+    prisma.inquiry.findMany({
+      where: phoneWhere,
+      orderBy: { createdAt: 'desc' },
+      take: 250,
+      select: {
+        customerName: true,
+        nickname: true,
+        customerPhone: true,
+        customerPhone2: true,
+        address: true,
+        createdAt: true,
+      },
+    }),
+    prisma.orderFollowup.findMany({
+      where: phoneWhere,
+      orderBy: { createdAt: 'desc' },
+      take: 120,
+      select: {
+        customerName: true,
+        nickname: true,
+        customerPhone: true,
+        customerPhone2: true,
+        address: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  const map = new Map<string, CandidateAcc>();
+  const aliases: CandidateAliases = new Map();
+  for (const row of inquiryRows) {
+    if (!phoneDigitsEndWith(row.customerPhone, suffix) && !phoneDigitsEndWith(row.customerPhone2, suffix)) continue;
+    upsertCandidate(
+      map,
+      row.customerPhone,
+      {
+        customerName: row.customerName,
+        nickname: row.nickname,
+        lastAddress: row.address?.trim() || null,
+        latestAt: row.createdAt,
+        inquiryCount: 1,
+      },
+      aliases,
+      row.customerPhone2,
+    );
+  }
+  for (const row of followupRows) {
+    if (!phoneDigitsEndWith(row.customerPhone, suffix) && !phoneDigitsEndWith(row.customerPhone2, suffix)) continue;
+    upsertCandidate(
+      map,
+      row.customerPhone,
+      {
+        customerName: row.customerName,
+        nickname: row.nickname,
+        lastAddress: row.address?.trim() || null,
+        latestAt: row.createdAt,
+        inquiryCount: 0,
+      },
+      aliases,
+      row.customerPhone2,
+    );
+  }
+
+  const candidates = mapToCandidates(map).slice(0, PHONE_SUFFIX_CANDIDATE_MAX);
+  if (candidates.length === 0) return emptyResult('phone', rawPhone.trim());
+  if (candidates.length === 1) {
+    const resolved = await resolveTelecrmCustomerByPhone(
+      tenantId,
+      operatingCompanyId,
+      candidates[0]!.customerPhone,
+      'phone',
+    );
+    return { ...resolved, match: 'existing', searchBy: 'phone', candidates: [] };
+  }
+
+  return {
+    match: 'pick',
+    searchBy: 'phone',
+    candidates,
+    customer: { name: null, nickname: null, phone: rawPhone.trim(), lastAddress: null },
+    inquiries: [],
+    followups: [],
+    csReports: [],
+    latestQuote: null,
+    sentQuotes: [],
+  };
+}
+
 export async function searchTelecrmCustomer(
   tenantId: string,
   operatingCompanyId: string,
@@ -548,7 +657,13 @@ export async function searchTelecrmCustomer(
 ): Promise<TelecrmCustomerLookupResult> {
   const phone = params.phone?.trim() ?? '';
   const name = params.name?.trim() ?? '';
-  if (phone) return lookupTelecrmCustomer(tenantId, operatingCompanyId, phone);
+  if (phone) {
+    const digits = normalizeKrPhoneDigits(phone);
+    if (digits.length >= 4 && digits.length <= 9) {
+      return searchTelecrmCustomerByPhoneSuffix(tenantId, operatingCompanyId, phone, digits);
+    }
+    return lookupTelecrmCustomer(tenantId, operatingCompanyId, phone);
+  }
   if (name) return searchTelecrmCustomerByName(tenantId, operatingCompanyId, name);
   return emptyResult('phone');
 }
