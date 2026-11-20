@@ -1,3 +1,4 @@
+import { openMobileCrm, shouldOverlayMobileCrm } from '../../components/layout/MobileCrmOverlay';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { canAccessTelecrm } from '../../utils/telecrmDashboardAccess';
 import { useState, useEffect, useMemo } from 'react';
@@ -142,6 +143,11 @@ export function AdminDashboardPage() {
         {showTelecrmDashboard && canAccessTelecrm(tenantCaps.telecrm) ? (
           <Link
             to="/m/quote"
+            onClick={(e) => {
+              if (!shouldOverlayMobileCrm()) return;
+              e.preventDefault();
+              openMobileCrm();
+            }}
             className="block rounded-2xl bg-[#1f4fb8] px-3 py-2 text-fluid-sm font-semibold text-white shadow-card"
           >
             📱 모바일 CRM · 견적 문구 · 내 문구 · AI 견적 · 평수 ›

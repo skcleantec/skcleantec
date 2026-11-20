@@ -50,6 +50,8 @@ export function QuoteHelperPage() {
   const [phrasesOpen, setPhrasesOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [customerQuery, setCustomerQuery] = useState('');
+  /** 청소비서 앱·휴대폰 화면 위에 겹쳐 열린 경우 */
+  const embedded = typeof window !== 'undefined' && window.parent !== window;
   const headRef = useRef<HTMLDivElement>(null);
   const [headH, setHeadH] = useState(96);
 
@@ -127,6 +129,16 @@ export function QuoteHelperPage() {
       <div ref={headRef} className="sticky top-0 z-[36]">
         <header className="bg-[#121828] text-white" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="flex items-center gap-2 px-3 py-2">
+            {embedded ? (
+              <button
+                type="button"
+                onClick={() => window.parent.postMessage({ type: 'cbiseo-crm:close' }, window.location.origin)}
+                className="-ml-1 flex shrink-0 items-center gap-0.5 rounded-lg px-1.5 py-1 text-fluid-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+              >
+                <span aria-hidden className="text-[15px] leading-none">‹</span>
+                청소비서
+              </button>
+            ) : null}
             <h1 className="shrink-0 text-fluid-sm font-semibold text-white">모바일 CRM</h1>
             <div className="ml-auto flex min-w-0 items-center gap-1">
               {brand.items.length > 0 ? (
@@ -161,7 +173,7 @@ export function QuoteHelperPage() {
               <QuoteCustomerSearchInput value={customerQuery} onChange={setCustomerQuery} />
             </div>
           ) : null}
-          <QuoteInstallHint />
+          {embedded ? null : <QuoteInstallHint />}
         </header>
       </div>
 

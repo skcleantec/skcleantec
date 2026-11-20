@@ -36,6 +36,8 @@ declare global {
     __cbiseoNativeGoogleLoginError?: (message: string) => void;
     /** true면 열린 창을 닫았으니 앱은 뒤로 가지 않는다. */
     __cbiseoHandleBack?: () => boolean;
+    /** 겹쳐 연 모바일 CRM이 열려 있으면 닫고 true */
+    __cbiseoMobileCrmBack?: () => boolean;
   }
 }
 
@@ -137,6 +139,7 @@ function clickClose(root: ParentNode): boolean {
 export function installCbiseoHardwareBack(): void {
   if (typeof window === 'undefined') return;
   window.__cbiseoHandleBack = () => {
+    if (window.__cbiseoMobileCrmBack?.()) return true;
     const menuClose = document.querySelector<HTMLElement>('button[aria-label="메뉴 닫기"]');
     if (menuClose && isOnScreen(menuClose)) {
       menuClose.click();

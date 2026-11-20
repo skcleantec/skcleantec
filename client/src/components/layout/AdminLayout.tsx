@@ -10,6 +10,7 @@ import { getToken, subscribeAdminAuth } from '../../stores/auth';
 import { isSoloOperatorTenant } from '@shared/soloOperator';
 import { TeamNavIcon } from './TeamNavIcons';
 import { AdminSoloMobileBottomNav } from './AdminSoloMobileBottomNav';
+import { MobileCrmOverlay, openMobileCrm, shouldOverlayMobileCrm } from './MobileCrmOverlay';
 import { TEAM_MOBILE_BOTTOM_NAV_MAIN_PB } from '../../utils/staffAppSafeArea';
 import { getTeamToken, setTeamToken } from '../../stores/teamAuth';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
@@ -1436,8 +1437,8 @@ export function AdminLayout() {
                 className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-fluid-xs font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
                 onClick={(e) => {
                   e.preventDefault();
-                  if (isCbiseoStaffNativeApp()) {
-                    navigate('/m/quote');
+                  if (shouldOverlayMobileCrm()) {
+                    openMobileCrm();
                     return;
                   }
                   // 휴대폰 크기 창 하나만 — 이미 열려 있으면 그 창으로
@@ -1662,6 +1663,7 @@ export function AdminLayout() {
         onDockDragChange={setDesktopDockDrag}
       />
       {meRole === 'ADMIN' && isSoloOperatorTenant(tenantFeatures) ? <AdminSoloMobileBottomNav /> : null}
+      <MobileCrmOverlay enabled={showMobileCrm && canAccessTelecrm(tenantTelecrm)} />
     </div>
     </NavFavoritesProvider>
     </StaffAppUpdateProvider>
