@@ -89,7 +89,6 @@ export function CrmAreaCalcButton({
 
   useEffect(() => {
     if (!open) return;
-    inputRef.current?.focus();
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
       if (wrapRef.current?.contains(t) || popRef.current?.contains(t)) return;
@@ -104,6 +103,15 @@ export function CrmAreaCalcButton({
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
+  }, [open]);
+
+  // 창이 실제로 뜬 뒤(위치 계산 후) 바로 입력할 수 있게
+  useEffect(() => {
+    if (open && pos) inputRef.current?.focus();
+  }, [open, pos]);
+
+  useEffect(() => {
+    if (!open) setPos(null);
   }, [open]);
 
   const ratio = QUOTE_EXCLUSIVE_RATIOS[pref.kind];
