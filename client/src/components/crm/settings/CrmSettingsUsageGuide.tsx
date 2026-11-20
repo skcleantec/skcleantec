@@ -9,6 +9,7 @@ export type CrmSettingsGuideKey =
   | 'pricing'
   | 'general'
   | 'quote-learning'
+  | 'response-cards'
   | 'leadSource'
   | 'soomgo'
   | 'sms'
@@ -39,6 +40,11 @@ const GUIDES: Record<CrmSettingsGuideKey, Guide> = {
     image: 'crm-main',
     rect: [72.2, 51, 26.4, 4.6],
     where: '평수를 넣으면 「평당 ○원」으로 기본 견적이 계산돼요. AI 추천가와 비교하는 기준이기도 해요.',
+  },
+  'response-cards': {
+    image: 'crm-main',
+    rect: [36.3, 9.1, 34.3, 77.5],
+    where: '「상담 스크립트」 찾기 칸에 고객 말(예: 외창, 비싸)을 치면 「사용 중」 카드와 AI 코치 추천이 위에 떠요.',
   },
   'quote-learning': {
     image: 'crm-main',

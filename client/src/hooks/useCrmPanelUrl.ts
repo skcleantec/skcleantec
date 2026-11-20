@@ -12,13 +12,15 @@ export type CrmSettingsTab =
   | 'soomgo'
   | 'soomgo-presets'
   | 'soomgo-auto'
-  | 'quote-learning';
+  | 'quote-learning'
+  | 'response-cards';
 export type CrmCatalogScope = 'shared' | 'personal';
 
 const SETTINGS_TABS: CrmSettingsTab[] = [
   'scripts',
   'pricing',
   'quote-learning',
+  'response-cards',
   'general',
   'leadSource',
   'sms',
@@ -72,7 +74,7 @@ export function useCrmPanelUrl() {
         next.set('tab', tab);
         next.set(
           'catalog',
-          tab === 'soomgo' || tab === 'general' || tab === 'leadSource' || tab === 'quote-learning'
+          tab === 'soomgo' || tab === 'general' || tab === 'leadSource' || tab === 'quote-learning' || tab === 'response-cards'
             ? 'shared'
             : catalog,
         );
@@ -172,7 +174,7 @@ export function useCrmPanelUrl() {
       patchParams((next) => {
         next.set('panel', 'settings');
         next.set('tab', tab);
-        if (tab === 'soomgo' || tab === 'general' || tab === 'leadSource' || tab === 'quote-learning') {
+        if (tab === 'soomgo' || tab === 'general' || tab === 'leadSource' || tab === 'quote-learning' || tab === 'response-cards') {
           next.set('catalog', 'shared');
         }
       });
