@@ -1,3 +1,4 @@
+import { CrmAreaCalcButton } from '../CrmAreaCalcButton';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getToken } from '../../../stores/auth';
 import {
@@ -650,6 +651,7 @@ export function CrmPricingPanel({
                 className="h-6 w-14 rounded-lg border border-amber-200/80 bg-white px-1.5 text-center text-fluid-2xs tabular-nums"
               />
               <span>평</span>
+              <CrmAreaCalcButton onUse={onPyeongChange} />
             </span>
           </div>
           {minimumApplied ? (
