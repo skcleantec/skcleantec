@@ -70,7 +70,7 @@ export function QuoteHelperPage() {
       const params = new URLSearchParams(prev);
       params.set('tab', next);
       return params;
-    });
+    }, { replace: true }); // 탭 이동은 뒤로가기 기록에 쌓지 않는다(겹쳐 열린 창에서 앱 뒤로가기를 먹지 않게)
   };
 
   const load = useCallback(async () => {

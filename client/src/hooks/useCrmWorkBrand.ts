@@ -139,7 +139,8 @@ export function useCrmWorkBrand() {
           next.set('workBrand', normalized);
           return next;
         },
-        { replace: false },
+        // 겹쳐 열린 모바일 CRM(iframe)에서는 기록을 쌓지 않는다 — 앱 뒤로가기가 안쪽 창에 먹힌다
+        { replace: typeof window !== 'undefined' && window.parent !== window },
       );
       writeCrmWorkBrandStoredSlug(authUserId, normalized);
     },
