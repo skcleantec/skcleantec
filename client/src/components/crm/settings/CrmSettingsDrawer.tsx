@@ -40,6 +40,11 @@ const AdminOrderFormLeadSourceSettingsPage = lazy(() =>
     default: m.AdminOrderFormLeadSourceSettingsPage,
   })),
 );
+const TelecrmResponseCardsSettingsPage = lazy(() =>
+  import('../../../pages/admin/crm/settings/TelecrmResponseCardsSettingsPage').then((m) => ({
+    default: m.TelecrmResponseCardsSettingsPage,
+  })),
+);
 const TelecrmQuoteLearningSettingsPage = lazy(() =>
   import('../../../pages/admin/crm/settings/TelecrmQuoteLearningSettingsPage').then((m) => ({
     default: m.TelecrmQuoteLearningSettingsPage,
@@ -52,6 +57,7 @@ const TAB_GROUPS: { title: string; items: { id: CrmSettingsTab; label: string }[
     title: '통화할 때 보는 것',
     items: [
       { id: 'scripts', label: '상담 스크립트' },
+      { id: 'response-cards', label: '대응 카드' },
       { id: 'pricing', label: '가격 항목' },
       { id: 'general', label: '기본 단가(평당가)' },
     ],
@@ -97,6 +103,7 @@ export function CrmSettingsDrawer({
 }) {
   const isTabVisible = (id: CrmSettingsTab) => {
     if (id === 'quote-learning') return canEditShared || canEditPersonal;
+    if (id === 'response-cards') return canEditShared;
     if (id === 'general') return canEditShared;
     if (id === 'leadSource') return canEditLeadSources;
     if (id === 'soomgo') return canEditShared;
@@ -112,10 +119,11 @@ export function CrmSettingsDrawer({
     tab !== 'leadSource' &&
     tab !== 'soomgo' &&
     tab !== 'quote-learning' &&
+    tab !== 'response-cards' &&
     (canEditShared || canEditPersonal) &&
     (tab === 'soomgo-presets' || tab === 'soomgo-auto' ? canEditShared && canEditPersonal : true);
   const drawerWidth =
-    tab === 'soomgo-presets' || tab === 'soomgo-auto' || tab === 'quote-learning'
+    tab === 'soomgo-presets' || tab === 'soomgo-auto' || tab === 'quote-learning' || tab === 'response-cards'
       ? 'w-[min(940px,96vw)]'
       : 'w-[min(840px,96vw)]';
   const drawerSubtitle =
@@ -123,7 +131,9 @@ export function CrmSettingsDrawer({
       ? '업체 공통 숨고 계정·PC 프로그램·브랜드별 계정을 설정합니다.'
       : tab === 'leadSource'
         ? '발주서 발급·텔레CRM·접수 저장 시 선택하는 유입 플랫폼 목록입니다.'
-        : tab === 'quote-learning'
+        : tab === 'response-cards'
+          ? '상담 스크립트 검색에 뜨는 대응 카드를 승인·보관·수정합니다. 브랜드별로 따로 관리돼요.'
+          : tab === 'quote-learning'
           ? '예약확정 접수에서 모은 견적·인원 데이터 학습 현황입니다. 텔레CRM 견적 패널 힌트에 반영됩니다.'
           : tab === 'soomgo-presets'
             ? '숨고 채팅 매크로·알림함 키워드(브랜드별, 업체 기본 폴백)를 편집합니다.'
@@ -216,6 +226,7 @@ export function CrmSettingsDrawer({
               {tab === 'soomgo' && canEditShared ? (
                 <TelecrmSoomgoSettingsPage presetsInDrawer />
               ) : null}
+              {tab === 'response-cards' && canEditShared ? <TelecrmResponseCardsSettingsPage /> : null}
               {tab === 'quote-learning' && (canEditPersonal || canEditShared) ? (
                 <TelecrmQuoteLearningSettingsPage />
               ) : null}
