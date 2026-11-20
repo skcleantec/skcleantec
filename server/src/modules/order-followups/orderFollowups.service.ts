@@ -51,6 +51,7 @@ export function serializeFollowup(row: FollowupWithRelations) {
   const inq = row.inquiry;
   return {
     id: row.id,
+    operatingCompanyId: row.operatingCompanyId,
     inquiryId: row.inquiryId ?? null,
     inquiry: inq
       ? {

@@ -1,4 +1,17 @@
 import { useRememberedState } from '../../hooks/useRememberedState';
+import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
+
+/** 부재·보류 필터는 같은 날이면 메뉴로 다시 들어와도 유지 */
+const KEEP = { restore: 'sameDay' } as const;
+
+function BrandTag({ name }: { name?: string }) {
+  if (!name) return null;
+  return (
+    <span className="mr-1 inline-block max-w-[5.5rem] truncate rounded-md bg-slate-100 px-1.5 py-0.5 align-[1px] text-[10.5px] font-semibold leading-none text-slate-600">
+      {name}
+    </span>
+  );
+}
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CrmHoverTextPreview } from '../crm/CrmHoverTextPreview';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
@@ -370,14 +383,25 @@ export function AdminOrderFormFollowupPanel({
   const [loading, setLoading] = useState(true);
   const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
-  const [filterGoldDbOnly, setFilterGoldDbOnly] = useRememberedState('followup.filterGoldDbOnly', false);
-  const [filterStatus, setFilterStatus] = useRememberedState<OrderFollowupStatus | ''>('followup.filterStatus', '');
-  const [filterCustomerName, setFilterCustomerName] = useRememberedState('followup.filterCustomerName', '');
-  const [listDateBasis, setListDateBasis] = useRememberedState<FollowupListDateBasis>('followup.listDateBasis', 'createdAt');
+  const operatingCompanies = useOperatingCompanies(token);
+  const [filterOperatingCompanyId, setFilterOperatingCompanyId] = useRememberedState(
+    'followup.filterOperatingCompanyId',
+    '',
+    KEEP,
+  );
+  const brandNameById = useMemo(
+    () => new Map(operatingCompanies.map((oc) => [oc.id, oc.name] as const)),
+    [operatingCompanies],
+  );
+  const showBrand = operatingCompanies.length > 1;
+  const [filterGoldDbOnly, setFilterGoldDbOnly] = useRememberedState('followup.filterGoldDbOnly', false, KEEP);
+  const [filterStatus, setFilterStatus] = useRememberedState<OrderFollowupStatus | ''>('followup.filterStatus', '', KEEP);
+  const [filterCustomerName, setFilterCustomerName] = useRememberedState('followup.filterCustomerName', '', KEEP);
+  const [listDateBasis, setListDateBasis] = useRememberedState<FollowupListDateBasis>('followup.listDateBasis', 'createdAt', KEEP);
   /** 기본 '오늘' — 당일 후속 위주 조회(전체·월 스캔 부담 완화). */
-  const [datePreset, setDatePreset] = useRememberedState<OrderFollowupDatePreset>('followup.datePreset', 'today');
-  const [dateMonthKey, setDateMonthKey] = useRememberedState('followup.dateMonthKey', () => kstTodayYmd().slice(0, 7));
-  const [dateDayKey, setDateDayKey] = useRememberedState('followup.dateDayKey', () => kstTodayYmd());
+  const [datePreset, setDatePreset] = useRememberedState<OrderFollowupDatePreset>('followup.datePreset', 'today', KEEP);
+  const [dateMonthKey, setDateMonthKey] = useRememberedState('followup.dateMonthKey', () => kstTodayYmd().slice(0, 7), KEEP);
+  const [dateDayKey, setDateDayKey] = useRememberedState('followup.dateDayKey', () => kstTodayYmd(), KEEP);
   const [opsRange, setOpsRange] = useState<{
     fromYmd: string;
     toYmd: string;
@@ -404,6 +428,7 @@ export function AdminOrderFormFollowupPanel({
     () =>
       JSON.stringify({
         filterGoldDbOnly,
+        filterOperatingCompanyId,
         filterStatus,
         filterCustomerName: filterCustomerName.trim(),
         listDateBasis,
@@ -415,6 +440,7 @@ export function AdminOrderFormFollowupPanel({
       }),
     [
       filterGoldDbOnly,
+      filterOperatingCompanyId,
       filterStatus,
       filterCustomerName,
       listDateBasis,
@@ -515,6 +541,7 @@ export function AdminOrderFormFollowupPanel({
           status: useStatus,
           customerName: filterCustomerName.trim() || undefined,
           goldDbOnly: filterGoldDbOnly || undefined,
+          operatingCompanyId: filterOperatingCompanyId || undefined,
           ...(linkedInquiryId?.trim() ? { inquiryId: linkedInquiryId.trim() } : {}),
           ...(opsRange
             ? {
@@ -552,6 +579,7 @@ export function AdminOrderFormFollowupPanel({
     [
       token,
       filterGoldDbOnly,
+      filterOperatingCompanyId,
       filterStatus,
       filterCustomerName,
       datePreset,
@@ -989,10 +1017,32 @@ export function AdminOrderFormFollowupPanel({
                   </button>
                 ) : null}
               </div>
+              {showBrand ? (
+                <label className="flex shrink-0 items-center gap-1.5 text-[12px] sm:text-fluid-2xs font-semibold text-slate-500 sm:ml-auto">
+                  브랜드
+                  <select
+                    value={filterOperatingCompanyId}
+                    onChange={(e) => setFilterOperatingCompanyId(e.target.value)}
+                    className={`rounded-full border px-2.5 py-1 text-[12px] sm:text-fluid-2xs font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900/10 ${
+                      filterOperatingCompanyId
+                        ? 'border-slate-800 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700'
+                    }`}
+                  >
+                    <option value="">전체</option>
+                    {operatingCompanies.map((oc) => (
+                      <option key={oc.id} value={oc.id}>
+                        {oc.name}
+                        {!oc.isActive ? ' (비활성)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setFilterGoldDbOnly((v) => !v)}
-                className={`shrink-0 rounded-full border px-3 py-1 text-[12px] sm:text-fluid-2xs font-semibold touch-manipulation sm:ml-auto transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
+                className={`shrink-0 rounded-full border px-3 py-1 text-[12px] sm:text-fluid-2xs font-semibold touch-manipulation ${showBrand ? '' : 'sm:ml-auto'} transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
                   filterGoldDbOnly
                     ? 'border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-200/50'
                     : 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50 hover:border-amber-300'
@@ -1073,6 +1123,9 @@ export function AdminOrderFormFollowupPanel({
                       }`}
                     >
                       <td className="py-2.5 px-2 font-medium text-slate-900 truncate max-w-[10rem]">
+                        {showBrand && row.operatingCompanyId ? (
+                          <BrandTag name={brandNameById.get(row.operatingCompanyId)} />
+                        ) : null}
                         <span className="font-semibold">{row.customerName}</span>
                         {row.nickname?.trim() ? (
                           <>
@@ -1176,6 +1229,9 @@ export function AdminOrderFormFollowupPanel({
                   <div className="flex items-center justify-between gap-1.5 min-w-0">
                     <div className="min-w-0 flex-1">
                       <p className="text-fluid-xs font-semibold text-slate-900 truncate leading-tight">
+                        {showBrand && row.operatingCompanyId ? (
+                          <BrandTag name={brandNameById.get(row.operatingCompanyId)} />
+                        ) : null}
                         <span>{row.customerName}</span>
                         {row.nickname?.trim() ? (
                           <>
