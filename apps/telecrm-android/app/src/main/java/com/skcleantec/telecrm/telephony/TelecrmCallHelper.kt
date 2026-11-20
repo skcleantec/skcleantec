@@ -22,8 +22,8 @@ object TelecrmCallHelper {
             Toast.makeText(context, "전화번호(4자 이상)를 입력해 주세요.", Toast.LENGTH_SHORT).show()
             return
         }
-        if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            Toast.makeText(activity, "이 기기는 전화를 걸 수 없어요. 휴대폰에서 이용해 주세요.", Toast.LENGTH_LONG).show()
+        if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Toast.makeText(context, "이 기기는 전화를 걸 수 없어요. 휴대폰에서 이용해 주세요.", Toast.LENGTH_LONG).show()
             return
         }
         IncomingCallRouter.rememberOutbound(digits)
@@ -42,6 +42,10 @@ object TelecrmCallHelper {
         val digits = phone.filter { it.isDigit() }
         if (digits.length < 4) {
             Toast.makeText(activity, "전화번호(4자 이상)를 입력해 주세요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Toast.makeText(activity, "이 기기는 전화를 걸 수 없어요. 휴대폰에서 이용해 주세요.", Toast.LENGTH_LONG).show()
             return
         }
         IncomingCallRouter.rememberOutbound(digits)
