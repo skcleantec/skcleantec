@@ -5563,7 +5563,7 @@ model TelecrmResponseCard {
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
-  @@unique([tenantId, code])
+  @@unique([tenantId, operatingCompanyId, code])
   @@index([tenantId, status])
   @@index([tenantId, operatingCompanyId, status])
   @@map("telecrm_response_cards")
