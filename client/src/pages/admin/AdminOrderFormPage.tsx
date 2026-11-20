@@ -1,3 +1,4 @@
+import { useRememberedState } from '../../hooks/useRememberedState';
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
@@ -255,12 +256,12 @@ export function AdminOrderFormPage() {
   const [orderForms, setOrderForms] = useState<OrderForm[]>([]);
   const [listIssuers, setListIssuers] = useState<OrderFormIssuerOption[]>([]);
   /** 기본 '전체'는 행이 많을 때 첫 로드가 매우 느려져 '이번 달'을 디폴트로 둔다. */
-  const [listDatePreset, setListDatePreset] = useState<OrderFormListDatePreset>('month');
-  const [listMonthKey, setListMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
-  const [listDayKey, setListDayKey] = useState(() => kstTodayYmd());
-  const [listCustomerName, setListCustomerName] = useState('');
-  const [listCreatedById, setListCreatedById] = useState('');
-  const [listSubmitStatus, setListSubmitStatus] = useState<'all' | 'pending' | 'submitted'>('all');
+  const [listDatePreset, setListDatePreset] = useRememberedState<OrderFormListDatePreset>('orderForms.listDatePreset', 'month');
+  const [listMonthKey, setListMonthKey] = useRememberedState('orderForms.listMonthKey', () => kstTodayYmd().slice(0, 7));
+  const [listDayKey, setListDayKey] = useRememberedState('orderForms.listDayKey', () => kstTodayYmd());
+  const [listCustomerName, setListCustomerName] = useRememberedState('orderForms.listCustomerName', '');
+  const [listCreatedById, setListCreatedById] = useRememberedState('orderForms.listCreatedById', '');
+  const [listSubmitStatus, setListSubmitStatus] = useRememberedState<'all' | 'pending' | 'submitted'>('orderForms.listSubmitStatus', 'all');
   const [listOpsRange, setListOpsRange] = useState<{
     fromYmd: string;
     toYmd: string;

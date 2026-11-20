@@ -1,3 +1,4 @@
+import { useRememberedState } from '../../hooks/useRememberedState';
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
@@ -132,8 +133,8 @@ export function TeamSchedulePage() {
   const kstTodayParts = parseKstYmdParts(kstTodayYmd());
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState(kstTodayParts?.year ?? now.getFullYear());
-  const [month, setMonth] = useState(kstTodayParts?.month ?? now.getMonth() + 1);
+  const [year, setYear] = useRememberedState('teamSchedule.year', kstTodayParts?.year ?? now.getFullYear());
+  const [month, setMonth] = useRememberedState('teamSchedule.month', kstTodayParts?.month ?? now.getMonth() + 1);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });

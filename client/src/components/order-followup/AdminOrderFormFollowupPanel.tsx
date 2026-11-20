@@ -1,3 +1,4 @@
+import { useRememberedState } from '../../hooks/useRememberedState';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CrmHoverTextPreview } from '../crm/CrmHoverTextPreview';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
@@ -369,14 +370,14 @@ export function AdminOrderFormFollowupPanel({
   const [loading, setLoading] = useState(true);
   const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
-  const [filterGoldDbOnly, setFilterGoldDbOnly] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<OrderFollowupStatus | ''>('');
-  const [filterCustomerName, setFilterCustomerName] = useState('');
-  const [listDateBasis, setListDateBasis] = useState<FollowupListDateBasis>('createdAt');
+  const [filterGoldDbOnly, setFilterGoldDbOnly] = useRememberedState('followup.filterGoldDbOnly', false);
+  const [filterStatus, setFilterStatus] = useRememberedState<OrderFollowupStatus | ''>('followup.filterStatus', '');
+  const [filterCustomerName, setFilterCustomerName] = useRememberedState('followup.filterCustomerName', '');
+  const [listDateBasis, setListDateBasis] = useRememberedState<FollowupListDateBasis>('followup.listDateBasis', 'createdAt');
   /** 기본 '오늘' — 당일 후속 위주 조회(전체·월 스캔 부담 완화). */
-  const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('today');
-  const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
-  const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
+  const [datePreset, setDatePreset] = useRememberedState<OrderFollowupDatePreset>('followup.datePreset', 'today');
+  const [dateMonthKey, setDateMonthKey] = useRememberedState('followup.dateMonthKey', () => kstTodayYmd().slice(0, 7));
+  const [dateDayKey, setDateDayKey] = useRememberedState('followup.dateDayKey', () => kstTodayYmd());
   const [opsRange, setOpsRange] = useState<{
     fromYmd: string;
     toYmd: string;
