@@ -22,6 +22,10 @@ object TelecrmCallHelper {
             Toast.makeText(context, "전화번호(4자 이상)를 입력해 주세요.", Toast.LENGTH_SHORT).show()
             return
         }
+        if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Toast.makeText(activity, "이 기기는 전화를 걸 수 없어요. 휴대폰에서 이용해 주세요.", Toast.LENGTH_LONG).show()
+            return
+        }
         IncomingCallRouter.rememberOutbound(digits)
         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$digits"))
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
