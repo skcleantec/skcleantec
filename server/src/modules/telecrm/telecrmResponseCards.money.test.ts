@@ -54,6 +54,43 @@ describe('대응 카드 코치 금액', () => {
     assert.deepEqual([...amounts].sort((a, b) => a - b), [33, 35]);
   });
 
+  it('32평 외창은 결과만 남고 계산식 말은 없다', () => {
+    const lines = resolveCoachMoneyLines({ q: '외창 얼마예요', pyeong: '32', rules: [EXTERIOR_RULE] });
+    const joined = lines.join('\n');
+    assert.match(joined, /30만 원/);
+    assert.equal(joined.includes('평당'), false);
+    assert.equal(/20\s*평/.test(joined), false);
+    assert.equal(/32\s*평\s*이상/.test(joined), false);
+    const spoken = scrubCoachSpeech(
+      '외창은 평당 1만 원이고, 32평이면 30만 원이에요. 20평 이상은 2만 원 할인도 가능해요.',
+      { pyeong: 32, allowedMan: collectAllowedManWons(lines) },
+    );
+    assert.match(spoken.text, /30만 원/);
+    assert.equal(spoken.text.includes('평당'), false);
+    assert.equal(/20\s*평/.test(spoken.text), false);
+    assert.equal(/32\s*평\s*이상/.test(spoken.text), false);
+    assert.match(spoken.text, /32평이면 30만 원이에요/);
+  });
+
+  it('견적 42만에 외창을 더하면 포함 합계 72만 원', () => {
+    const lines = resolveCoachMoneyLines({
+      q: '외창까지 하면 총 얼마예요',
+      pyeong: '32',
+      rules: [EXTERIOR_RULE],
+      quoteTotalManWon: 42,
+    });
+    const joined = lines.join('\n');
+    assert.match(joined, /외창 포함 합계: 72만 원/);
+    assert.match(joined, /외창 포함 실제 부담: 70만 원/);
+  });
+
+  it('15평 외창은 18만 원 결과만 말한다', () => {
+    const line = resolveCoachMoneyLine({ q: '외창', pyeong: '15', rules: [EXTERIOR_RULE] });
+    assert.match(line, /계산된 금액: 18만 원/);
+    assert.equal(line.includes('평당'), false);
+    assert.equal(/20\s*평/.test(line), false);
+  });
+
   it('허용되지 않은 25만 원은 비운다', () => {
     const spoken = scrubCoachSpeech('총 25만원입니다.', {
       pyeong: null,
