@@ -4,11 +4,25 @@ import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
 /** 부재·보류 필터는 같은 날이면 메뉴로 다시 들어와도 유지 */
 const KEEP = { restore: 'sameDay' } as const;
 
-function BrandTag({ name }: { name?: string }) {
-  if (!name) return null;
+/** 추가 브랜드 색 — 기본 브랜드는 표시하지 않는다 */
+const BRAND_TONES = [
+  'bg-violet-600 text-white',
+  'bg-teal-600 text-white',
+  'bg-rose-600 text-white',
+  'bg-sky-600 text-white',
+  'bg-orange-500 text-white',
+];
+
+type BrandMark = { name: string; tone: string };
+
+function BrandTag({ mark, className = '' }: { mark?: BrandMark | null; className?: string }) {
+  if (!mark) return null;
   return (
-    <span className="mr-1 inline-block max-w-[5.5rem] truncate rounded-md bg-slate-100 px-1.5 py-0.5 align-[1px] text-[10.5px] font-semibold leading-none text-slate-600">
-      {name}
+    <span
+      className={`inline-block max-w-full truncate rounded-md px-1.5 py-[3px] align-[1px] text-[11px] font-bold leading-none ${mark.tone} ${className}`}
+      title={mark.name}
+    >
+      {mark.name}
     </span>
   );
 }
@@ -389,10 +403,13 @@ export function AdminOrderFormFollowupPanel({
     '',
     KEEP,
   );
-  const brandNameById = useMemo(
-    () => new Map(operatingCompanies.map((oc) => [oc.id, oc.name] as const)),
-    [operatingCompanies],
-  );
+  /** 기본 브랜드가 아닌 브랜드만 색 꼬리표를 단다 */
+  const brandMarkById = useMemo(() => {
+    const extra = operatingCompanies.filter((oc) => !(oc.isPrimary ?? oc.isDefault));
+    return new Map<string, BrandMark>(
+      extra.map((oc, idx) => [oc.id, { name: oc.name, tone: BRAND_TONES[idx % BRAND_TONES.length]! }] as const),
+    );
+  }, [operatingCompanies]);
   const showBrand = operatingCompanies.length > 1;
   const [filterGoldDbOnly, setFilterGoldDbOnly] = useRememberedState('followup.filterGoldDbOnly', false, KEEP);
   const [filterStatus, setFilterStatus] = useRememberedState<OrderFollowupStatus | ''>('followup.filterStatus', '', KEEP);
@@ -1088,20 +1105,36 @@ export function AdminOrderFormFollowupPanel({
           <>
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-fluid-xs text-center table-fixed">
-                <colgroup>
-                  <col style={{ width: '12%' }} />
-                  <col style={{ width: '11%' }} />
-                  <col style={{ width: '9%' }} />
-                  <col style={{ width: '6%' }} />
-                  <col style={{ width: '9%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '18%' }} />
-                  <col style={{ width: '15%' }} />
-                </colgroup>
+                {showBrand ? (
+                  <colgroup>
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '19%' }} />
+                    <col style={{ width: '14%' }} />
+                  </colgroup>
+                ) : (
+                  <colgroup>
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '15%' }} />
+                  </colgroup>
+                )}
                 <thead>
                   <tr className="border-b border-slate-200/60 bg-slate-50/80">
                     <th className="py-2.5 px-2 font-semibold text-slate-500">고객</th>
+                    {showBrand ? <th className="py-2.5 px-1 font-semibold text-slate-500">브랜드</th> : null}
                     <th className="py-2.5 px-2 font-semibold text-slate-500">연락처</th>
                     <th className="py-2.5 px-2 font-semibold text-slate-500">상태</th>
                     <th className="py-2.5 px-2 font-semibold text-slate-500">부재</th>
@@ -1123,9 +1156,6 @@ export function AdminOrderFormFollowupPanel({
                       }`}
                     >
                       <td className="py-2.5 px-2 font-medium text-slate-900 truncate max-w-[10rem]">
-                        {showBrand && row.operatingCompanyId ? (
-                          <BrandTag name={brandNameById.get(row.operatingCompanyId)} />
-                        ) : null}
                         <span className="font-semibold">{row.customerName}</span>
                         {row.nickname?.trim() ? (
                           <>
@@ -1146,6 +1176,11 @@ export function AdminOrderFormFollowupPanel({
                           </p>
                         ) : null}
                       </td>
+                      {showBrand ? (
+                        <td className="py-2.5 px-1">
+                          <BrandTag mark={row.operatingCompanyId ? brandMarkById.get(row.operatingCompanyId) : null} />
+                        </td>
+                      ) : null}
                       <td className="py-2.5 px-2 tabular-nums text-slate-800 font-medium">{displayPhone(row.customerPhone)}</td>
                       <td className="py-2.5 px-2">
                         <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
@@ -1230,7 +1265,7 @@ export function AdminOrderFormFollowupPanel({
                     <div className="min-w-0 flex-1">
                       <p className="text-fluid-xs font-semibold text-slate-900 truncate leading-tight">
                         {showBrand && row.operatingCompanyId ? (
-                          <BrandTag name={brandNameById.get(row.operatingCompanyId)} />
+                          <BrandTag mark={brandMarkById.get(row.operatingCompanyId)} className="mr-1 max-w-[5.5rem]" />
                         ) : null}
                         <span>{row.customerName}</span>
                         {row.nickname?.trim() ? (
