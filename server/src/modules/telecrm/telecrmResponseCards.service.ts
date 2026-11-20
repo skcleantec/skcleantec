@@ -174,7 +174,7 @@ async function loadApprovedCards(tenantId: string): Promise<CachedCard[]> {
 export async function importResponseCards(params: {
   tenantId: string;
   userId: string;
-  operatingCompanyId: string | null;
+  operatingCompanyId: string;
   items: ImportedResponseCard[];
 }): Promise<{ created: number; updated: number; embedded: number }> {
   const vectors = await embedResponseCardTexts(params.items.map((item) => responseCardEmbedText(item)));
@@ -186,7 +186,11 @@ export async function importResponseCards(params: {
     const embedding = vectors?.[i] ?? null;
     if (embedding) embedded += 1;
     const existing = await prisma.telecrmResponseCard.findFirst({
-      where: { tenantId: params.tenantId, code: item.code },
+      where: {
+        tenantId: params.tenantId,
+        operatingCompanyId: params.operatingCompanyId,
+        code: item.code,
+      },
       select: { id: true },
     });
     const content = {
@@ -200,11 +204,14 @@ export async function importResponseCards(params: {
       sources: item.sources,
       wonInCall: item.wonInCall,
       ...(embedding ? { embedding } : {}),
-      ...(params.operatingCompanyId ? { operatingCompanyId: params.operatingCompanyId } : {}),
     };
     if (existing) {
       await prisma.telecrmResponseCard.updateMany({
-        where: { id: existing.id, tenantId: params.tenantId },
+        where: {
+          id: existing.id,
+          tenantId: params.tenantId,
+          operatingCompanyId: params.operatingCompanyId,
+        },
         data: content,
       });
       updated += 1;
@@ -212,6 +219,7 @@ export async function importResponseCards(params: {
       await prisma.telecrmResponseCard.create({
         data: {
           tenantId: params.tenantId,
+          operatingCompanyId: params.operatingCompanyId,
           code: item.code,
           status: 'draft',
           createdById: params.userId,
@@ -338,17 +346,21 @@ export type ResponseCardPatch = {
   sources?: string[];
   wonInCall?: boolean;
   status?: ResponseCardStatus;
-  operatingCompanyId?: string | null;
 };
 
 export async function patchResponseCard(params: {
   tenantId: string;
   userId: string;
+  operatingCompanyId: string;
   id: string;
   patch: ResponseCardPatch;
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const existing = await prisma.telecrmResponseCard.findFirst({
-    where: { id: params.id, tenantId: params.tenantId },
+    where: {
+      id: params.id,
+      tenantId: params.tenantId,
+      operatingCompanyId: params.operatingCompanyId,
+    },
     select: { id: true, title: true, triggers: true, intent: true, status: true },
   });
   if (!existing) return { ok: false, status: 404, error: '대응 카드를 찾을 수 없습니다.' };
@@ -363,7 +375,6 @@ export async function patchResponseCard(params: {
   if (params.patch.rule != null) data.rule = params.patch.rule.slice(0, 2000);
   if (params.patch.sources) data.sources = params.patch.sources;
   if (params.patch.wonInCall != null) data.wonInCall = params.patch.wonInCall;
-  if (params.patch.operatingCompanyId !== undefined) data.operatingCompanyId = params.patch.operatingCompanyId;
   if (params.patch.status) {
     data.status = params.patch.status;
     if (params.patch.status === 'approved') {
@@ -383,7 +394,11 @@ export async function patchResponseCard(params: {
   }
 
   await prisma.telecrmResponseCard.updateMany({
-    where: { id: existing.id, tenantId: params.tenantId },
+    where: {
+      id: existing.id,
+      tenantId: params.tenantId,
+      operatingCompanyId: params.operatingCompanyId,
+    },
     data,
   });
   invalidateResponseCardCache(params.tenantId);
@@ -392,6 +407,7 @@ export async function patchResponseCard(params: {
 
 export async function feedbackResponseCard(params: {
   tenantId: string;
+  operatingCompanyId: string;
   id: string;
   action: 'copy' | 'up' | 'down';
   inquiryId?: string | null;
@@ -410,12 +426,21 @@ export async function feedbackResponseCard(params: {
         ? { upCount: { increment: 1 } }
         : { downCount: { increment: 1 } };
   const updated = await prisma.telecrmResponseCard.updateMany({
-    where: { id: params.id, tenantId: params.tenantId, status: 'approved' },
+    where: {
+      id: params.id,
+      tenantId: params.tenantId,
+      operatingCompanyId: params.operatingCompanyId,
+      status: 'approved',
+    },
     data,
   });
   if (updated.count !== 1) return { ok: false, status: 404, error: '승인된 대응 카드를 찾을 수 없습니다.' };
   const row = await prisma.telecrmResponseCard.findFirst({
-    where: { id: params.id, tenantId: params.tenantId },
+    where: {
+      id: params.id,
+      tenantId: params.tenantId,
+      operatingCompanyId: params.operatingCompanyId,
+    },
     select: { useCount: true, upCount: true, downCount: true },
   });
   return {

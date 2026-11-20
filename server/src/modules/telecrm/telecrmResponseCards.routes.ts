@@ -225,9 +225,12 @@ router.post('/:id/feedback', async (req, res) => {
     return;
   }
   const inquiryId = readString((req.body as { inquiryId?: unknown })?.inquiryId, 80) ?? null;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
   try {
     const result = await feedbackResponseCard({
       tenantId,
+      operatingCompanyId,
       id: req.params.id,
       action,
       inquiryId,
@@ -248,6 +251,8 @@ router.patch('/:id', async (req, res) => {
   if (!tenantId) return;
   const user = await requireCardAdmin(req, res);
   if (!user) return;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
   const body = req.body as Record<string, unknown>;
   const status = typeof body.status === 'string' ? body.status : undefined;
   if (status != null && !isResponseCardStatus(status)) {
@@ -279,11 +284,11 @@ router.patch('/:id', async (req, res) => {
     }
     patch.responses = responses;
   }
-  if (body.operatingCompanyId === null) patch.operatingCompanyId = null;
   try {
     const result = await patchResponseCard({
       tenantId,
       userId: user.userId,
+      operatingCompanyId,
       id: req.params.id,
       patch,
     });
