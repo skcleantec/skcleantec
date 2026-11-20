@@ -22,6 +22,16 @@ function formatManWon(man: number): string {
   return `${text}만 원`;
 }
 
+function pyeongLabel(pyeong: number): string {
+  const rounded = Math.round(pyeong * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+/** 「N평 이상·이하」처럼 기준을 가리키면 고객 평수로 바꾸지 않는다. */
+function isThresholdPyeong(after: string): boolean {
+  return /^\s*(?:이상|이하|미만|초과|부터|대(?![가-힣]))/.test(after);
+}
+
 function hasExteriorFormula(q: string, rules: string[]): boolean {
   const blob = `${q}\n${rules.join('\n')}`;
   return /외창/.test(blob) && EXTERIOR_FORMULA.test(blob);
@@ -57,10 +67,21 @@ export function resolveCoachMoneyLines(input: {
   }
 
   const pyeong = parseCoachPyeong(input.pyeong);
-  if (hasExteriorFormula(input.q, input.rules) && pyeong != null) {
+  const exterior =
+    hasExteriorFormula(input.q, input.rules) && pyeong != null ? exteriorWindowManWon(pyeong) : null;
+  if (exterior != null && pyeong != null) {
     lines.push(
-      `계산된 금액: ${formatManWon(exteriorWindowManWon(pyeong))}. 이 숫자만 말한다. 카드에 적힌 다른 평수 예시는 옮기지 않는다.`,
+      `계산된 금액: ${formatManWon(exterior)}(외창, ${pyeongLabel(pyeong)}평 기준). 이 결과만 말한다. 계산식과 할인 조건은 말하지 않는다.`,
     );
+  }
+  if (total != null && exterior != null) {
+    const withExterior = Math.round((total + exterior) * 10) / 10;
+    lines.push(
+      `계산된 금액: 외창 포함 합계: ${formatManWon(withExterior)}. 고객이 총, 다 하면, 같이 하면을 물으면 이 합계를 말한다.`,
+    );
+    if (withExterior > 2) {
+      lines.push(`계산된 금액: 외창 포함 실제 부담: ${formatManWon(withExterior - 2)}.`);
+    }
   }
 
   for (const item of (input.quoteItems ?? []).slice(0, 8)) {
@@ -97,13 +118,40 @@ function near(a: number, b: number): boolean {
   return Math.abs(a - b) < 0.05;
 }
 
+function isFormulaClause(clause: string): boolean {
+  return (
+    /평당/.test(clause) ||
+    /\d+(?:\.\d+)?\s*평\s*(?:이상|이하|미만|초과|부터)/.test(clause) ||
+    /\d+(?:\.\d+)?\s*평\s*대(?![가-힣])/.test(clause)
+  );
+}
+
+/** 계산식만 남은 절은 빼고, 결과 문장만 남긴다. */
+function dropFormulaClauses(text: string): { text: string; changes: number } {
+  const clauses = text.match(/[^,.!?。]+(?:[,.!?。]+)?/g) ?? [text];
+  let changes = 0;
+  const kept: string[] = [];
+  for (const clause of clauses) {
+    const body = clause.trim();
+    if (!body) continue;
+    if (isFormulaClause(body)) {
+      changes += 1;
+      continue;
+    }
+    kept.push(body);
+  }
+  return { text: kept.join(' ').replace(/\s+/g, ' ').trim(), changes };
+}
+
 /** AI 문장에서 고객 평수와 다른 평, 허용되지 않은 금액을 고친다. */
 export function scrubCoachSpeech(
   text: string,
   input: { pyeong: number | null; allowedMan: number[] },
 ): { text: string; changes: number } {
   let changes = 0;
-  let next = text.replace(/(\d+(?:\.\d+)?)\s*평/g, (full, raw: string) => {
+  let next = text.replace(/(\d+(?:\.\d+)?)\s*평/g, (full, raw: string, offset: number, source: string) => {
+    const after = source.slice(offset + full.length);
+    if (isThresholdPyeong(after)) return full;
     const value = Number(raw);
     if (input.pyeong == null) {
       changes += 1;
@@ -111,8 +159,7 @@ export function scrubCoachSpeech(
     }
     if (near(value, input.pyeong)) return full;
     changes += 1;
-    const label = Number.isInteger(input.pyeong) ? String(input.pyeong) : String(Math.round(input.pyeong * 10) / 10);
-    return `${label}평`;
+    return `${pyeongLabel(input.pyeong)}평`;
   });
   next = next.replace(/(\d+(?:\.\d+)?)\s*만\s*원/g, (full, raw: string) => {
     const value = Number(raw);
@@ -120,5 +167,6 @@ export function scrubCoachSpeech(
     changes += 1;
     return '○○만 원';
   });
-  return { text: next, changes };
+  const dropped = dropFormulaClauses(next);
+  return { text: dropped.text, changes: changes + dropped.changes };
 }
