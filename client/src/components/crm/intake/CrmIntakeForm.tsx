@@ -1,3 +1,4 @@
+import { CrmAreaCalcButton } from '../CrmAreaCalcButton';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { getToken } from '../../../stores/auth';
@@ -524,15 +525,18 @@ export function CrmIntakeForm({
         <div className="space-y-3 rounded-lg border border-emerald-100/80 bg-emerald-50/30 p-2.5">
           <label className="block">
             <span className={crmIntakeLabelClass}>평수</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={pyeong}
-              onChange={(e) => onPyeongChange(e.target.value)}
-              placeholder="예: 33"
-              className={`${crmIntakeFieldClass} tabular-nums ${soomgoImportFlashKey > 0 && pyeong.trim() ? flashRing : ''}`}
-              disabled={saving}
-            />
+            <span className="flex items-stretch gap-1.5">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={pyeong}
+                onChange={(e) => onPyeongChange(e.target.value)}
+                placeholder="예: 33"
+                className={`${crmIntakeFieldClass} min-w-0 flex-1 tabular-nums ${soomgoImportFlashKey > 0 && pyeong.trim() ? flashRing : ''}`}
+                disabled={saving}
+              />
+              <CrmAreaCalcButton onUse={onPyeongChange} useLabel="평수에 넣기" tone="slate" size="md" disabled={saving} />
+            </span>
           </label>
           <div className="grid grid-cols-3 gap-2">
             <label className="block min-w-0">
