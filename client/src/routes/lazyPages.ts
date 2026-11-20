@@ -628,6 +628,11 @@ export const TelecrmPricingSettingsPage = lazyWithRetry(() =>
     default: m.TelecrmPricingSettingsPage,
   }))
 );
+export const TelecrmResponseCardsSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/crm/settings/TelecrmResponseCardsSettingsPage').then((m) => ({
+    default: m.TelecrmResponseCardsSettingsPage,
+  })),
+);
 export const TelecrmQuoteLearningSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/crm/settings/TelecrmQuoteLearningSettingsPage').then((m) => ({
     default: m.TelecrmQuoteLearningSettingsPage,

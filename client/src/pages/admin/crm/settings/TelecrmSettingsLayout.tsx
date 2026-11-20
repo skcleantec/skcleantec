@@ -21,6 +21,7 @@ const NAV = [
   { to: '/admin/crm/settings/soomgo', label: '숨고 연동' },
   { to: '/admin/crm/settings/soomgo-presets', label: '숨고 메시지 단추' },
   { to: '/admin/crm/settings/call-activity', label: '통화 현황', adminOnly: true },
+  { to: '/admin/crm/settings/response-cards', label: '대응 카드', adminOnly: true },
 ] as const;
 
 export function TelecrmSettingsLayout() {

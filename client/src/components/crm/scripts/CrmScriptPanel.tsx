@@ -12,6 +12,7 @@ import { CrmColumn } from '../layout/CrmShell';
 import { CrmIconCopy, CrmIconSearch } from '../crmUi';
 import { applyTelecrmScriptPlaceholders } from './applyTelecrmScriptPlaceholders';
 import { findScriptMatches, normalizeScriptQuery } from './scriptSearch';
+import { CrmResponseCardResults } from './CrmResponseCardResults';
 
 export const CRM_SCRIPT_SHORTCUT_HELP = [
   '상담 스크립트',
@@ -131,7 +132,7 @@ export function CrmScriptPanel({
   embedded?: boolean;
 }) {
   const token = getToken();
-  const { loading: brandLoading, activeOperatingCompanyId } = useCrmWorkBrand();
+  const { loading: brandLoading, activeOperatingCompanyId, active: activeBrand } = useCrmWorkBrand();
   const [categories, setCategories] = useState<TelecrmScriptCategoryDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -419,7 +420,7 @@ export function CrmScriptPanel({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="고객 말 그대로 찾기 (예: 비싸, 부모님, 환불)"
+              placeholder="고객이 뭐라고 했나요? (예: 외창, 비싸, 상의)"
               aria-label="고객 말 그대로 찾기"
               className="h-[34px] w-full rounded-lg border border-violet-300 bg-white pl-8 pr-14 text-fluid-xs text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-[#6d28d9] focus:outline-none focus:ring-2 focus:ring-violet-200 [&::-webkit-search-cancel-button]:hidden"
             />
@@ -506,9 +507,18 @@ export function CrmScriptPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {searching ? (
           <div className="space-y-2">
-            <p className="text-fluid-xs font-semibold text-slate-700">찾은 답 {matches.length}개</p>
+            <CrmResponseCardResults
+              query={query}
+              operatingCompanyId={activeOperatingCompanyId}
+              customer={{
+                pyeong: pyeong || undefined,
+                brand: activeBrand?.name || undefined,
+                step: currentStep?.label || undefined,
+              }}
+            />
+            <p className="pt-1 text-fluid-xs font-semibold text-slate-700">내 대본에서 찾은 것 {matches.length}개</p>
             {matches.length === 0 ? (
-              <p className="text-fluid-xs text-slate-500">「{query.trim()}」와 맞는 답이 없어요.</p>
+              <p className="text-fluid-xs text-slate-500">「{query.trim()}」와 맞는 대본이 없어요.</p>
             ) : (
               matches.map((tab) => (
                 <article key={tab.id} className="rounded-lg border border-slate-200 bg-white p-2">
