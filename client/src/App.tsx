@@ -187,6 +187,7 @@ import {
   TelecrmScriptSettingsPage,
   TelecrmPricingSettingsPage,
   TelecrmQuoteLearningSettingsPage,
+  TelecrmResponseCardsSettingsPage,
   TelecrmGeneralSettingsPage,
   TelecrmSoomgoSettingsPage,
   TelecrmSoomgoPresetsSettingsPage,
@@ -563,6 +564,7 @@ function App() {
             <Route path="scripts" element={<SuspensePage><TelecrmScriptSettingsPage /></SuspensePage>} />
             <Route path="pricing" element={<SuspensePage><TelecrmPricingSettingsPage /></SuspensePage>} />
             <Route path="quote-learning" element={<SuspensePage><TelecrmQuoteLearningSettingsPage /></SuspensePage>} />
+            <Route path="response-cards" element={<SuspensePage><TelecrmResponseCardsSettingsPage /></SuspensePage>} />
             <Route path="general" element={<SuspensePage><TelecrmGeneralSettingsPage /></SuspensePage>} />
             <Route
               path="lead-sources"
