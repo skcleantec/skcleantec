@@ -43,12 +43,16 @@ export type TelecrmResponseCardDto = {
   score?: number;
 };
 
+export type TelecrmResponseQuoteItem = { label: string; manWon: number };
+
 export type TelecrmResponseCardCustomer = {
   pyeong?: string;
   structure?: string;
   cleaningType?: string;
   brand?: string;
   step?: string;
+  quoteTotalManWon?: number;
+  quoteItems?: TelecrmResponseQuoteItem[];
 };
 
 export type TelecrmResponseCoachResult = {

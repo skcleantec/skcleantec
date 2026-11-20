@@ -106,6 +106,7 @@ import {
   crmQuoteProfessionalOptionIdsFromLines,
   type CrmPricingQuoteLine,
 } from '../../../utils/crmConsultationQuoteMap';
+import { buildCrmCoachQuote } from '../../../components/crm/scripts/crmCoachQuote';
 import { linkTelecrmConsultationQuoteInquiry, recordTelecrmConsultationQuoteSent } from '../../../api/telecrmConsultationQuote';
 import type { OrderForm } from '../../../api/orderform';
 import { fitCrmPopupWindow, applyTelecrmSoomgoSplitLayout } from '../../../utils/crmSoomgoSplitLayout';
@@ -1544,6 +1545,20 @@ export function CrmPage() {
     [pyeong, pricePerPyeong, minimumTotalAmount, quoteLines, baseEstimateOverrideWon],
   );
   const quoteGrandTotal = crmQuoteGrandTotalWon(quotePayload);
+  const coachQuote = useMemo(
+    () =>
+      buildCrmCoachQuote({
+        isOneRoom: intakeStructure.isOneRoom,
+        roomCount: intakeStructure.roomCount,
+        bathroomCount: intakeStructure.bathroomCount,
+        balconyCount: intakeStructure.balconyCount,
+        buildingType: intakeStructure.buildingType,
+        propertyType: intakeStructure.propertyType,
+        grandTotalWon: quoteGrandTotal,
+        lines: quoteLines,
+      }),
+    [intakeStructure, quoteGrandTotal, quoteLines],
+  );
 
   const {
     pendingQuote,
@@ -2410,6 +2425,7 @@ export function CrmPage() {
               customerName={customerName || undefined}
               pyeong={pyeong || undefined}
               estimateWon={scriptEstimateWon}
+              coachQuote={coachQuote}
               refreshKey={catalogRefreshKey}
               onOpenSettings={
                 canOpenSettings

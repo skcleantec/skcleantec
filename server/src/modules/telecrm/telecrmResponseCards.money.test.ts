@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolveCoachMoneyLine } from './telecrmResponseCards.money.js';
+import {
+  collectAllowedManWons,
+  resolveCoachMoneyLine,
+  resolveCoachMoneyLines,
+  scrubCoachSpeech,
+} from './telecrmResponseCards.money.js';
 
 const EXTERIOR_RULE = '외창 최저 18만. 20평 이상 = 평수×1만 − 2만';
 
@@ -24,5 +29,38 @@ describe('대응 카드 코치 금액', () => {
     });
     assert.match(line, /○○만 원/);
     assert.equal(/\d+\s*만/.test(line), false);
+  });
+
+  it('32평 외창 답에는 30평이 남지 않는다', () => {
+    const lines = resolveCoachMoneyLines({ q: '외창 얼마예요', pyeong: '32', rules: [EXTERIOR_RULE] });
+    const joined = lines.join('\n');
+    assert.match(joined, /30만 원/);
+    assert.equal(/30\s*평/.test(joined), false);
+    const spoken = scrubCoachSpeech('외창은 30평 기준으로 30만 원이에요.', {
+      pyeong: 32,
+      allowedMan: collectAllowedManWons(lines),
+    });
+    assert.equal(/30\s*평/.test(spoken.text), false);
+    assert.match(spoken.text, /32평/);
+    assert.match(spoken.text, /30만 원/);
+  });
+
+  it('견적 합계 35만이면 합계와 실제 부담만 말한다', () => {
+    const lines = resolveCoachMoneyLines({ q: '얼마예요', pyeong: '32', rules: [], quoteTotalManWon: 35 });
+    const joined = lines.join('\n');
+    assert.match(joined, /35만 원/);
+    assert.match(joined, /33만 원/);
+    const amounts = [...joined.matchAll(/(\d+(?:\.\d+)?)\s*만/g)].map((match) => Number(match[1]));
+    assert.deepEqual([...amounts].sort((a, b) => a - b), [33, 35]);
+  });
+
+  it('허용되지 않은 25만 원은 비운다', () => {
+    const spoken = scrubCoachSpeech('총 25만원입니다.', {
+      pyeong: null,
+      allowedMan: collectAllowedManWons(['계산된 금액: 기본 견적 합계: 35만 원', '계산된 금액: 33만 원']),
+    });
+    assert.match(spoken.text, /○○만 원/);
+    assert.equal(/\d+\s*만/.test(spoken.text), false);
+    assert.equal(spoken.changes >= 1, true);
   });
 });

@@ -6,6 +6,7 @@ import { CrmAiSummaryPanel } from '../ai/CrmAiSummaryPanel';
 import { CrmAiFontScaleDropdown, useCrmAiFontScale } from '../ai/CrmAiFontScaleDropdown';
 import { HelpTooltip } from '../../ui/HelpTooltip';
 import { CRM_SCRIPT_SHORTCUT_HELP, CrmScriptPanel } from './CrmScriptPanel';
+import type { TelecrmResponseCardCustomer } from '../../../api/telecrmResponseCards';
 
 const CENTER_TAB_KEY = 'crm.scriptAiCenterTab';
 
@@ -25,6 +26,7 @@ export function CrmScriptAiCenterPanel({
   customerName,
   pyeong,
   estimateWon,
+  coachQuote,
   refreshKey = 0,
   onOpenSettings,
   soomgoEnabled = false,
@@ -40,6 +42,7 @@ export function CrmScriptAiCenterPanel({
   customerName?: string;
   pyeong?: string;
   estimateWon?: number | null;
+  coachQuote?: Pick<TelecrmResponseCardCustomer, 'structure' | 'cleaningType' | 'quoteTotalManWon' | 'quoteItems'>;
   refreshKey?: number;
   onOpenSettings?: () => void;
   soomgoEnabled?: boolean;
@@ -127,6 +130,7 @@ export function CrmScriptAiCenterPanel({
           customerName={customerName}
           pyeong={pyeong}
           estimateWon={estimateWon}
+          coachQuote={coachQuote}
           refreshKey={refreshKey}
           onOpenSettings={onOpenSettings}
         />
