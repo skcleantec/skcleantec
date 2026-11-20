@@ -32,6 +32,24 @@ function readString(raw: unknown, max: number): string | undefined {
   return text ? text.slice(0, max) : undefined;
 }
 
+function readManWon(raw: unknown): number | undefined {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0 || raw > 9999) return undefined;
+  return Math.round(raw * 10) / 10;
+}
+
+function readQuoteItems(raw: unknown): { label: string; manWon: number }[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const items: { label: string; manWon: number }[] = [];
+  for (const row of raw.slice(0, 8)) {
+    if (!row || typeof row !== 'object') continue;
+    const label = readString((row as { label?: unknown }).label, 40);
+    const manWon = readManWon((row as { manWon?: unknown }).manWon);
+    if (!label || manWon == null) continue;
+    items.push({ label, manWon });
+  }
+  return items.length ? items : undefined;
+}
+
 router.post('/import', async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
@@ -125,6 +143,8 @@ router.post('/coach', async (req, res) => {
       cleaningType?: unknown;
       brand?: unknown;
       step?: unknown;
+      quoteTotalManWon?: unknown;
+      quoteItems?: unknown;
     };
   };
   const q = typeof body.q === 'string' ? body.q.trim() : '';
@@ -137,10 +157,12 @@ router.post('/coach', async (req, res) => {
     : [];
   const customer = {
     pyeong: readString(body.customer?.pyeong, 40),
-    structure: readString(body.customer?.structure, 40),
+    structure: readString(body.customer?.structure, 80),
     cleaningType: readString(body.customer?.cleaningType, 40),
     brand: readString(body.customer?.brand, 40),
     step: readString(body.customer?.step, 40),
+    quoteTotalManWon: readManWon(body.customer?.quoteTotalManWon),
+    quoteItems: readQuoteItems(body.customer?.quoteItems),
   };
   const stream = body.stream === true;
 

@@ -13,6 +13,7 @@ import { CrmIconCopy, CrmIconSearch } from '../crmUi';
 import { applyTelecrmScriptPlaceholders } from './applyTelecrmScriptPlaceholders';
 import { findScriptMatches, normalizeScriptQuery } from './scriptSearch';
 import { CrmResponseCardResults } from './CrmResponseCardResults';
+import type { TelecrmResponseCardCustomer } from '../../../api/telecrmResponseCards';
 
 export const CRM_SCRIPT_SHORTCUT_HELP = [
   '상담 스크립트',
@@ -118,6 +119,7 @@ export function CrmScriptPanel({
   customerName,
   pyeong,
   estimateWon,
+  coachQuote,
   refreshKey = 0,
   onOpenSettings,
   compact = false,
@@ -126,6 +128,8 @@ export function CrmScriptPanel({
   customerName?: string;
   pyeong?: string;
   estimateWon?: number | null;
+  /** 가격 안내 칸에 있는 구조·합계·항목. 빈 값은 넣지 않는다. */
+  coachQuote?: Pick<TelecrmResponseCardCustomer, 'structure' | 'cleaningType' | 'quoteTotalManWon' | 'quoteItems'>;
   refreshKey?: number;
   onOpenSettings?: () => void;
   compact?: boolean;
@@ -511,9 +515,10 @@ export function CrmScriptPanel({
               query={query}
               operatingCompanyId={activeOperatingCompanyId}
               customer={{
-                pyeong: pyeong || undefined,
-                brand: activeBrand?.name || undefined,
-                step: currentStep?.label || undefined,
+                ...(pyeong ? { pyeong } : {}),
+                ...(activeBrand?.name ? { brand: activeBrand.name } : {}),
+                ...(currentStep?.label ? { step: currentStep.label } : {}),
+                ...coachQuote,
               }}
             />
             <p className="pt-1 text-fluid-xs font-semibold text-slate-700">내 대본에서 찾은 것 {matches.length}개</p>

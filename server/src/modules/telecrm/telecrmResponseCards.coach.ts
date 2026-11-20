@@ -4,7 +4,13 @@ import { fileURLToPath } from 'url';
 import { estimateOpenAiCostUsdMicros } from '../ai/aiCost.service.js';
 import { persistAiUsageLog } from '../ai/aiUsageLog.service.js';
 import { assertTelecrmAiQuota } from './telecrmAiLimit.service.js';
-import { resolveCoachMoneyLine } from './telecrmResponseCards.money.js';
+import {
+  collectAllowedManWons,
+  parseCoachPyeong,
+  resolveCoachMoneyLines,
+  scrubCoachSpeech,
+  type CoachQuoteItem,
+} from './telecrmResponseCards.money.js';
 import { loadCoachCards } from './telecrmResponseCards.service.js';
 
 export type CoachSuggestion = { label: string; text: string };
@@ -19,9 +25,9 @@ const OUTPUT_RULE = `
 {"suggestions":[{"label":"짧은 이름","text":"바로 말할 문장"}],"nextQuestion":"다음에 물어볼 한 문장","basedOn":["C001"]}
 suggestions는 2개 또는 3개. 각 text는 통화에서 바로 읽을 입말 2~3문장.
 basedOn은 아래에 준 카드 code 중에서, 실제로 쓴 것만.
-카드 문장 속 금액 예시(「30평이면 28만 원」 등)는 예시일 뿐, 그대로 옮기지 않는다.
+카드에 적힌 평수·금액 예시(30평이면 28만 원 등)는 고객에게 그대로 말하지 않는다. 평수는 고객 평수만 쓴다.
 고객 평수·구조가 없으면 금액 자리는 「○○만 원」으로 비운다. 원룸 등 다른 구조의 금액을 끌어오지 않는다.
-고객 평수가 있고, 아래 「계산된 금액」이 있을 때만 그 숫자를 쓴다. 그 외 금액은 「○○만 원」.
+아래 「계산된 금액」에 있는 숫자만 말한다. 그 외 금액은 「○○만 원」.
 카드와 이 지침에 없는 할인·서비스·인원·일정 약속은 만들지 않는다.
 모르면 text에 「확인해서 말씀드릴게요」를 넣고 basedOn은 빈 배열로 둔다.
 `;
@@ -77,6 +83,8 @@ function customerBlock(customer: {
   cleaningType?: string;
   brand?: string;
   step?: string;
+  quoteTotalManWon?: number;
+  quoteItems?: CoachQuoteItem[];
 }): string {
   const lines = [
     customer.pyeong ? `평수: ${customer.pyeong}` : '',
@@ -100,6 +108,8 @@ export async function coachResponseCards(params: {
     cleaningType?: string;
     brand?: string;
     step?: string;
+    quoteTotalManWon?: number;
+    quoteItems?: CoachQuoteItem[];
   };
   onDelta?: (text: string) => void;
 }): Promise<{ ok: true; data: CoachResult } | { ok: false; status: number; error: string; code?: string }> {
@@ -140,11 +150,14 @@ export async function coachResponseCards(params: {
         })
         .join('\n\n')
     : '없음';
-  const moneyLine = resolveCoachMoneyLine({
+  const moneyLines = resolveCoachMoneyLines({
     q: params.q,
     pyeong: params.customer.pyeong,
     rules: cards.map((card) => [card.title, card.rule, ...card.responses.map((row) => row[1])].join('\n')),
+    quoteTotalManWon: params.customer.quoteTotalManWon,
+    quoteItems: params.customer.quoteItems,
   });
+  const moneyLine = moneyLines.join('\n');
 
   const model = telecrmModel();
   const body = {
@@ -244,5 +257,19 @@ export async function coachResponseCards(params: {
   } catch {
     return { ok: false, status: 502, error: 'AI 코치 응답을 해석할 수 없습니다.', code: 'telecrm_coach_parse' };
   }
-  return { ok: true, data: parseCoachJson(parsed, allowed) };
+  const draft = parseCoachJson(parsed, allowed);
+  const pyeong = parseCoachPyeong(params.customer.pyeong);
+  const allowedMan = collectAllowedManWons(moneyLines);
+  let changes = 0;
+  const suggestions = draft.suggestions.map((item) => {
+    const scrubbed = scrubCoachSpeech(item.text, { pyeong, allowedMan });
+    changes += scrubbed.changes;
+    return { ...item, text: scrubbed.text };
+  });
+  const next = scrubCoachSpeech(draft.nextQuestion, { pyeong, allowedMan });
+  changes += next.changes;
+  if (changes > 0) {
+    console.info('[telecrm-cards] coach text adjusted', changes);
+  }
+  return { ok: true, data: { ...draft, suggestions, nextQuestion: next.text } };
 }
