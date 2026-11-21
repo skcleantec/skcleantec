@@ -154,6 +154,7 @@ const AI_RECOMMEND_LINE_KEY_PREFIX = 'ai-recommend:';
 export function CrmPricingPanel({
   pyeong,
   onPyeongChange,
+  pyeongNote = null,
   pricePerPyeong,
   minimumTotalAmount,
   baseEstimateOverrideWon = null,
@@ -186,6 +187,7 @@ export function CrmPricingPanel({
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
+  pyeongNote?: ReactNode;
   pricePerPyeong: number;
   minimumTotalAmount: number;
   baseEstimateOverrideWon?: number | null;
@@ -654,6 +656,7 @@ export function CrmPricingPanel({
               <CrmAreaCalcButton onUse={onPyeongChange} />
             </span>
           </div>
+          {pyeongNote}
           {minimumApplied ? (
             <p className="text-fluid-2xs text-amber-800/80">최소 금액 적용됨</p>
           ) : null}
