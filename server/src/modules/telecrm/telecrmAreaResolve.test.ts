@@ -34,6 +34,37 @@ describe('면적 해석', () => {
     assert.equal(result.source, '건축물대장');
   });
 
+  it('건축물대장 공급 33.9평은 34평으로 견적', () => {
+    const result = resolveTelecrmArea({
+      raw: '33평',
+      buildingType: '아파트',
+      address: '잠실엘스',
+      ledger: [{ exclusiveSqm: 84.8, supplyPyeong: 33.9 }],
+    });
+    assert.equal(result.status, '확정');
+    assert.equal(result.pyeong, 34);
+    assert.equal(result.source, '건축물대장');
+    assert.match(result.reason, /공급 34평 \(건축물대장 33\.9평\)/);
+  });
+
+  it('건축물대장 후보 25.7과 33.9는 26평과 34평', () => {
+    const result = resolveTelecrmArea({
+      raw: '25평',
+      buildingType: '아파트',
+      address: '잠실엘스',
+      ledger: [
+        { exclusiveSqm: 60, supplyPyeong: 25.7 },
+        { exclusiveSqm: 84.8, supplyPyeong: 33.9 },
+      ],
+    });
+    assert.equal(result.status, '확인 필요');
+    assert.equal(result.pyeong, null);
+    assert.equal(result.candidates[0]?.pyeong, 26);
+    assert.equal(result.candidates[0]?.label, '공급 26평(59형)');
+    assert.equal(result.candidates[1]?.pyeong, 34);
+    assert.equal(result.candidates[1]?.label, '공급 34평(84형)');
+  });
+
   it('단지에 84형만 있으면 공급 34평', () => {
     const result = resolveTelecrmArea({ raw: '25평', buildingType: '아파트', address: '래미안아파트', ledger: [TYPE84] });
     assert.equal(result.status, '확정');

@@ -206,6 +206,32 @@ function supplyLabel(pyeong: number, prefix: string): string {
   return name ? `${prefix}${formatNum(pyeong)}평(${name})` : `${prefix}${formatNum(pyeong)}평`;
 }
 
+/** 전용 ㎡를 반올림한 뒤, 대표 평형(±1)이면 그 이름으로 ○○형을 붙인다. */
+function ledgerTypeName(exclusiveSqm: number): string {
+  const rounded = Math.round(exclusiveSqm);
+  let best: number | null = null;
+  let bestGap = 2;
+  for (const sqm of REPRESENTATIVE_SQM) {
+    const gap = Math.abs(rounded - sqm);
+    if (gap <= 1 && gap < bestGap) {
+      best = sqm;
+      bestGap = gap;
+    }
+  }
+  return `${best ?? rounded}형`;
+}
+
+function ledgerCandidate(group: AreaLedgerGroup): TelecrmAreaCandidate {
+  const pyeong = roundPyeong(group.supplyPyeong ?? 0);
+  return { label: `공급 ${formatNum(pyeong)}평(${ledgerTypeName(group.exclusiveSqm)})`, pyeong };
+}
+
+function ledgerReason(reading: Reading, place: string, group: AreaLedgerGroup): string {
+  const actual = group.supplyPyeong ?? 0;
+  const pyeong = roundPyeong(actual);
+  return `고객: ${reading.label} → ${place} 공급 ${formatNum(pyeong)}평 (건축물대장 ${formatNum(actual)}평)`;
+}
+
 function defaultConfirm(apartment: boolean, pyeong: number, rules: TelecrmAreaRuleSpec[], buildingType: string): boolean {
   if (!apartment) return false;
   let required = (pyeong >= 18 && pyeong <= 19) || (pyeong >= 25 && pyeong <= 26);
@@ -343,15 +369,8 @@ export function resolveTelecrmArea(input: AreaResolveInput): TelecrmAreaResolveR
       const onlySupply = useSupply && matched.supply.some((row) => row === picked[0] || row.supplyPyeong === picked[0]?.supplyPyeong);
       const onlyExclusive = useExclusive && matched.exclusive.some((row) => row.supplyPyeong === picked[0]?.supplyPyeong);
       if ((onlySupply && !onlyExclusive) || (onlyExclusive && !onlySupply) || reading.mark) {
-        const pyeong = picked[0].supplyPyeong;
-        return done(
-          pyeong,
-          '확정',
-          [],
-          `고객: ${reading.label} → ${place} 공급 ${formatNum(pyeong)}평 (건축물대장)`,
-          '건축물대장',
-          reading,
-        );
+        const quote = ledgerCandidate(picked[0]);
+        return done(quote.pyeong, '확정', [], ledgerReason(reading, place, picked[0]), '건축물대장', reading);
       }
     }
     const both =
@@ -361,14 +380,18 @@ export function resolveTelecrmArea(input: AreaResolveInput): TelecrmAreaResolveR
       matched.exclusive.length > 0 &&
       matched.supply[0]?.supplyPyeong !== matched.exclusive[0]?.supplyPyeong;
     if (both) {
-      const candidates = uniqueGroups([...matched.supply, ...matched.exclusive])
-        .filter((row) => row.supplyPyeong != null)
-        .map((row) => ({ label: supplyLabel(row.supplyPyeong!, '공급 '), pyeong: row.supplyPyeong! }));
+      const candidates: TelecrmAreaCandidate[] = [];
+      for (const row of uniqueGroups([...matched.supply, ...matched.exclusive])) {
+        if (row.supplyPyeong == null) continue;
+        const candidate = ledgerCandidate(row);
+        if (candidates.some((item) => item.pyeong === candidate.pyeong)) continue;
+        candidates.push(candidate);
+      }
       return done(null, '확인 필요', candidates, `고객: ${reading.label}이 공급·전용 둘 다 맞아서 확인해 주세요.`, '건축물대장', reading);
     }
     if (picked.length === 1 && picked[0]?.supplyPyeong != null) {
-      const pyeong = picked[0].supplyPyeong;
-      return done(pyeong, '확정', [], `고객: ${reading.label} → ${place} 공급 ${formatNum(pyeong)}평 (건축물대장)`, '건축물대장', reading);
+      const quote = ledgerCandidate(picked[0]);
+      return done(quote.pyeong, '확정', [], ledgerReason(reading, place, picked[0]), '건축물대장', reading);
     }
   }
 
