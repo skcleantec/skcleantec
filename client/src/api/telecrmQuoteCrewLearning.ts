@@ -169,6 +169,77 @@ export async function previewTelecrmAiQuote(
   return parseJson<{ quote: TelecrmAiQuote | null }>(res);
 }
 
+export async function resolveTelecrmArea(
+  token: string,
+  input: { raw: string; buildingType?: string; address?: string; operatingCompanyId?: string | null },
+) {
+  const res = await fetch(`${API}/quote-learning/area/resolve`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(input),
+  });
+  return parseJson<import('@shared/telecrmAreaResolve').TelecrmAreaResolveResult>(res);
+}
+
+export async function saveTelecrmAreaCase(
+  token: string,
+  input: {
+    address: string;
+    customerValue: number;
+    customerMark?: string | null;
+    supplyPyeong: number;
+    operatingCompanyId?: string | null;
+  },
+) {
+  const res = await fetch(`${API}/quote-learning/area/cases`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(input),
+  });
+  return parseJson<{ saved: boolean }>(res);
+}
+
+export async function fetchTelecrmAreaRules(token: string, operatingCompanyId?: string | null) {
+  const q = operatingCompanyId ? `?operatingCompanyId=${encodeURIComponent(operatingCompanyId)}` : '';
+  const res = await fetch(`${API}/quote-learning/area/rules${q}`, { headers: { Authorization: `Bearer ${token}` } });
+  return parseJson<{ caseCount: number; items: import('@shared/telecrmAreaResolve').TelecrmAreaRuleDto[] }>(res);
+}
+
+export async function saveTelecrmAreaRule(
+  token: string,
+  input: { spec: import('@shared/telecrmAreaResolve').TelecrmAreaRuleSpec; operatingCompanyId?: string | null },
+) {
+  const res = await fetch(`${API}/quote-learning/area/rules`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(input),
+  });
+  return parseJson<{ rule: import('@shared/telecrmAreaResolve').TelecrmAreaRuleDto }>(res);
+}
+
+export async function updateTelecrmAreaRule(
+  token: string,
+  id: string,
+  patch: { isActive: boolean },
+  operatingCompanyId?: string | null,
+) {
+  const res = await fetch(`${API}/quote-learning/area/rules/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ ...patch, operatingCompanyId: operatingCompanyId ?? undefined }),
+  });
+  return parseJson<{ ok: true }>(res);
+}
+
+export async function deleteTelecrmAreaRule(token: string, id: string, password: string) {
+  const res = await fetch(`${API}/quote-learning/area/rules/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ password }),
+  });
+  return parseJson<{ ok: true }>(res);
+}
+
 export async function chatTelecrmAiQuoteRule(
   token: string,
   messages: TelecrmAiQuoteChatMessage[],

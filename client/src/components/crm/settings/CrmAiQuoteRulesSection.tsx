@@ -7,21 +7,26 @@ import type {
   TelecrmAiQuoteRuleExample,
 } from '@shared/telecrmQuoteCrewLearning';
 import { getToken } from '../../../stores/auth';
+import type { TelecrmAreaRuleDto } from '@shared/telecrmAreaResolve';
 import {
   chatTelecrmAiQuoteRule,
   deleteTelecrmAiQuoteRule,
+  deleteTelecrmAreaRule,
   fetchTelecrmAiQuoteRules,
   fetchTelecrmAiQuoteStatus,
+  fetchTelecrmAreaRules,
   previewTelecrmAiQuote,
   saveTelecrmAiQuoteRule,
+  saveTelecrmAreaRule,
   updateTelecrmAiQuoteRule,
+  updateTelecrmAreaRule,
 } from '../../../api/telecrmQuoteCrewLearning';
 import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
 import { useCrmPropertyChoiceOptions } from '../intake/useCrmPropertyChoiceOptions';
 import { Button } from '../../ui/Button';
 import { OnOffSwitch } from '../../ui/OnOffSwitch';
 import { confirmDialog, toast } from '../../ui/Toast';
-import { SettingsCard } from './DeletePasswordModal';
+import { DeletePasswordModal, SettingsCard } from './DeletePasswordModal';
 import { formatWon } from './telecrmSettingsUi';
 import { crmFieldClass } from '../crmUi';
 
@@ -49,7 +54,7 @@ type ChatTurn = {
 
 const GREETING: ChatTurn = {
   role: 'ai',
-  text: '어떤 가격 기준을 알려 주실래요? 편하게 말해 주시면 애매한 건 제가 되물어볼게요.\n예) 방 3개 화장실 2개 집은 평수가 작아도 최소 25만원',
+  text: '가격 기준이나 면적 기준을 말해 주세요. 애매하면 되물어볼게요.\n예) 방 3개 화장실 2개 집은 최소 25만원\n예) 아파트 고객이 22평이라고 하면 전용이에요',
 };
 
 function ExampleList({ examples, afterOnly = false }: { examples: TelecrmAiQuoteRuleExample[]; afterOnly?: boolean }) {
@@ -85,6 +90,11 @@ export function CrmAiQuoteRulesSection() {
   const propertyOptions = useCrmPropertyChoiceOptions();
   const [status, setStatus] = useState<TelecrmAiQuoteModelStatus | null>(null);
   const [rules, setRules] = useState<TelecrmAiQuoteRuleDto[]>([]);
+  const [areaRules, setAreaRules] = useState<TelecrmAreaRuleDto[]>([]);
+  const [areaCaseCount, setAreaCaseCount] = useState(0);
+  const [areaDelete, setAreaDelete] = useState<TelecrmAreaRuleDto | null>(null);
+  const [areaPassword, setAreaPassword] = useState('');
+  const [areaPasswordError, setAreaPasswordError] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   /** 대화 — 사람 말·AI 답 (AI 답에는 되묻기 선택지·규칙 초안·배운 결과가 붙음) */
@@ -96,12 +106,15 @@ export function CrmAiQuoteRulesSection() {
   const load = useCallback(async () => {
     if (!token) return;
     try {
-      const [s, r] = await Promise.all([
+      const [s, r, area] = await Promise.all([
         fetchTelecrmAiQuoteStatus(token, activeOperatingCompanyId),
         fetchTelecrmAiQuoteRules(token),
+        fetchTelecrmAreaRules(token, activeOperatingCompanyId),
       ]);
       setStatus(s);
       setRules(r.items);
+      setAreaRules(area.items);
+      setAreaCaseCount(area.caseCount);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'AI 견적 정보를 불러오지 못했어요.');
     }
@@ -168,6 +181,58 @@ export function CrmAiQuoteRulesSection() {
       toast.success('배웠어요! 다음 견적부터 바로 적용돼요.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장하지 못했어요.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const learnArea = async (turnIndex: number) => {
+    const turn = thread[turnIndex];
+    if (!token || !turn?.reply || turn.reply.type !== 'areaRules' || turn.saved) return;
+    setBusy(true);
+    try {
+      const saved: TelecrmAreaRuleDto[] = [];
+      for (const draft of turn.reply.rules) {
+        const res = await saveTelecrmAreaRule(token, { spec: draft.spec, operatingCompanyId: activeOperatingCompanyId });
+        saved.push(res.rule);
+      }
+      setAreaRules((prev) => [...prev, ...saved]);
+      setThread((prev) => [
+        ...prev.map((t, i) => (i === turnIndex ? { ...t, saved: true } : t)),
+        { role: 'ai', text: `✓ 면적 기준을 배웠어요. 「${saved.map((row) => row.summary).join('」, 「')}」 — 다음 상담부터 바로 적용돼요.` },
+      ]);
+      toast.success('면적 기준을 배웠어요.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장하지 못했어요.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleArea = async (rule: TelecrmAreaRuleDto, next: boolean) => {
+    if (!token) return;
+    setAreaRules((prev) => prev.map((row) => (row.id === rule.id ? { ...row, isActive: next } : row)));
+    try {
+      await updateTelecrmAreaRule(token, rule.id, { isActive: next }, activeOperatingCompanyId);
+      toast.success(next ? '면적 기준을 켰어요.' : '면적 기준을 껐어요.');
+    } catch (e) {
+      setAreaRules((prev) => prev.map((row) => (row.id === rule.id ? { ...row, isActive: !next } : row)));
+      toast.error(e instanceof Error ? e.message : '바꾸지 못했어요.');
+    }
+  };
+
+  const removeArea = async () => {
+    if (!token || !areaDelete) return;
+    setBusy(true);
+    setAreaPasswordError(null);
+    try {
+      await deleteTelecrmAreaRule(token, areaDelete.id, areaPassword);
+      setAreaRules((prev) => prev.filter((row) => row.id !== areaDelete.id));
+      setAreaDelete(null);
+      setAreaPassword('');
+      toast.success('면적 기준을 지웠어요.');
+    } catch (e) {
+      setAreaPasswordError(e instanceof Error ? e.message : '지우지 못했어요.');
     } finally {
       setBusy(false);
     }
@@ -271,6 +336,27 @@ export function CrmAiQuoteRulesSection() {
                       ))}
                     </div>
                   ) : null}
+                  {turn.reply?.type === 'areaRules' ? (
+                    <div className="mt-1.5 space-y-1.5">
+                      {turn.reply.rules.map((draft) => (
+                        <div key={draft.spec.summary} className="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5">
+                          <p className="font-semibold text-sky-900">{draft.preview}</p>
+                          {draft.examples.map((line) => (
+                            <p key={line} className="text-slate-600">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      ))}
+                      {turn.saved ? (
+                        <p className="text-fluid-2xs font-semibold text-sky-800">배운 면적 기준이에요</p>
+                      ) : (
+                        <Button size="sm" variant="primary" disabled={busy} onClick={() => void learnArea(i)}>
+                          이대로 배우기
+                        </Button>
+                      )}
+                    </div>
+                  ) : null}
                   {turn.reply?.type === 'rules' ? (
                     <div className="mt-1.5 space-y-1.5">
                       {turn.reply.rules.map((draft, k) => (
@@ -359,6 +445,41 @@ export function CrmAiQuoteRulesSection() {
           </ul>
         )}
       </div>
+
+      <div>
+        <p className="mb-1 text-fluid-xs font-semibold text-slate-800">면적 기준 · 쌓인 사례 {areaCaseCount}건</p>
+        {areaRules.length === 0 ? (
+          <p className="text-fluid-2xs text-slate-500">아직 배운 면적 기준이 없어요. 아파트는 공급, 그 외는 전용으로 봅니다.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {areaRules.map((rule) => (
+              <li key={rule.id} className="flex items-start gap-2 py-2">
+                <OnOffSwitch checked={rule.isActive} onChange={(next) => void toggleArea(rule, next)} showState={false} />
+                <p className={`min-w-0 flex-1 text-fluid-xs ${rule.isActive ? 'text-slate-800' : 'text-slate-400'}`}>{rule.summary}</p>
+                <Button size="sm" variant="quiet" className="!h-6 shrink-0 text-rose-600" onClick={() => setAreaDelete(rule)}>
+                  지우기
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <DeletePasswordModal
+        open={areaDelete != null}
+        title="이 면적 기준을 지울까요?"
+        description={areaDelete ? `「${areaDelete.summary}」` : undefined}
+        busy={busy}
+        password={areaPassword}
+        error={areaPasswordError}
+        onPasswordChange={setAreaPassword}
+        onConfirm={() => void removeArea()}
+        onClose={() => {
+          setAreaDelete(null);
+          setAreaPassword('');
+          setAreaPasswordError(null);
+        }}
+      />
 
       <div className="rounded-xl border border-slate-200 p-3">
         <p className="mb-1.5 text-fluid-xs font-semibold text-slate-800">직접 물어보기 — 이 집이면 AI 견적은?</p>

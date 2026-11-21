@@ -67,6 +67,7 @@ export function CrmIntakeForm({
   contactUnknown,
   pyeong,
   onPyeongChange,
+  pyeongNote = null,
   onFormChange,
   onSaved,
   lastInquiryId,
@@ -97,6 +98,7 @@ export function CrmIntakeForm({
   contactUnknown: boolean;
   pyeong: string;
   onPyeongChange: (v: string) => void;
+  pyeongNote?: ReactNode;
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
   onSaved: (result: CrmIntakeSubmitResult, meta?: CrmIntakeSavedMeta) => void;
   lastInquiryId: string | null;
@@ -537,6 +539,7 @@ export function CrmIntakeForm({
               />
               <CrmAreaCalcButton onUse={onPyeongChange} useLabel="평수에 넣기" tone="slate" size="md" disabled={saving} />
             </span>
+            {pyeongNote ? <div className="mt-1">{pyeongNote}</div> : null}
           </label>
           <div className="grid grid-cols-3 gap-2">
             <label className="block min-w-0">

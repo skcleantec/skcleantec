@@ -3,6 +3,16 @@ import { requireStaffPermission } from '../auth/marketerPermission.middleware.js
 import { requireTelecrmTenant } from './telecrm.helpers.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { prisma } from '../../lib/prisma.js';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
+import { normalizeAreaRuleSpec } from './telecrmAreaResolve.js';
+import {
+  createTelecrmAreaRule,
+  deleteTelecrmAreaRule,
+  listTelecrmAreaRules,
+  recordTelecrmAreaCase,
+  resolveTelecrmAreaForTenant,
+  updateTelecrmAreaRule,
+} from './telecrmAreaResolve.service.js';
 import { predictTelecrmAiQuote } from './telecrmAiQuoteModel.service.js';
 import {
   buildTelecrmAiQuoteRuleExamples,
@@ -240,6 +250,146 @@ router.post('/ai-quote/preview', requireStaffPermission('crm.view', 'crm.setting
   } catch (e) {
     console.error('[telecrm-ai-quote] preview failed', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'AI 견적을 계산하지 못했어요.' });
+  }
+});
+
+router.post('/area/resolve', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as { raw?: unknown; buildingType?: unknown; address?: unknown };
+  const raw = String(body.raw ?? '').trim().slice(0, 500);
+  if (!raw) {
+    res.status(400).json({ error: '면적 글이 비어 있어요.' });
+    return;
+  }
+  try {
+    res.json(
+      await resolveTelecrmAreaForTenant({
+        tenantId,
+        operatingCompanyId: brandOf(req),
+        raw,
+        buildingType: typeof body.buildingType === 'string' ? body.buildingType : null,
+        address: typeof body.address === 'string' ? body.address : null,
+      }),
+    );
+  } catch (e) {
+    console.error('[telecrm-area] resolve failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '면적을 해석하지 못했어요.' });
+  }
+});
+
+router.post('/area/cases', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as {
+    address?: unknown;
+    customerValue?: unknown;
+    customerMark?: unknown;
+    supplyPyeong?: unknown;
+  };
+  const customerValue = Number(body.customerValue);
+  const supplyPyeong = Number(body.supplyPyeong);
+  if (!Number.isFinite(customerValue) || !Number.isFinite(supplyPyeong)) {
+    res.status(400).json({ error: '고른 평수가 없어요.' });
+    return;
+  }
+  try {
+    res.status(201).json(
+      await recordTelecrmAreaCase({
+        tenantId,
+        operatingCompanyId: brandOf(req),
+        address: String(body.address ?? ''),
+        customerValue,
+        customerMark: typeof body.customerMark === 'string' ? body.customerMark : null,
+        supplyPyeong,
+      }),
+    );
+  } catch (e) {
+    console.error('[telecrm-area] case save failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '사례를 남기지 못했어요.' });
+  }
+});
+
+router.get('/area/rules', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  try {
+    res.json(await listTelecrmAreaRules(tenantId, brandOf(req)));
+  } catch (e) {
+    console.error('[telecrm-area] rules list failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '면적 기준을 불러올 수 없어요.' });
+  }
+});
+
+router.post('/area/rules', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const spec = normalizeAreaRuleSpec((req.body as { spec?: unknown } | undefined)?.spec);
+  if (!spec) {
+    res.status(400).json({ error: '면적 기준을 알아듣지 못했어요.' });
+    return;
+  }
+  try {
+    const row = await createTelecrmAreaRule(tenantId, brandOf(req), spec);
+    res.status(201).json({
+      rule: {
+        id: row.id,
+        spec,
+        summary: row.summary,
+        isActive: row.isActive,
+        sortOrder: row.sortOrder,
+        createdAt: row.createdAt.toISOString(),
+      },
+    });
+  } catch (e) {
+    console.error('[telecrm-area] rule save failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '면적 기준을 저장하지 못했어요.' });
+  }
+});
+
+router.patch('/area/rules/:id', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as { isActive?: unknown };
+  try {
+    const row = await updateTelecrmAreaRule(tenantId, String(req.params.id), {
+      isActive: typeof body.isActive === 'boolean' ? body.isActive : undefined,
+    });
+    if (!row) {
+      res.status(404).json({ error: '면적 기준을 찾을 수 없어요.' });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[telecrm-area] rule update failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '면적 기준을 바꾸지 못했어요.' });
+  }
+});
+
+router.delete('/area/rules/:id', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const password = String((req.body as { password?: unknown } | undefined)?.password ?? '');
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해 주세요.' });
+    return;
+  }
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const dbUser = await prisma.user.findFirst({ where: { id: user.userId, tenantId }, select: { passwordHash: true } });
+  if (!dbUser || !(await compareUserPasswordHash(dbUser.passwordHash, password))) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+  try {
+    const ok = await deleteTelecrmAreaRule(tenantId, String(req.params.id));
+    if (!ok) {
+      res.status(404).json({ error: '면적 기준을 찾을 수 없어요.' });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[telecrm-area] rule delete failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '면적 기준을 지우지 못했어요.' });
   }
 });
 

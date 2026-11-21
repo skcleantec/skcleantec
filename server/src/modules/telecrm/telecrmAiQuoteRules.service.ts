@@ -17,6 +17,7 @@ import { callOpenAiJson } from '../ai/aiProvider.service.js';
 import { getTelecrmAiQuoteModelStatus, predictTelecrmAiQuote } from './telecrmAiQuoteModel.service.js';
 import { loadActiveTelecrmAiQuoteRuleSpecs } from './telecrmAiQuoteRules.store.js';
 import { loadTelecrmPropertyChoiceResolver } from './telecrmPropertyChoices.service.js';
+import { decorateAreaDraft, draftAreaTeaching, normalizeAreaRuleSpec } from './telecrmAreaResolve.js';
 
 const KINDS: TelecrmAiQuoteRuleActionKind[] = ['min', 'max', 'add', 'set', 'perPyeong'];
 
@@ -245,6 +246,9 @@ export async function chatTelecrmAiQuoteRule(
   if (!history.some((m) => m.role === 'user')) {
     return { type: 'ask', reply: '어떤 가격 기준을 알려 주실래요? 예) 방 3개 화장실 2개면 최소 25만원', choices: [] };
   }
+  const lastUser = [...history].reverse().find((m) => m.role === 'user');
+  const areaDraft = lastUser ? draftAreaTeaching(lastUser.text) : null;
+  if (areaDraft) return { type: 'areaRules', reply: areaDraft.reply, rules: areaDraft.rules };
   const resolver = await loadTelecrmPropertyChoiceResolver(tenantId);
   const propertyLabels = resolver.options.propertyTypes.map((o) => o.label).filter(Boolean);
   const userTurns = history.filter((m) => m.role === 'user').length;
@@ -266,8 +270,14 @@ export async function chatTelecrmAiQuoteRule(
     'When you have enough, return the rules. One owner sentence may need several rules (e.g. 원룸 and 1.5룸 both → two rules).',
     `After ${userTurns >= 3 ? 'this many turns, stop asking and' : 'at most 3 questions,'} return your best rules with a reply that states your assumptions.`,
     'Return JSON only, one of:',
+    'If the owner is teaching HOW TO READ AREA (공급/전용/평/㎡/평형/단지), that is NOT a price rule.',
+    'Return {"type":"areaRules","reply":"<Korean preview asking 맞아요?>","rules":[{"kind":"assume"|"confirmBand"|"complex"|"ratio"|"basis", ...}]}.',
+    'area rule kinds: assume {buildingType,pyeongMin,pyeongMax,assume:전용|공급}, confirmBand {buildingType,pyeongMin,pyeongMax,requireConfirm},',
+    'complex {address,customerValue,supplyPyeong}, ratio {buildingType,exclusiveRatio 0~1}, basis {apartmentBasis,otherBasis}.',
+    'Do not end area talk with unsupported. Offer the closest area rule.',
     '{"type":"ask","reply":"<question>","choices":["..",".."]}',
     '{"type":"rules","reply":"<one short confirmation sentence>","rules":[{"condition":{...},"action":{"kind":..,"amountWon":..}}]}',
+    '{"type":"areaRules","reply":"<preview>","rules":[{...}]}',
     '{"type":"unsupported","reply":"<why, plus workarounds>"} — almost never; prefer "ask" with workaround choices.',
     'If the owner picks a workaround that needs a new 접수란 field (개발 요청), reply type "ask" saying you noted it as a 개발 요청 and ask whether to make a temporary rule with the visible facts meanwhile.',
     'condition keys (omit = any): pyeongMin, pyeongMax, roomCount, bathroomCount, balconyCount, isOneRoom (boolean), propertyType (exact label from the list).',
@@ -332,6 +342,21 @@ export async function chatTelecrmAiQuoteRule(
     }
     if (problems.length) drafts.reply = `${drafts.reply} (일부는 못 바꿨어요: ${problems[0]})`;
     return drafts;
+  }
+  if (type === 'areaRules' && Array.isArray(json.rules)) {
+    const rules = (json.rules as unknown[])
+      .slice(0, 4)
+      .map((row) => normalizeAreaRuleSpec(row))
+      .filter((row): row is NonNullable<typeof row> => row != null)
+      .map((spec) => decorateAreaDraft(spec));
+    if (rules.length) return { type: 'areaRules', reply: reply || rules[0]!.preview, rules };
+  }
+  if (lastUser && /평|전용|공급|면적|㎡|m2|제곱/.test(lastUser.text)) {
+    return {
+      type: 'ask',
+      reply: reply || '면적 이야기로 들어요. 아래 중 어디에 가깝게 기억할까요?',
+      choices: ['그 평수는 전용으로 봐 주세요', '그 구간은 꼭 확인하게 해 주세요', '그 단지의 그 평수는 84형이에요', '그 건물은 공급의 80%가 전용이에요'],
+    };
   }
   return { type: 'unsupported', reply: reply || '규칙으로 바꾸기 어려워요. 평수·방·화장실·베란다·원룸·건물 유형으로 말해 주세요.' };
 }

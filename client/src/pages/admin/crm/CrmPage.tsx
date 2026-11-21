@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
 import { computeEstimateTotalFromPyeong } from '@shared/estimateTotal';
+import type { TelecrmAreaResolveResult } from '@shared/telecrmAreaResolve';
+import { resolveTelecrmArea, saveTelecrmAreaCase } from '../../../api/telecrmQuoteCrewLearning';
+import { CrmPyeongResolveHint } from '../../../components/crm/intake/CrmPyeongResolveHint';
 import { getToken } from '../../../stores/auth';
 import { useMarketerPermissions } from '../../../hooks/useMarketerPermissions';
 import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
@@ -79,7 +82,6 @@ import { CrmDispatchNotice } from '../../../components/ui/CrmDispatchNotice';
 import {
   deriveSoomgoIntakeDefaults,
   formatSoomgoCountForCrm,
-  parseSoomgoPyeongForCrm,
   resolveSoomgoAddress,
   resolveSoomgoPreferredDate,
   soomgoCustomerNameForIntake,
@@ -205,6 +207,11 @@ export function CrmPage() {
   );
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
+  const [areaImport, setAreaImport] = useState<{ raw: string; key: number } | null>(null);
+  const [areaResult, setAreaResult] = useState<TelecrmAreaResolveResult | null>(null);
+  const [areaLocked, setAreaLocked] = useState(false);
+  const areaLockedRef = useRef(false);
+  const areaSaveTimerRef = useRef<number | null>(null);
   const { userName: crmMarketerName } = useAdminStaffSession();
   const [quoteLines, setQuoteLines] = useState<CrmPricingQuoteLine[]>([]);
   const [intakeKind, setIntakeKind] = useState<CrmIntakeKind>('absent');
@@ -585,6 +592,83 @@ export function CrmPage() {
     [customerName, intakeKind, persistDraft],
   );
 
+  const onUserPyeong = useCallback((value: string) => {
+    areaLockedRef.current = true;
+    setAreaLocked(true);
+    setPyeong(value);
+    const amount = Number(value);
+    const address = intakeIdentity.address.trim();
+    const customerValue = areaResult?.customerValue;
+    if (areaSaveTimerRef.current != null) window.clearTimeout(areaSaveTimerRef.current);
+    if (!(amount > 0) || !address || customerValue == null) return;
+    areaSaveTimerRef.current = window.setTimeout(() => {
+      const token = getToken();
+      if (!token || areaLockedRef.current !== true) return;
+      void saveTelecrmAreaCase(token, {
+        address,
+        customerValue,
+        customerMark: areaResult?.customerMark,
+        supplyPyeong: amount,
+        operatingCompanyId: activeOperatingCompanyId,
+      }).catch(() => undefined);
+    }, 800);
+  }, [activeOperatingCompanyId, areaResult, intakeIdentity.address]);
+
+  const pickAreaPyeong = useCallback(
+    (value: number) => {
+      areaLockedRef.current = true;
+      setAreaLocked(true);
+      setPyeong(String(value));
+      setAreaResult((prev) =>
+        prev ? { ...prev, status: '확정', pyeong: value, reason: '상담사가 고른 평수예요.', candidates: [] } : prev,
+      );
+      const token = getToken();
+      const address = intakeIdentity.address.trim();
+      const customerValue = areaResult?.customerValue;
+      if (!token || !address || customerValue == null) return;
+      void saveTelecrmAreaCase(token, {
+        address,
+        customerValue,
+        customerMark: areaResult?.customerMark,
+        supplyPyeong: value,
+        operatingCompanyId: activeOperatingCompanyId,
+      }).catch(() => undefined);
+    },
+    [activeOperatingCompanyId, areaResult, intakeIdentity.address],
+  );
+
+  useEffect(() => {
+    if (!areaImport?.raw.trim() || areaLocked) return;
+    const token = getToken();
+    if (!token) return;
+    const timer = window.setTimeout(() => {
+      void resolveTelecrmArea(token, {
+        raw: areaImport.raw,
+        buildingType: intakeStructure.buildingType,
+        address: intakeIdentity.address,
+        operatingCompanyId: activeOperatingCompanyId,
+      })
+        .then((res) => {
+          if (areaLockedRef.current) return;
+          setAreaResult(res);
+          if (res.status === '확정' && res.pyeong != null) setPyeong(String(res.pyeong));
+          else setPyeong('');
+        })
+        .catch(() => undefined);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [areaImport, areaLocked, intakeStructure.buildingType, intakeIdentity.address, activeOperatingCompanyId]);
+
+  const pyeongNote = (
+    <CrmPyeongResolveHint
+      result={areaResult}
+      locked={areaLocked}
+      pricePerPyeong={pricePerPyeong}
+      minimumTotalAmount={minimumTotalAmount}
+      onPick={pickAreaPyeong}
+    />
+  );
+
   const handleModeChange = useCallback(
     (next: CrmCustomerMode) => {
       if (next === 'new') {
@@ -913,6 +997,10 @@ export function CrmPage() {
       setContactUnknown(false);
       setCustomerName('');
       setPyeong('');
+      setAreaImport(null);
+      setAreaResult(null);
+      areaLockedRef.current = true;
+      setAreaLocked(true);
       setMode('new');
       setIntakeKind('absent');
       setFormResetKey((k) => k + 1);
@@ -1081,7 +1169,12 @@ export function CrmPage() {
       setSafePhone(split.safePhone ?? '');
       setContactUnknown(intakeDefaults.contactUnknown);
       setCustomerName(name);
-      setPyeong(parseSoomgoPyeongForCrm(data.pyeong, data.buildingType));
+      const areaRaw = [data.pyeong, data.requestMemo || data.memo].filter(Boolean).join('\n');
+      areaLockedRef.current = false;
+      setAreaLocked(false);
+      setAreaResult(null);
+      setAreaImport(areaRaw.trim() ? { raw: areaRaw, key: Date.now() } : null);
+      setPyeong('');
       setMode('new');
       setIntakeKind(intakeDefaults.kind);
       setSoomgoImportBanner(summary.lines.join('\n'));
@@ -2336,7 +2429,8 @@ export function CrmPage() {
                 onContactUnknownChange={setContactUnknown}
                 onCustomerNameChange={setCustomerName}
                 pyeong={pyeong}
-                onPyeongChange={setPyeong}
+                onPyeongChange={onUserPyeong}
+                pyeongNote={pyeongNote}
                 onOpenInquiryEdit={openInquiryEdit}
                 lookupRefreshKey={lookupRefreshKey}
                 operatingCompanyId={activeOperatingCompanyId}
@@ -2440,7 +2534,8 @@ export function CrmPage() {
           right={
             <CrmPricingPanel
               pyeong={pyeong}
-              onPyeongChange={setPyeong}
+              onPyeongChange={onUserPyeong}
+              pyeongNote={pyeongNote}
               pricePerPyeong={pricePerPyeong}
               minimumTotalAmount={minimumTotalAmount}
               baseEstimateOverrideWon={baseEstimateOverrideWon}

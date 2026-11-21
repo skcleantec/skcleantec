@@ -137,6 +137,7 @@ export function CrmIntakePanel({
   onCustomerNameChange,
   pyeong,
   onPyeongChange,
+  pyeongNote = null,
   onOpenInquiryEdit,
   lookupRefreshKey,
   onSaved,
@@ -173,6 +174,7 @@ export function CrmIntakePanel({
   onCustomerNameChange: (name: string) => void;
   pyeong: string;
   onPyeongChange: (v: string) => void;
+  pyeongNote?: ReactNode;
   onOpenInquiryEdit: (inquiryId: string) => void;
   lookupRefreshKey: number;
   onSaved: (meta?: CrmIntakeSavedMeta) => void;
@@ -601,6 +603,7 @@ export function CrmIntakePanel({
             contactUnknown={contactUnknown}
             pyeong={pyeong}
             onPyeongChange={onPyeongChange}
+            pyeongNote={pyeongNote}
             onFormChange={onFormChange}
             onSaved={handleSaved}
             lastInquiryId={lastInquiryId}

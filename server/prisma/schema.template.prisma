@@ -369,6 +369,8 @@ model Tenant {
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
   telecrmAiQuoteRules TelecrmAiQuoteRule[]
+  telecrmAreaRules TelecrmAreaRule[]
+  telecrmAreaCases TelecrmAreaCase[]
   telecrmSoomgoConfig       TelecrmSoomgoConfig?
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSoomgoPresetUses TelecrmSoomgoPresetUse[]
@@ -5456,6 +5458,40 @@ model TelecrmAiQuoteRule {
 
   @@index([tenantId, sortOrder])
   @@map("telecrm_ai_quote_rules")
+}
+
+/// 텔레CRM — 사장님이 가르친 면적 기준 (가격 규칙과 따로)
+model TelecrmAreaRule {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String?  @map("operating_company_id")
+  kind               String   @db.VarChar(32)
+  spec               Json
+  summary            String   @db.VarChar(200)
+  isActive           Boolean  @default(true) @map("is_active")
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, operatingCompanyId, isActive])
+  @@map("telecrm_area_rules")
+}
+
+/// 텔레CRM — 상담사가 고른 면적 사례. 이름·전화번호는 두지 않는다.
+model TelecrmAreaCase {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String?  @map("operating_company_id")
+  addressKey         String   @map("address_key") @db.VarChar(80)
+  customerValue      Float    @map("customer_value")
+  customerMark       String?  @map("customer_mark") @db.VarChar(16)
+  supplyPyeong       Float    @map("supply_pyeong")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, operatingCompanyId, addressKey])
+  @@map("telecrm_area_cases")
 }
 
 /// 텔레CRM — 예약확정 접수 기반 견적·인원 학습 스냅샷 (1접수 1행)

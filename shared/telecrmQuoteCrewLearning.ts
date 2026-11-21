@@ -325,4 +325,27 @@ export type TelecrmAiQuoteRuleDraft = {
 export type TelecrmAiQuoteChatReply =
   | { type: 'ask'; reply: string; choices: string[] }
   | { type: 'rules'; reply: string; rules: TelecrmAiQuoteRuleDraft[] }
+  | {
+      type: 'areaRules';
+      reply: string;
+      rules: {
+        spec: {
+          kind: 'assume' | 'confirmBand' | 'complex' | 'ratio' | 'basis';
+          summary: string;
+          buildingType?: string;
+          pyeongMin?: number;
+          pyeongMax?: number;
+          assume?: '전용' | '공급';
+          requireConfirm?: boolean;
+          address?: string;
+          customerValue?: number;
+          supplyPyeong?: number;
+          exclusiveRatio?: number;
+          apartmentBasis?: '공급' | '전용';
+          otherBasis?: '공급' | '전용';
+        };
+        preview: string;
+        examples: string[];
+      }[];
+    }
   | { type: 'unsupported'; reply: string };
