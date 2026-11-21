@@ -1,7 +1,7 @@
 /**
  * 숨고 면적 글을 견적 평수로 바꾼다.
  * 아파트는 공급평, 그 외는 전용평. 1평 = 3.305785㎡.
- * 순서: 단지 사례·기준 > 건축물대장 > 사장님 일반 기준 > 기본 규칙.
+ * 순서: 표시 없는 단지만 사례·기준 > 건축물대장 > 고객이 적은 공급·전용 > 평수만 있을 때 사장님 기준 > 기본 규칙.
  */
 export type TelecrmAreaStatus = '확정' | '확인 필요';
 export type TelecrmAreaSource = '건축물대장' | '사장님 기준' | '사례' | '기본 규칙';
@@ -42,6 +42,9 @@ const KNOWN_TYPES = [
   { sqm: 84, supply: 34, name: '84형' },
 ] as const;
 
+/** 단위 없이 적힌 대표 전용 ㎡. 예전 상담 화면과 같은 숫자이고, ±1도 ㎡로 본다. */
+const REPRESENTATIVE_SQM = [39, 49, 59, 74, 84, 101, 114, 135] as const;
+
 export type AreaLedgerGroup = { exclusiveSqm: number; supplyPyeong: number | null };
 
 export type AreaCaseRow = {
@@ -64,6 +67,8 @@ type Reading = {
   value: number;
   unit: 'pyeong' | 'sqm';
   mark: '공급' | '전용' | null;
+  /** 평·㎡ 글자 없이 숫자만 있는 경우 */
+  bare: boolean;
   range: boolean;
   label: string;
 };
@@ -122,7 +127,7 @@ export function parseAreaReading(raw: string): Reading | null {
   if (range) {
     const value = Number(range[1]);
     if (!Number.isFinite(value) || value <= 0) return null;
-    return { value, unit: 'pyeong', mark: markNear(text, range.index ?? 0), range: true, label: `${formatNum(value)}평대` };
+    return { value, unit: 'pyeong', mark: markNear(text, range.index ?? 0), bare: false, range: true, label: `${formatNum(value)}평대` };
   }
   const sqm = text.match(/(\d{1,4}(?:[.,]\d+)?)\s*(?:㎡|m²|m\^?2|제곱\s*미터|제곱m|평방\s*미터)/i);
   if (sqm) {
@@ -130,7 +135,7 @@ export function parseAreaReading(raw: string): Reading | null {
     if (Number.isFinite(value) && value > 0) {
       const mark = markNear(text, sqm.index ?? 0);
       const markLabel = mark ? `${mark} ` : '';
-      return { value, unit: 'sqm', mark, range: false, label: `${markLabel}${formatNum(value)}㎡` };
+      return { value, unit: 'sqm', mark, bare: false, range: false, label: `${markLabel}${formatNum(value)}㎡` };
     }
   }
   const pyeong = text.match(/(\d{1,4}(?:\.\d+)?)\s*평/);
@@ -141,7 +146,23 @@ export function parseAreaReading(raw: string): Reading | null {
   if (!Number.isFinite(value) || value <= 0 || value > 500) return null;
   const mark = markNear(text, picked.index ?? 0);
   const markLabel = mark ? `${mark} ` : '';
-  return { value, unit: 'pyeong', mark, range: false, label: `${markLabel}${formatNum(value)}평` };
+  return { value, unit: 'pyeong', mark, bare: !pyeong, range: false, label: `${markLabel}${formatNum(value)}평` };
+}
+
+function looksLikeBareSqm(value: number): boolean {
+  if (value >= 60) return true;
+  return REPRESENTATIVE_SQM.some((sqm) => Math.abs(value - sqm) <= 1);
+}
+
+function bareSqmCandidates(value: number): TelecrmAreaCandidate[] {
+  const converted = supplyFromExclusiveSqm(value);
+  const exclusive = converted.typeName
+    ? `전용 ${formatNum(value)}㎡ → 공급 ${formatNum(converted.pyeong)}평(${converted.typeName})`
+    : `전용 ${formatNum(value)}㎡ → 공급 ${formatNum(converted.pyeong)}평`;
+  const literal = { label: `${formatNum(value)}평`, pyeong: roundPyeong(value) };
+  const first = { label: exclusive, pyeong: converted.pyeong };
+  if (near(first.pyeong, literal.pyeong, 0.2)) return [first];
+  return [first, literal];
 }
 
 function markNear(text: string, index: number): '공급' | '전용' | null {
@@ -273,7 +294,7 @@ export function resolveTelecrmArea(input: AreaResolveInput): TelecrmAreaResolveR
   }
 
   const address = input.address ?? '';
-  if (address.trim()) {
+  if (address.trim() && !reading.mark) {
     const hits = (input.cases ?? []).filter(
       (row) =>
         sameComplex(row.addressKey, address) &&
@@ -351,14 +372,40 @@ export function resolveTelecrmArea(input: AreaResolveInput): TelecrmAreaResolveR
     }
   }
 
-  const assume = [...rules].reverse().find(
-    (rule) =>
-      rule.kind === 'assume' &&
-      buildingMatches(rule.buildingType, buildingType || '아파트', apartment) &&
-      reading.unit === 'pyeong' &&
-      reading.value >= (rule.pyeongMin ?? reading.value) &&
-      reading.value <= (rule.pyeongMax ?? reading.value),
-  );
+  if (apartment && reading.bare && !reading.mark && looksLikeBareSqm(reading.value)) {
+    return done(
+      null,
+      '확인 필요',
+      bareSqmCandidates(reading.value),
+      `고객: ${formatNum(reading.value)}은 ㎡일 수도 있고 평일 수도 있어요. 상담사가 확인해 주세요.`,
+      '기본 규칙',
+      reading,
+    );
+  }
+
+  if (reading.mark === '공급' && apartment) {
+    const pyeong = reading.unit === 'sqm' ? roundPyeong(reading.value / SQM_PER_PYEONG) : roundPyeong(reading.value);
+    return done(
+      pyeong,
+      '확정',
+      [],
+      `고객: ${reading.label} → ${place} 공급 ${formatNum(pyeong)}평 (기본 규칙)`,
+      '기본 규칙',
+      reading,
+    );
+  }
+
+  const assume =
+    !reading.mark && !reading.bare
+      ? [...rules].reverse().find(
+          (rule) =>
+            rule.kind === 'assume' &&
+            buildingMatches(rule.buildingType, buildingType || '아파트', apartment) &&
+            reading.unit === 'pyeong' &&
+            reading.value >= (rule.pyeongMin ?? reading.value) &&
+            reading.value <= (rule.pyeongMax ?? reading.value),
+        )
+      : undefined;
   if (assume) {
     const asExclusive = assume.assume !== '공급';
     const converted = asExclusive ? supplyFromExclusivePyeong(reading.value) : { pyeong: roundPyeong(reading.value), typeName: typeName(reading.value) };

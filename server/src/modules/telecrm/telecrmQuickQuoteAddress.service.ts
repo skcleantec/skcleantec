@@ -97,12 +97,39 @@ function scrub(message: string): string {
   return message
     .replace(/serviceKey=[^&\s]+/gi, 'serviceKey')
     .replace(/confmKey=[^&\s]+/gi, 'confmKey')
+    .replace(/ServiceKey=[^&\s]+/g, 'serviceKey')
     .slice(0, 180);
 }
 
 function logFail(where: string, e: unknown): void {
   const message = e instanceof Error ? scrub(e.message) : '';
   console.error(`[quick-quote] ${where} failed`, message);
+}
+
+const LEDGER_KEY_CODES = new Set(['30', '31', '32']);
+
+function ledgerCallName(url: string): 'LEDGER_AREA' | 'LEDGER_TITLE' | 'LEDGER_RECAP' | 'LEDGER' {
+  if (url === LEDGER_AREA) return 'LEDGER_AREA';
+  if (url === LEDGER_TITLE) return 'LEDGER_TITLE';
+  if (url === LEDGER_RECAP) return 'LEDGER_RECAP';
+  return 'LEDGER';
+}
+
+function ledgerHeaderFromText(text: string): { resultCode: string; resultMsg: string } {
+  const resultCode =
+    text.match(/"resultCode"\s*:\s*"([^"]*)"/)?.[1] ?? text.match(/returnReasonCode>([^<]*)/)?.[1] ?? '';
+  const resultMsg =
+    text.match(/"resultMsg"\s*:\s*"([^"]*)"/)?.[1] ??
+    text.match(/returnAuthMsg>([^<]*)/)?.[1] ??
+    text.match(/<errMsg>([^<]*)/)?.[1] ??
+    '';
+  return { resultCode, resultMsg: scrub(resultMsg) };
+}
+
+function logLedger(call: string, http: number, resultCode: string, resultMsg: string): void {
+  console.error(
+    `[quick-quote] ledger failed call=${call} http=${http} resultCode=${resultCode || '-'} resultMsg=${resultMsg || '-'}`,
+  );
 }
 
 async function takeLookupSlot(tenantId: string): Promise<boolean> {
@@ -279,19 +306,50 @@ function ledgerOk(body: unknown): boolean {
 
 async function ledger(url: string, params: Record<string, string>): Promise<unknown> {
   const key = envKey('BUILDING_LEDGER_API_KEY');
-  if (!key) throw new Error('LOOKUP_UNAVAILABLE');
+  const call = ledgerCallName(url);
+  if (!key) {
+    logLedger(call, 0, '', 'key missing');
+    throw new Error('LOOKUP_UNAVAILABLE');
+  }
   const target = new URL(url);
   target.searchParams.set('serviceKey', key);
   target.searchParams.set('_type', 'json');
   for (const [name, value] of Object.entries(params)) {
     if (value) target.searchParams.set(name, value);
   }
+  let res: Response;
   try {
-    return await getJson(target, 20_000);
+    res = await fetch(target, { signal: AbortSignal.timeout(20_000) });
   } catch (e) {
-    logFail('ledger', e);
+    logLedger(call, 0, '', e instanceof Error ? e.name : 'error');
     throw new Error('LOOKUP_FAILED');
   }
+  const raw = await res.text();
+  let parsed: unknown = null;
+  if (raw.trim().startsWith('{')) {
+    try {
+      parsed = JSON.parse(raw) as unknown;
+    } catch {
+      parsed = null;
+    }
+  }
+  const header = parsed
+    ? {
+        resultCode: String((parsed as { response?: { header?: { resultCode?: string } } }).response?.header?.resultCode ?? ''),
+        resultMsg: scrub(
+          String((parsed as { response?: { header?: { resultMsg?: string } } }).response?.header?.resultMsg ?? ''),
+        ),
+      }
+    : ledgerHeaderFromText(raw);
+  if (!res.ok || parsed == null) {
+    logLedger(call, res.status, header.resultCode, header.resultMsg);
+    throw new Error(LEDGER_KEY_CODES.has(header.resultCode) ? 'LOOKUP_UNAVAILABLE' : 'LOOKUP_FAILED');
+  }
+  if (header.resultCode && header.resultCode !== '00' && header.resultCode !== '03') {
+    logLedger(call, res.status, header.resultCode, header.resultMsg);
+    if (LEDGER_KEY_CODES.has(header.resultCode)) throw new Error('LOOKUP_UNAVAILABLE');
+  }
+  return parsed;
 }
 
 export async function searchQuickQuoteAddress(
@@ -376,7 +434,10 @@ export async function listQuickQuoteUnits(
 }
 
 const LEDGER_PAGE_SIZES = [1000, 100];
-const LEDGER_SPLIT_AT = 1000;
+/** 이 건수까지는 페이지를 모두 읽는다. 넘으면 동을 골라 한 페이지만 읽어 평형을 고른다. */
+const FULL_FETCH_MAX = 1200;
+const FULL_FETCH_PAGES = 12;
+const DONG_SAMPLE = 12;
 
 function ledgerTotal(body: unknown): number {
   const total = Number((body as { response?: { body?: { totalCount?: string } } }).response?.body?.totalCount ?? 0);
@@ -409,12 +470,27 @@ async function fetchLedgerPage(
   sizeIndex = 0,
 ): Promise<{ items: Record<string, unknown>[]; total: number; size: number }> {
   const size = LEDGER_PAGE_SIZES[sizeIndex] ?? 100;
-  const body = await ledger(LEDGER_AREA, { ...base, numOfRows: String(size), pageNo: String(page) });
-  if (!ledgerOk(body)) {
+  try {
+    const body = await ledger(LEDGER_AREA, { ...base, numOfRows: String(size), pageNo: String(page) });
+    if (!ledgerOk(body)) {
+      if (sizeIndex < LEDGER_PAGE_SIZES.length - 1) return fetchLedgerPage(base, page, sizeIndex + 1);
+      throw new Error('LOOKUP_FAILED');
+    }
+    const items = ledgerItems(body);
+    const used = items.length > 0 && items.length < size ? items.length : size;
+    return { items, total: ledgerTotal(body), size: used };
+  } catch (e) {
+    if (e instanceof Error && e.message === 'LOOKUP_UNAVAILABLE') throw e;
     if (sizeIndex < LEDGER_PAGE_SIZES.length - 1) return fetchLedgerPage(base, page, sizeIndex + 1);
-    throw new Error('LOOKUP_FAILED');
+    throw e;
   }
-  return { items: ledgerItems(body), total: ledgerTotal(body), size };
+}
+
+function spreadNames(names: string[], max: number): string[] {
+  if (names.length <= max) return names;
+  const out: string[] = [];
+  for (let i = 0; i < max; i += 1) out.push(names[Math.floor((i * names.length) / max)]!);
+  return out;
 }
 
 /** totalCount까지 페이지를 모두 읽는다. 같은 페이지가 반복되면 멈춘다. */
@@ -423,7 +499,7 @@ async function fetchAllLedgerPages(base: Record<string, string>): Promise<Ledger
   let total = 0;
   let previous = '';
   let sizeIndex = 0;
-  const pageCap = 400;
+  const pageCap = FULL_FETCH_PAGES;
   for (let page = 1; page <= pageCap; page += 1) {
     const packed = await fetchLedgerPage(base, page, sizeIndex);
     const used = LEDGER_PAGE_SIZES.indexOf(packed.size);
@@ -484,14 +560,25 @@ async function fetchLedgerRows(plat: PlatKeys, dongNm: string, hoNm: string): Pr
 
   const first = await fetchLedgerPage(base, 1);
   if (!first.items.length) return [];
-  if (first.total > 0 && first.total <= LEDGER_SPLIT_AT) return fetchAllLedgerPages(base);
+  if (first.total > 0 && first.total <= FULL_FETCH_MAX) return fetchAllLedgerPages(base);
 
-  const dongs = await listLedgerDongs(plat);
-  if (dongs.length < 2) return fetchAllLedgerPages(base);
-  const parts = await mapPool(dongs, 4, (dong) => fetchAllLedgerPages({ ...base, dongNm: dong }));
-  const merged = parts.flat();
-  if (!merged.length || (first.total > 0 && merged.length < first.total * 0.8)) return fetchAllLedgerPages(base);
-  return merged;
+  const dongs = spreadNames(await listLedgerDongs(plat), DONG_SAMPLE);
+  if (dongs.length >= 2) {
+    const parts = await mapPool(dongs, 8, async (dong) => {
+      try {
+        const page = await fetchLedgerPage({ ...base, dongNm: dong }, 1, 1);
+        return page.items.map(toLedgerRow);
+      } catch (e) {
+        if (e instanceof Error && e.message === 'LOOKUP_UNAVAILABLE') throw e;
+        return [] as LedgerAreaRow[];
+      }
+    });
+    const merged = parts.flat();
+    if (summarizeExposAreas(merged).kind !== 'empty') return merged;
+  }
+  const sampled = first.items.map(toLedgerRow);
+  if (summarizeExposAreas(sampled).kind !== 'empty') return sampled;
+  return fetchAllLedgerPages(base);
 }
 
 function lotId(lot: RelLot): string {
