@@ -21,6 +21,9 @@ export type CrmQuoteLearningContext = {
   operatingCompanyId?: string;
 };
 
+/** 숨고 고객이 적은 면적 → 견적에 쓴 평수 */
+export type CrmQuoteAreaBasis = { wrote: string; buildingType: string; pyeong: string; reason: string };
+
 const FETCH_DEBOUNCE_MS = 400;
 const LOADING_UI_DELAY_MS = 280;
 const FETCH_TIMEOUT_MS = 12000;
@@ -103,8 +106,10 @@ export function CrmQuoteLearningHintBanner({
   onOpenLearningSettings,
   onApplyRecommended,
   baseAmountWon,
+  areaBasis = null,
 }: {
   context: CrmQuoteLearningContext;
+  areaBasis?: CrmQuoteAreaBasis | null;
   /** 업체 평당 기준가로 계산한 금액 — 추천가와 비교해 보여 줌 (초보 마케터가 추천가를 기준가로 오해하지 않게) */
   baseAmountWon?: number | null;
   onOpenLearningSettings?: () => void;
@@ -263,6 +268,14 @@ export function CrmQuoteLearningHintBanner({
         </ul>
       ) : null}
 
+      {areaBasis ? (
+        <p className="mt-1 rounded-md bg-white/70 px-1.5 py-1 leading-snug text-slate-700">
+          고객이 적은 값 <b className="font-semibold text-slate-900">{areaBasis.wrote}</b>
+          {areaBasis.buildingType ? ` · ${areaBasis.buildingType}` : ''} →{' '}
+          <b className="font-semibold text-slate-900">{areaBasis.pyeong}평</b>으로 견적
+          <span className="text-slate-500"> ({areaBasis.reason.replace(/^고객:\s*/, '')})</span>
+        </p>
+      ) : null}
       <p className="mt-1 text-slate-500">
         {quote
           ? `우리 업체 예약 ${quote.sampleCount.toLocaleString('ko-KR')}건으로 배운 금액이에요`

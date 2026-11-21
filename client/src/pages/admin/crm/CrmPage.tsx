@@ -208,6 +208,8 @@ export function CrmPage() {
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
   const [areaImport, setAreaImport] = useState<{ raw: string; key: number } | null>(null);
+  /** 숨고 고객 요청에 적힌 면적 원문 — AI 견적 근거로 보여 준다 */
+  const [areaSource, setAreaSource] = useState<{ question: string; answer: string; buildingType: string } | null>(null);
   const [areaResult, setAreaResult] = useState<TelecrmAreaResolveResult | null>(null);
   const [areaLocked, setAreaLocked] = useState(false);
   const areaLockedRef = useRef(false);
@@ -1006,6 +1008,7 @@ export function CrmPage() {
       setCustomerName('');
       setPyeong('');
       setAreaImport(null);
+      setAreaSource(null);
       setAreaResult(null);
       areaLockedRef.current = true;
       setAreaLocked(true);
@@ -1177,7 +1180,24 @@ export function CrmPage() {
       setSafePhone(split.safePhone ?? '');
       setContactUnknown(intakeDefaults.contactUnknown);
       setCustomerName(name);
-      const areaRaw = [data.pyeong, data.requestMemo || data.memo].filter(Boolean).join('\n');
+      // 숨고 질문이 「공급면적(평수)」이면 고객 답을 공급으로 본다 — 답에 공급·전용을 직접 적었으면 그대로 둔다
+      const areaPair = (data.requestPairs ?? []).find((pair) => /공급면적|전용면적|평수|평형|면적/.test(pair.question));
+      const areaAnswer = (areaPair?.answer || data.pyeong || '').trim();
+      const areaMark = /공급|분양|전용|실평/.test(areaAnswer)
+        ? ''
+        : /공급|분양/.test(areaPair?.question ?? '')
+          ? '공급면적 '
+          : /전용|실평/.test(areaPair?.question ?? '')
+            ? '전용면적 '
+            : '';
+      const areaRaw = [areaAnswer ? `${areaMark}${areaAnswer}` : '', data.requestMemo || data.memo]
+        .filter(Boolean)
+        .join('\n');
+      setAreaSource(
+        areaAnswer
+          ? { question: areaPair?.question?.trim() || '', answer: areaAnswer, buildingType: data.buildingType?.trim() || '' }
+          : null,
+      );
       areaLockedRef.current = false;
       setAreaLocked(false);
       setAreaResult(null);
@@ -2598,6 +2618,19 @@ export function CrmPage() {
                 isOneRoom: intakeStructure.isOneRoom,
                 operatingCompanyId: activeOperatingCompanyId ?? undefined,
               }}
+              areaBasis={
+                areaSource && pyeong.trim()
+                  ? {
+                      wrote: `${/공급|분양/.test(areaSource.question) ? '공급면적 ' : /전용|실평/.test(areaSource.question) ? '전용면적 ' : ''}${areaSource.answer}`,
+                      buildingType: areaSource.buildingType || intakeStructure.buildingType || '',
+                      pyeong: pyeong.trim(),
+                      reason:
+                        areaResult?.status === '확정' && String(areaResult.pyeong) === pyeong.trim()
+                          ? areaResult.reason
+                          : '상담사가 고른 평수',
+                    }
+                  : null
+              }
               onOpenLearningSettings={
                 canOpenSettings
                   ? () => openSettings('quote-learning', 'shared')
