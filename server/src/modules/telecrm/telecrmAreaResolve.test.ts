@@ -53,6 +53,34 @@ describe('면적 해석', () => {
     assert.equal(result.pyeong, null);
   });
 
+  it('아파트 84는 확인 필요, 후보 34평과 84평', () => {
+    const result = resolveTelecrmArea({ raw: '84', buildingType: '아파트' });
+    assert.equal(result.status, '확인 필요');
+    assert.equal(result.pyeong, null);
+    assert.equal(result.candidates[0]?.pyeong, 34);
+    assert.match(result.candidates[0]?.label ?? '', /84형/);
+    assert.equal(result.candidates[1]?.pyeong, 84);
+    assert.match(result.candidates[1]?.label ?? '', /84평/);
+  });
+
+  it('아파트 59는 확인 필요, 후보 25평과 59평', () => {
+    const result = resolveTelecrmArea({ raw: '59', buildingType: '아파트' });
+    assert.equal(result.status, '확인 필요');
+    assert.equal(result.pyeong, null);
+    assert.equal(result.candidates[0]?.pyeong, 25);
+    assert.match(result.candidates[0]?.label ?? '', /59형/);
+    assert.equal(result.candidates[1]?.pyeong, 59);
+  });
+
+  it('공급 22평은 전용 학습보다 고객 표시가 우선', () => {
+    const taught = draftAreaTeaching('아파트 고객이 22평이라고 하면 전용이야');
+    assert.ok(taught);
+    const result = resolveTelecrmArea({ raw: '공급 22평', buildingType: '아파트', rules: taught.rules.map((row) => row.spec) });
+    assert.equal(result.status, '확정');
+    assert.equal(result.pyeong, 22);
+    assert.equal(result.source, '기본 규칙');
+  });
+
   it('아파트 22평을 전용으로 배우면 공급 29평', () => {
     const taught = draftAreaTeaching('아파트 고객이 22평이라고 하면 전용이야');
     assert.ok(taught);

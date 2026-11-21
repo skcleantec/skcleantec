@@ -141,7 +141,7 @@ export async function resolveTelecrmAreaForTenant(input: {
           take: 40,
         })
       : Promise.resolve([]),
-    address.length >= 4 ? withTimeout(ledgerFor(input.tenantId, address), 3500) : Promise.resolve(null),
+    address.length >= 4 ? withTimeout(ledgerFor(input.tenantId, address), 6000) : Promise.resolve(null),
   ]);
   return resolveTelecrmArea({
     raw: input.raw,

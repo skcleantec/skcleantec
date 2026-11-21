@@ -665,6 +665,14 @@ export function CrmPage() {
       locked={areaLocked}
       pricePerPyeong={pricePerPyeong}
       minimumTotalAmount={minimumTotalAmount}
+      quoteContext={{
+        roomCount: intakeStructure.roomCount,
+        bathroomCount: intakeStructure.bathroomCount,
+        balconyCount: intakeStructure.balconyCount,
+        propertyType: intakeStructure.propertyType,
+        isOneRoom: intakeStructure.isOneRoom,
+        operatingCompanyId: activeOperatingCompanyId,
+      }}
       onPick={pickAreaPyeong}
     />
   );
