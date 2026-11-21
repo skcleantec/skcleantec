@@ -203,9 +203,8 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
 
   if (data.pyeong) {
     filled.push('pyeong');
-    const area = parseSoomgoAreaForCrm(data.pyeong, data.buildingType);
-    lines.push(`평수 → 추가 필드 (${area.pyeong}평)`);
-    if (area.note) lines.push(`⚠ ${area.note}`);
+    // 견적 평수는 면적 해석(공급·전용·건축물대장)이 정한다 — 여기서는 고객이 적은 값만 보여 준다
+    lines.push(`평수 → 고객이 적은 값 「${String(data.pyeong).trim()}」 (견적 평수는 평수 칸 아래에 표시)`);
   } else {
     empty.push('평수');
   }

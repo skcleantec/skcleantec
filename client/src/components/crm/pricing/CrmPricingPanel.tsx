@@ -184,6 +184,7 @@ export function CrmPricingPanel({
   compact = false,
   learningContext,
   onOpenLearningSettings,
+  areaBasis = null,
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
@@ -217,6 +218,7 @@ export function CrmPricingPanel({
   compact?: boolean;
   learningContext?: import('./CrmQuoteLearningHintBanner').CrmQuoteLearningContext;
   onOpenLearningSettings?: () => void;
+  areaBasis?: import('./CrmQuoteLearningHintBanner').CrmQuoteAreaBasis | null;
 }) {
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
@@ -622,6 +624,7 @@ export function CrmPricingPanel({
             <CrmQuoteLearningHintBanner
               context={learningContext}
               onOpenLearningSettings={onOpenLearningSettings}
+              areaBasis={areaBasis}
               onApplyRecommended={(input) => void applyAiRecommended(input)}
               baseAmountWon={catalogBaseEstimate}
             />
