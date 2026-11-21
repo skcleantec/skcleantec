@@ -1183,7 +1183,12 @@ export function CrmPage() {
       // 숨고 질문이 「공급면적(평수)」이면 고객 답을 공급으로 본다 — 답에 공급·전용을 직접 적었으면 그대로 둔다
       const areaPair = (data.requestPairs ?? []).find((pair) => /공급면적|전용면적|평수|평형|면적/.test(pair.question));
       const areaAnswer = (areaPair?.answer || data.pyeong || '').trim();
-      const areaMark = /공급|분양|전용|실평/.test(areaAnswer)
+      // ㎡로 적은 답만 질문 표시를 따른다. 평으로 적은 답(25평 등)과 59·84처럼 전용 대표 크기는 기존 확인 규칙에 맡긴다
+      const areaSqm = areaAnswer.match(/(\d{1,4}(?:[.,]\d+)?)\s*(?:㎡|m2|m²|제곱미터|평방미터)/i);
+      const areaSqmTypical = areaSqm
+        ? [39, 49, 59, 74, 84, 101, 114, 135].includes(Math.round(parseFloat(areaSqm[1].replace(',', '.'))))
+        : false;
+      const areaMark = /공급|분양|전용|실평/.test(areaAnswer) || !areaSqm || areaSqmTypical
         ? ''
         : /공급|분양/.test(areaPair?.question ?? '')
           ? '공급면적 '
@@ -2621,7 +2626,8 @@ export function CrmPage() {
               areaBasis={
                 areaSource && pyeong.trim()
                   ? {
-                      wrote: `${/공급|분양/.test(areaSource.question) ? '공급면적 ' : /전용|실평/.test(areaSource.question) ? '전용면적 ' : ''}${areaSource.answer}`,
+                      wrote: areaSource.answer,
+                      asked: areaSource.question,
                       buildingType: areaSource.buildingType || intakeStructure.buildingType || '',
                       pyeong: pyeong.trim(),
                       reason:

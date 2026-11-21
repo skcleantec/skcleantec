@@ -22,7 +22,7 @@ export type CrmQuoteLearningContext = {
 };
 
 /** 숨고 고객이 적은 면적 → 견적에 쓴 평수 */
-export type CrmQuoteAreaBasis = { wrote: string; buildingType: string; pyeong: string; reason: string };
+export type CrmQuoteAreaBasis = { wrote: string; asked?: string; buildingType: string; pyeong: string; reason: string };
 
 const FETCH_DEBOUNCE_MS = 400;
 const LOADING_UI_DELAY_MS = 280;
@@ -270,6 +270,7 @@ export function CrmQuoteLearningHintBanner({
 
       {areaBasis ? (
         <p className="mt-1 rounded-md bg-white/70 px-1.5 py-1 leading-snug text-slate-700">
+          {areaBasis.asked ? <span className="text-slate-500">숨고 질문 「{areaBasis.asked}」 · </span> : null}
           고객이 적은 값 <b className="font-semibold text-slate-900">{areaBasis.wrote}</b>
           {areaBasis.buildingType ? ` · ${areaBasis.buildingType}` : ''} →{' '}
           <b className="font-semibold text-slate-900">{areaBasis.pyeong}평</b>으로 견적
