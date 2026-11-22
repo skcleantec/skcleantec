@@ -216,8 +216,17 @@ export function CrmScriptPanel({
     browseTelecrmResponseCards(token, activeOperatingCompanyId)
       .then((res) => {
         if (!alive) return;
-        setCards(res.items ?? []);
+        const items = res.items ?? [];
+        setCards(items);
         setCardsError(null);
+        if (items.some((item) => typeof item.myCopyCount === 'number')) {
+          const next: Record<string, number> = {};
+          for (const item of items) {
+            const count = item.myCopyCount ?? 0;
+            if (count > 0) next[item.id] = count;
+          }
+          setCopyCounts(next);
+        }
       })
       .catch((e) => {
         if (!alive) return;

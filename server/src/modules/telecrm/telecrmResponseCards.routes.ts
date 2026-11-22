@@ -4,6 +4,7 @@ import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import { requireCrmWorkOperatingCompanyId, requireTelecrmTenant } from './telecrm.helpers.js';
 import { coachResponseCards } from './telecrmResponseCards.coach.js';
 import {
+  browseResponseCards,
   feedbackResponseCard,
   importResponseCards,
   isResponseCardStatus,
@@ -111,6 +112,26 @@ router.get('/search', async (req, res) => {
   } catch (e) {
     console.error('[telecrm-cards] search failed', e instanceof Error ? e.message : e);
     res.status(500).json({ error: '대응 카드를 찾지 못했습니다.' });
+  }
+});
+
+router.get('/browse', async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
+  try {
+    res.json(
+      await browseResponseCards({
+        tenantId,
+        userId: user.userId,
+        operatingCompanyId,
+      }),
+    );
+  } catch (e) {
+    console.error('[telecrm-cards] browse failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '대응 카드를 불러오지 못했습니다.' });
   }
 });
 
@@ -241,6 +262,7 @@ router.get('/', async (req, res) => {
 router.post('/:id/feedback', async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
   const action = (req.body as { action?: unknown })?.action;
   if (action !== 'copy' && action !== 'up' && action !== 'down') {
     res.status(400).json({ error: '피드백 종류를 확인해 주세요.' });
@@ -252,6 +274,7 @@ router.post('/:id/feedback', async (req, res) => {
   try {
     const result = await feedbackResponseCard({
       tenantId,
+      userId: user.userId,
       operatingCompanyId,
       id: req.params.id,
       action,
