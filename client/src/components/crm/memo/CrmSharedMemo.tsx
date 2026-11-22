@@ -87,7 +87,12 @@ export function CrmSharedMemoStrip({
   onOpen: () => void;
   onUnpin: () => void;
 }) {
-  const firstLine = body.split('\n').find((line) => line.trim())?.trim() ?? '';
+  // 한 줄에 들어가는 만큼 — 줄바꿈은 「 · 」로 이어 붙인다
+  const firstLine = body
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' · ');
   if (!firstLine) return null;
   return (
     <div className="flex items-center gap-2 border-b border-[#f3d58a] bg-[#fffbeb] px-3 py-1 text-fluid-xs text-amber-950">
