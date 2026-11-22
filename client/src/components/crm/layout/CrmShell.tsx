@@ -107,7 +107,7 @@ export function CrmShell({
       {topBar}
       <div className="box-border flex min-h-0 min-w-0 flex-1 gap-3 p-3">
         {toolNav}
-        <div className="grid h-full min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,28fr)_minmax(0,40fr)_minmax(0,32fr)] gap-3">
+        <div className="grid h-full min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,24fr)_minmax(0,48fr)_minmax(0,28fr)] gap-3">
           <div className="flex h-full min-h-0 min-w-0 flex-col">{left}</div>
           <div className="flex h-full min-h-0 min-w-0 flex-col">{center}</div>
           <div className="flex h-full min-h-0 min-w-0 flex-col">{right}</div>
