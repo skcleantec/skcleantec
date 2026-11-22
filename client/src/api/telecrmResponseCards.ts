@@ -36,6 +36,8 @@ export type TelecrmResponseCardDto = {
   operatingCompanyId: string | null;
   status?: TelecrmResponseCardStatus | string;
   useCount?: number;
+  /** 이 카드를 요청한 상담사가 복사한 횟수 */
+  myCopyCount?: number;
   upCount?: number;
   downCount?: number;
   approvedAt?: string | null;

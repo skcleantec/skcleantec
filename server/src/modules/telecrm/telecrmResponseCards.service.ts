@@ -285,6 +285,94 @@ export async function searchResponseCards(params: {
   };
 }
 
+const CARD_LIST_SELECT = {
+  id: true,
+  operatingCompanyId: true,
+  code: true,
+  category: true,
+  title: true,
+  triggers: true,
+  intent: true,
+  responses: true,
+  avoid: true,
+  rule: true,
+  sources: true,
+  wonInCall: true,
+  status: true,
+  useCount: true,
+  upCount: true,
+  downCount: true,
+  approvedAt: true,
+  updatedAt: true,
+} as const;
+
+function serializeListedCard(
+  row: {
+    id: string;
+    operatingCompanyId: string | null;
+    code: string;
+    category: string;
+    title: string;
+    triggers: Prisma.JsonValue;
+    intent: string;
+    responses: Prisma.JsonValue;
+    avoid: Prisma.JsonValue;
+    rule: string;
+    sources: Prisma.JsonValue;
+    wonInCall: boolean;
+    status: string;
+    useCount: number;
+    upCount: number;
+    downCount: number;
+    approvedAt: Date | null;
+    updatedAt: Date;
+  },
+  extra?: { myCopyCount?: number },
+) {
+  return {
+    ...toResponseCardDto({ ...toCached({ ...row, embedding: null }), status: row.status }),
+    status: row.status,
+    useCount: row.useCount,
+    upCount: row.upCount,
+    downCount: row.downCount,
+    approvedAt: row.approvedAt?.toISOString() ?? null,
+    updatedAt: row.updatedAt.toISOString(),
+    ...extra,
+  };
+}
+
+/** 상담사가 자기 브랜드의 승인 카드를 훑어본다. embedding은 빼 둔다. */
+export async function browseResponseCards(params: {
+  tenantId: string;
+  userId: string;
+  operatingCompanyId: string;
+}) {
+  const rows = await prisma.telecrmResponseCard.findMany({
+    where: {
+      tenantId: params.tenantId,
+      operatingCompanyId: params.operatingCompanyId,
+      status: 'approved',
+    },
+    orderBy: [{ code: 'asc' }],
+    take: 400,
+    select: CARD_LIST_SELECT,
+  });
+  const stats = rows.length
+    ? await prisma.telecrmResponseCardUserStat.findMany({
+        where: {
+          tenantId: params.tenantId,
+          userId: params.userId,
+          cardId: { in: rows.map((row) => row.id) },
+        },
+        select: { cardId: true, copyCount: true },
+      })
+    : [];
+  const copies = new Map(stats.map((row) => [row.cardId, row.copyCount]));
+  return {
+    items: rows.map((row) => serializeListedCard(row, { myCopyCount: copies.get(row.id) ?? 0 })),
+  };
+}
+
 export async function listResponseCards(params: {
   tenantId: string;
   status: ResponseCardStatus;
@@ -301,38 +389,9 @@ export async function listResponseCards(params: {
         : {}),
     },
     orderBy: [{ code: 'asc' }],
-    select: {
-      id: true,
-      operatingCompanyId: true,
-      code: true,
-      category: true,
-      title: true,
-      triggers: true,
-      intent: true,
-      responses: true,
-      avoid: true,
-      rule: true,
-      sources: true,
-      wonInCall: true,
-      status: true,
-      useCount: true,
-      upCount: true,
-      downCount: true,
-      approvedAt: true,
-      updatedAt: true,
-    },
+    select: CARD_LIST_SELECT,
   });
-  return {
-    items: rows.map((row) => ({
-      ...toResponseCardDto({ ...toCached({ ...row, embedding: null }), status: row.status }),
-      status: row.status,
-      useCount: row.useCount,
-      upCount: row.upCount,
-      downCount: row.downCount,
-      approvedAt: row.approvedAt?.toISOString() ?? null,
-      updatedAt: row.updatedAt.toISOString(),
-    })),
-  };
+  return { items: rows.map((row) => serializeListedCard(row)) };
 }
 
 export type ResponseCardPatch = {
@@ -407,6 +466,7 @@ export async function patchResponseCard(params: {
 
 export async function feedbackResponseCard(params: {
   tenantId: string;
+  userId: string;
   operatingCompanyId: string;
   id: string;
   action: 'copy' | 'up' | 'down';
@@ -435,6 +495,20 @@ export async function feedbackResponseCard(params: {
     data,
   });
   if (updated.count !== 1) return { ok: false, status: 404, error: '승인된 대응 카드를 찾을 수 없습니다.' };
+  if (params.action === 'copy') {
+    const now = new Date();
+    await prisma.telecrmResponseCardUserStat.upsert({
+      where: { cardId_userId: { cardId: params.id, userId: params.userId } },
+      create: {
+        tenantId: params.tenantId,
+        cardId: params.id,
+        userId: params.userId,
+        copyCount: 1,
+        lastCopiedAt: now,
+      },
+      update: { copyCount: { increment: 1 }, lastCopiedAt: now },
+    });
+  }
   const row = await prisma.telecrmResponseCard.findFirst({
     where: {
       id: params.id,

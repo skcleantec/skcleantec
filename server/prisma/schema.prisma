@@ -378,6 +378,7 @@ model Tenant {
   telecrmAiUsageLogs TelecrmAiUsageLog[]
   telecrmAiSummaries TelecrmAiSummary[]
   telecrmResponseCards TelecrmResponseCard[]
+  telecrmResponseCardUserStats TelecrmResponseCardUserStat[]
   telecrmResponseSearchLogs TelecrmResponseSearchLog[]
   alimtalkWallet TenantAlimtalkWallet?
   alimtalkTemplateSettings TenantAlimtalkTemplateSetting[]
@@ -2273,6 +2274,7 @@ model User {
   telecrmAiSummaries           TelecrmAiSummary[]
   telecrmResponseCardsCreated  TelecrmResponseCard[] @relation("TelecrmResponseCardCreatedBy")
   telecrmResponseCardsApproved TelecrmResponseCard[] @relation("TelecrmResponseCardApprovedBy")
+  telecrmResponseCardUserStats TelecrmResponseCardUserStat[]
   telecrmResponseSearchLogs    TelecrmResponseSearchLog[]
   quickPasteAiUsageLogs        QuickPasteAiUsageLog[]
   planUpgradeRequestsRequested TenantPlanUpgradeRequest[] @relation("TenantPlanUpgradeRequestRequester")
@@ -5598,11 +5600,29 @@ model TelecrmResponseCard {
   approvedAt         DateTime?         @map("approved_at")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
+  userStats          TelecrmResponseCardUserStat[]
 
   @@unique([tenantId, operatingCompanyId, code])
   @@index([tenantId, status])
   @@index([tenantId, operatingCompanyId, status])
   @@map("telecrm_response_cards")
+}
+
+/// 상담사가 대응 카드를 복사한 횟수. 카드 전체 횟수(useCount)와 따로 둔다.
+model TelecrmResponseCardUserStat {
+  id           String              @id @default(uuid())
+  tenantId     String              @map("tenant_id")
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cardId       String              @map("card_id")
+  card         TelecrmResponseCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId       String              @map("user_id")
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  copyCount    Int                 @default(0) @map("copy_count")
+  lastCopiedAt DateTime            @map("last_copied_at")
+
+  @@unique([cardId, userId])
+  @@index([tenantId, userId])
+  @@map("telecrm_response_card_user_stats")
 }
 
 /// 텔레CRM 대응 카드 검색 기록 — 결과 0건은 카드 없음 집계용. 원문 상담은 저장하지 않는다.
