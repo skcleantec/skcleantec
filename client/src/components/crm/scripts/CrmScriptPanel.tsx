@@ -12,19 +12,41 @@ import { CrmColumn } from '../layout/CrmShell';
 import { CrmIconCopy, CrmIconSearch } from '../crmUi';
 import { applyTelecrmScriptPlaceholders } from './applyTelecrmScriptPlaceholders';
 import { findScriptMatches, normalizeScriptQuery } from './scriptSearch';
-import { CrmResponseCardResults } from './CrmResponseCardResults';
-import type { TelecrmResponseCardCustomer } from '../../../api/telecrmResponseCards';
+import { CrmReactionBrowser } from './CrmReactionBrowser';
+import {
+  browseTelecrmResponseCards,
+  type TelecrmResponseCardCustomer,
+  type TelecrmResponseCardDto,
+} from '../../../api/telecrmResponseCards';
 
 export const CRM_SCRIPT_SHORTCUT_HELP = [
   '상담 스크립트',
   '• / : 찾기 칸으로 이동',
-  '• Esc : 답 카드를 닫거나, 찾기 칸을 비워요',
-  '• 위 숫자 단추로 단계를 옮기고, 아래는 고객이 한 말에 대한 답이에요',
+  '• Esc : 찾기 칸을 비워요',
+  '• 「대본」 탭은 단계별 대본, 「고객 반응」 탭은 고객이 한 말에 대한 답이에요',
+  '• 고객 반응: 찾기 칸에서 ↓ 로 목록, ↑↓ 이동, Enter 펼치기, 1~4 그 문장 복사',
 ].join('\n');
 
 type ScriptAudience = 'shared' | 'personal';
 
 const AUDIENCE_KEY = 'crm.scriptAudience.v1';
+const CARD_COPIES_KEY = 'crm.cardCopies.v1';
+
+type ScriptView = 'script' | 'reaction';
+
+function readCardCopies(brand: string | null): Record<string, number> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(`${CARD_COPIES_KEY}:${brand ?? 'all'}`) ?? '{}') as unknown;
+    if (!raw || typeof raw !== 'object') return {};
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof v === 'number' && v > 0) out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 type FlowTab = {
   id: string;
@@ -144,7 +166,12 @@ export function CrmScriptPanel({
   const [query, setQuery] = useState('');
   const [stepId, setStepId] = useState<string | null>(null);
   const [tabId, setTabId] = useState<string | null>(null);
-  const [reactionId, setReactionId] = useState<string | null>(null);
+  const [view, setView] = useState<ScriptView>('script');
+  const [cards, setCards] = useState<TelecrmResponseCardDto[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(false);
+  const [cardsError, setCardsError] = useState<string | null>(null);
+  const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [copyCounts, setCopyCounts] = useState<Record<string, number>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [reactionOrder, setReactionOrder] = useState<string[]>([]);
   const [closingIndex, setClosingIndex] = useState(0);
@@ -179,6 +206,44 @@ export function CrmScriptPanel({
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  // 고객 반응 탭에 쓸 「사용 중」 대응 카드 전체
+  useEffect(() => {
+    if (!token || brandLoading) return;
+    let alive = true;
+    setCardsLoading(true);
+    setCopyCounts(readCardCopies(activeOperatingCompanyId));
+    browseTelecrmResponseCards(token, activeOperatingCompanyId)
+      .then((res) => {
+        if (!alive) return;
+        setCards(res.items ?? []);
+        setCardsError(null);
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setCards([]);
+        setCardsError(e instanceof Error ? e.message : '대응 카드를 불러오지 못했어요.');
+      })
+      .finally(() => alive && setCardsLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [token, brandLoading, activeOperatingCompanyId, refreshKey]);
+
+  const onCardCopied = useCallback(
+    (cardId: string) => {
+      setCopyCounts((prev) => {
+        const next = { ...prev, [cardId]: (prev[cardId] ?? 0) + 1 };
+        try {
+          localStorage.setItem(`${CARD_COPIES_KEY}:${activeOperatingCompanyId ?? 'all'}`, JSON.stringify(next));
+        } catch {
+          /* 저장이 안 돼도 화면은 그대로 쓴다 */
+        }
+        return next;
+      });
+    },
+    [activeOperatingCompanyId],
+  );
 
   const estimateLabel =
     estimateWon != null && Number.isFinite(estimateWon)
@@ -299,8 +364,6 @@ export function CrmScriptPanel({
       });
   }, [flowTabs, needle, searching]);
 
-  const openReaction = reactions.find((tab) => tab.id === reactionId) ?? null;
-
   const copyText = useCallback(async (id: string, text: string) => {
     if (!text) return;
     try {
@@ -313,9 +376,9 @@ export function CrmScriptPanel({
     }
   }, []);
 
-  const openReactionCard = useCallback(
-    (tab: FlowTab) => {
-      setReactionId(tab.id);
+  const markOldReactionUsed = useCallback(
+    (reactionTabId: string) => {
+      const tab = { id: reactionTabId };
       setCategories((prev) =>
         prev.map((category) => ({
           ...category,
@@ -344,11 +407,6 @@ export function CrmScriptPanel({
         return;
       }
       if (e.key === 'Escape') {
-        if (reactionId) {
-          e.preventDefault();
-          setReactionId(null);
-          return;
-        }
         if (query) {
           e.preventDefault();
           setQuery('');
@@ -357,11 +415,11 @@ export function CrmScriptPanel({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [query, reactionId]);
+  }, [query]);
 
   const selectStep = (step: TelecrmScriptCategoryDto) => {
     setQuery('');
-    setReactionId(null);
+    setView('script');
     setStepId(step.id);
     setTabId(null);
   };
@@ -409,13 +467,84 @@ export function CrmScriptPanel({
     </div>
   );
 
+  const shownView: ScriptView = searching ? 'reaction' : view;
+  const reactionTotal = cards.length + reactions.length;
+  const quickCards = useMemo(() => {
+    const mine = cards
+      .filter((c) => (copyCounts[c.id] ?? 0) > 0)
+      .sort((a, b) => (copyCounts[b.id] ?? 0) - (copyCounts[a.id] ?? 0));
+    const rest = cards
+      .filter((c) => !mine.includes(c))
+      .sort((a, b) => Number(b.wonInCall) - Number(a.wonInCall) || (b.useCount ?? 0) - (a.useCount ?? 0));
+    return [...mine, ...rest].slice(0, 3);
+  }, [cards, copyCounts]);
+
+  const scriptMatchesNode = searching ? (
+    <div className="space-y-2">
+            <p className="pt-1 text-fluid-xs font-semibold text-slate-700">내 대본에서 찾은 것 {matches.length}개</p>
+            {matches.length === 0 ? (
+              <p className="text-fluid-xs text-slate-500">「{query.trim()}」와 맞는 대본이 없어요.</p>
+            ) : (
+              matches.map((tab) => (
+                <article key={tab.id} className="rounded-lg border border-slate-200 bg-white p-2">
+                  <div className="mb-1 flex flex-wrap items-center gap-1">
+                    <span className="rounded-full bg-slate-100 px-1.5 text-fluid-2xs font-medium text-slate-600">
+                      {tab.shared ? '공용' : '내 것'}
+                    </span>
+                    <span className="rounded-full bg-violet-50 px-1.5 text-fluid-2xs font-medium text-[#6d28d9]">
+                      {tab.kind === 'reaction' ? '고객 반응' : tab.kind === 'closing' ? '예약 끌어내기' : '대본'}
+                    </span>
+                    <span className="min-w-0 text-fluid-xs font-semibold text-slate-800">
+                      {tab.categoryLabel} · {tab.title}
+                    </span>
+                  </div>
+                  {bodyBlock(tab.id, tab.body)}
+                </article>
+              ))
+            )}
+    </div>
+  ) : null;
+
   const inner = loading ? (
     <p className="px-2 py-1.5 text-fluid-xs text-slate-500">불러오는 중…</p>
   ) : error ? (
     <p className="px-2 py-1.5 text-fluid-xs text-red-600">{error}</p>
   ) : (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 space-y-1.5 border-b border-violet-100 px-2 py-1.5">
+      <div
+        className="flex shrink-0 gap-1 px-2"
+        style={{ borderBottom: '1px solid #e2e8f0' }}
+        role="tablist"
+        aria-label="대본 또는 고객 반응"
+      >
+        {(['script', 'reaction'] as const).map((v) => {
+          const on = shownView === v;
+          return (
+            <ScriptBtn
+              key={v}
+              role="tab"
+              aria-selected={on}
+              onClick={() => {
+                setView(v);
+                if (v === 'script') setQuery('');
+              }}
+              className="inline-flex items-center gap-1 bg-transparent px-2.5"
+              style={{
+                height: 36,
+                marginBottom: -1,
+                borderBottom: on ? '2px solid #6d28d9' : '2px solid transparent',
+                fontSize: '0.875rem',
+                fontWeight: on ? 700 : 500,
+                color: on ? '#6d28d9' : '#475569',
+              }}
+            >
+              {v === 'script' ? '대본' : '고객 반응'}
+              {v === 'reaction' && reactionTotal > 0 ? <span style={{ fontWeight: 500 }}>{reactionTotal}</span> : null}
+            </ScriptBtn>
+          );
+        })}
+      </div>
+      <div className={`shrink-0 space-y-1.5 px-2 py-1.5 ${shownView === 'script' ? 'border-b border-violet-100' : ''}`}>
         <div className="flex items-center gap-1">
           <div className="relative min-w-0 flex-1">
             <CrmIconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-violet-400" />
@@ -426,6 +555,7 @@ export function CrmScriptPanel({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="고객이 뭐라고 했나요? (예: 외창, 비싸, 상의)"
               aria-label="고객 말 그대로 찾기"
+              data-crm-script-search="1"
               className="h-[34px] w-full rounded-lg border border-violet-300 bg-white pl-8 pr-14 text-fluid-xs text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-[#6d28d9] focus:outline-none focus:ring-2 focus:ring-violet-200 [&::-webkit-search-cancel-button]:hidden"
             />
             {query ? (
@@ -447,6 +577,7 @@ export function CrmScriptPanel({
               </ScriptBtn>
             ) : null}
           </div>
+          {shownView === 'script' ? (
           <div className="inline-flex h-7 shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5" role="group" aria-label="공용 또는 내 것">
             <ScriptBtn
               onClick={() => {
@@ -479,7 +610,9 @@ export function CrmScriptPanel({
               내 것 {personalCount}
             </ScriptBtn>
           </div>
+          ) : null}
         </div>
+        {shownView === 'script' ? (
         <div
           className="flex w-full min-w-0 flex-wrap overflow-x-hidden"
           style={{ columnGap: 14, borderBottom: '1px solid #e2e8f0' }}
@@ -506,62 +639,35 @@ export function CrmScriptPanel({
             </p>
           )}
         </div>
+        ) : null}
       </div>
 
+      {shownView === 'reaction' ? (
+        <CrmReactionBrowser
+          query={query}
+          operatingCompanyId={activeOperatingCompanyId}
+          customer={{
+            ...(pyeong ? { pyeong } : {}),
+            ...(activeBrand?.name ? { brand: activeBrand.name } : {}),
+            ...(currentStep?.label ? { step: currentStep.label } : {}),
+            ...coachQuote,
+          }}
+          stageLabel={currentStep ? stepTabLabel(currentStep.label) : undefined}
+          cards={cards}
+          cardsLoading={cardsLoading}
+          cardsError={cardsError}
+          openCardId={openCardId}
+          onOpenCard={setOpenCardId}
+          copyCounts={copyCounts}
+          onCardCopied={onCardCopied}
+          oldReactions={reactions.map((tab) => ({ id: tab.id, label: reactionButtonLabel(tab), body: tab.body }))}
+          onUseOldReaction={markOldReactionUsed}
+          scriptMatches={scriptMatchesNode}
+        />
+      ) : (
+      <>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-        {searching ? (
-          <div className="space-y-2">
-            <CrmResponseCardResults
-              query={query}
-              operatingCompanyId={activeOperatingCompanyId}
-              customer={{
-                ...(pyeong ? { pyeong } : {}),
-                ...(activeBrand?.name ? { brand: activeBrand.name } : {}),
-                ...(currentStep?.label ? { step: currentStep.label } : {}),
-                ...coachQuote,
-              }}
-            />
-            <p className="pt-1 text-fluid-xs font-semibold text-slate-700">내 대본에서 찾은 것 {matches.length}개</p>
-            {matches.length === 0 ? (
-              <p className="text-fluid-xs text-slate-500">「{query.trim()}」와 맞는 대본이 없어요.</p>
-            ) : (
-              matches.map((tab) => (
-                <article key={tab.id} className="rounded-lg border border-slate-200 bg-white p-2">
-                  <div className="mb-1 flex flex-wrap items-center gap-1">
-                    <span className="rounded-full bg-slate-100 px-1.5 text-fluid-2xs font-medium text-slate-600">
-                      {tab.shared ? '공용' : '내 것'}
-                    </span>
-                    <span className="rounded-full bg-violet-50 px-1.5 text-fluid-2xs font-medium text-[#6d28d9]">
-                      {tab.kind === 'reaction' ? '고객 반응' : tab.kind === 'closing' ? '예약 끌어내기' : '대본'}
-                    </span>
-                    <span className="min-w-0 text-fluid-xs font-semibold text-slate-800">
-                      {tab.categoryLabel} · {tab.title}
-                    </span>
-                  </div>
-                  {bodyBlock(tab.id, tab.body)}
-                </article>
-              ))
-            )}
-            {closingPhrase ? (
-              <div className="rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-2 py-2">
-                <p className="text-fluid-2xs font-semibold text-[#c2410c]">
-                  예약 끌어내기 · 고객이 「할게요」 하기 전에 먼저
-                </p>
-                <p className="mt-1 whitespace-pre-wrap text-slate-800" style={bodyStyle}>
-                  {closingPhrase.body || '(멘트가 비어 있어요)'}
-                </p>
-                {closingTabs.length > 1 ? (
-                  <ScriptBtn
-                    onClick={() => setClosingIndex((index) => index + 1)}
-                    className="mt-2 inline-flex h-8 items-center rounded-lg border border-[#fed7aa] bg-white px-2 text-fluid-xs font-semibold text-[#c2410c] hover:bg-[#ffedd5]"
-                  >
-                    다른 멘트
-                  </ScriptBtn>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : currentStep && currentTab ? (
+        {currentStep && currentTab ? (
           <div className="space-y-2">
             <h3 className="text-fluid-sm font-semibold text-slate-900">{currentStep.label}</h3>
             {currentTabs.length >= 2 ? (
@@ -631,45 +737,28 @@ export function CrmScriptPanel({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-violet-100 bg-violet-50/40 px-2 py-1.5">
-        <p className="mb-1 text-fluid-2xs font-semibold text-[#6d28d9]">고객이 이렇게 말하면</p>
-        {reactions.length === 0 ? (
-          <p className="text-fluid-2xs text-slate-500">고객 반응 버튼이 아직 없어요.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-1">
-            {reactions.map((tab) => (
-              <ScriptBtn
-                key={tab.id}
-                onClick={() => openReactionCard(tab)}
-                className={`min-h-8 rounded-lg border bg-white px-2 py-1 text-left text-fluid-2xs font-medium leading-snug text-slate-800 hover:bg-violet-50 ${
-                  reactionId === tab.id ? 'border-[#6d28d9]' : 'border-violet-200'
-                }`}
-              >
-                {reactionButtonLabel(tab)}
-              </ScriptBtn>
-            ))}
-          </div>
-        )}
+      <div className="flex shrink-0 items-center gap-1 border-t border-violet-100 bg-violet-50/60 px-2 py-1.5">
+        <ScriptBtn
+          onClick={() => setView('reaction')}
+          className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#6d28d9] px-2.5 text-fluid-2xs font-bold text-white hover:bg-[#5b21b6]"
+        >
+          고객 반응 보기{reactionTotal > 0 ? ` (${reactionTotal})` : ''}
+        </ScriptBtn>
+        {quickCards.map((card) => (
+          <ScriptBtn
+            key={card.id}
+            onClick={() => {
+              setOpenCardId(card.id);
+              setView('reaction');
+            }}
+            className="h-8 min-w-0 truncate rounded-lg border border-violet-200 bg-white px-2 text-fluid-2xs font-medium text-slate-800 hover:bg-violet-50"
+          >
+            {(card.triggers[0] || card.title).trim()}
+          </ScriptBtn>
+        ))}
       </div>
-
-      {openReaction ? (
-        <div className="absolute inset-x-0 bottom-0 z-10 flex max-h-[75%] flex-col rounded-t-2xl border border-violet-200 bg-white shadow-lg">
-          <div className="flex items-center gap-2 border-b border-violet-100 px-2 py-1.5">
-            <p className="min-w-0 flex-1 text-fluid-xs font-semibold text-slate-900">
-              {reactionButtonLabel(openReaction)}
-            </p>
-            <ScriptBtn
-              onClick={() => setReactionId(null)}
-              className="inline-flex h-8 shrink-0 items-center rounded-lg px-2 text-fluid-2xs font-semibold text-[#6d28d9] hover:bg-violet-50"
-            >
-              대본으로 돌아가기 · {currentStep?.label ?? '지금 단계'}
-            </ScriptBtn>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-            {bodyBlock(openReaction.id, openReaction.body)}
-          </div>
-        </div>
-      ) : null}
+      </>
+      )}
     </div>
   );
 

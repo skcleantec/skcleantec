@@ -193,6 +193,21 @@ export async function listTelecrmResponseCards(
   return parseJson(res);
 }
 
+/**
+ * 상담사가 훑어보는 「사용 중」 카드 전체.
+ * 서버에 훑어보기 주소가 아직 없으면(404) 관리자 목록으로 대신한다.
+ */
+export async function browseTelecrmResponseCards(
+  token: string,
+  operatingCompanyId?: string | null,
+): Promise<{ items: TelecrmResponseCardDto[] }> {
+  const qs = new URLSearchParams();
+  appendCrmWorkBrandQuery(qs, operatingCompanyId);
+  const res = await fetch(`${API}/browse?${qs}`, { headers: authHeaders(token) });
+  if (res.status === 404) return listTelecrmResponseCards(token, 'approved', operatingCompanyId);
+  return parseJson(res);
+}
+
 export async function patchTelecrmResponseCard(
   token: string,
   id: string,
