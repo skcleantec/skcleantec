@@ -40,7 +40,14 @@ export type CrmToolNavItem = {
 };
 
 /** CRM 좌측 접이식 도구 메뉴 (관리자 솔루션 사이드와 유사) */
-export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
+export function CrmToolSideNav({
+  items,
+  expandedExtra,
+}: {
+  items: CrmToolNavItem[];
+  /** 메뉴를 펼쳤을 때만 단추 아래 빈 자리에 보여 줄 것 (예: 공유 메모) */
+  expandedExtra?: ReactNode;
+}) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
 
   const setCollapsedPersisted = useCallback((next: boolean) => {
@@ -79,7 +86,7 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
           </div>
         )}
 
-        <nav className="min-h-0 flex-1 overflow-y-auto py-2">
+        <nav className={`min-h-0 overflow-y-auto py-2 ${!collapsed && expandedExtra ? 'shrink-0' : 'flex-1'}`}>
           <ul className="space-y-0.5 px-1.5">
             {items.map((item) => (
               <li key={item.id}>
@@ -121,6 +128,10 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
             ))}
           </ul>
         </nav>
+
+        {!collapsed && expandedExtra ? (
+          <div className="flex min-h-0 flex-1 flex-col border-t border-slate-800 p-1.5">{expandedExtra}</div>
+        ) : null}
 
         <div className="border-t border-slate-800 p-1.5">
           <button
