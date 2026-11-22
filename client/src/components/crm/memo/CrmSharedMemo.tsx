@@ -75,6 +75,38 @@ export function CrmIconMemo({ className = 'h-[18px] w-[18px]' }: { className?: s
   );
 }
 
+/** 도구 메뉴를 펼쳤을 때 단추 아래에 바로 보이는 메모 쪽지 — 누르면 창이 열린다 */
+export function CrmSharedMemoNote({
+  body,
+  unread,
+  updatedBy,
+  onOpen,
+}: {
+  body: string;
+  unread: boolean;
+  updatedBy?: string | null;
+  onOpen: () => void;
+}) {
+  const text = body.trim();
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title="공유 메모 크게 보기"
+      className="flex min-h-0 flex-1 flex-col rounded-xl border border-[#f3d58a] bg-[#fffbeb] px-2 py-1.5 text-left hover:bg-[#fef3c7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+    >
+      <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-amber-950">
+        공유 메모
+        {unread ? <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-label="새 글" /> : null}
+      </span>
+      <span className="mt-1 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words text-[11.5px] leading-snug text-slate-800">
+        {text || '아직 적힌 메모가 없어요.'}
+      </span>
+      {updatedBy ? <span className="mt-1 shrink-0 truncate text-[10.5px] text-amber-900/80">{updatedBy}</span> : null}
+    </button>
+  );
+}
+
 /** 맨 위 한 줄 고정 띠 */
 export function CrmSharedMemoStrip({
   body,

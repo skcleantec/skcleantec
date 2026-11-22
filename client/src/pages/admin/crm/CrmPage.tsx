@@ -27,6 +27,7 @@ import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import {
   CrmIconMemo,
   CrmSharedMemoDrawer,
+  CrmSharedMemoNote,
   CrmSharedMemoStrip,
   useCrmSharedMemo,
 } from '../../../components/crm/memo/CrmSharedMemo';
@@ -2397,6 +2398,16 @@ export function CrmPage() {
           toolNav={
             !isMobileApp ? (
               <CrmToolSideNav
+                expandedExtra={
+                  sharedMemo.board && !sharedMemo.blocked ? (
+                    <CrmSharedMemoNote
+                      body={sharedMemo.board.body}
+                      unread={sharedMemo.unread}
+                      updatedBy={sharedMemo.board.updatedBy?.name}
+                      onOpen={openSharedMemo}
+                    />
+                  ) : undefined
+                }
                 items={[
                   {
                     id: 'shared-memo',
