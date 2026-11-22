@@ -24,6 +24,12 @@ import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
 import { CrmHeaderStats } from '../../../components/crm/session/CrmHeaderStats';
 import { CrmToolSideNav, CrmIconMessage } from '../../../components/crm/layout/CrmToolSideNav';
 import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
+import {
+  CrmIconMemo,
+  CrmSharedMemoDrawer,
+  CrmSharedMemoStrip,
+  useCrmSharedMemo,
+} from '../../../components/crm/memo/CrmSharedMemo';
 import { CrmSoomgoDrawer } from '../../../components/crm/soomgo/CrmSoomgoDrawer';
 import { CrmSoomgoStaleCleanupModal } from '../../../components/crm/soomgo/CrmSoomgoStaleCleanupModal';
 import { CrmSoomgoAlertDrawer, CrmIconBell } from '../../../components/crm/soomgo/CrmSoomgoAlertDrawer';
@@ -294,6 +300,12 @@ export function CrmPage() {
   const [soomgoHiredOther, setSoomgoHiredOther] = useState(false);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
+  const [sharedMemoOpen, setSharedMemoOpen] = useState(false);
+  const sharedMemo = useCrmSharedMemo(!isMobileApp);
+  const openSharedMemo = () => {
+    sharedMemo.markSeen();
+    setSharedMemoOpen(true);
+  };
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
   const [misoDrawerOpen, setMisoDrawerOpen] = useState(false);
   const [soomgoAlertDrawerOpen, setSoomgoAlertDrawerOpen] = useState(false);
@@ -2176,6 +2188,14 @@ export function CrmPage() {
           topBar={
             !isMobileApp ? (
               <>
+                {sharedMemo.pinned && sharedMemo.board && !sharedMemo.blocked ? (
+                  <CrmSharedMemoStrip
+                    body={sharedMemo.board.body}
+                    unread={sharedMemo.unread}
+                    onOpen={openSharedMemo}
+                    onUnpin={() => sharedMemo.setPinned(false)}
+                  />
+                ) : null}
                 {!isMobileApp && soomgoPlatformEnabled && soomgoUpdateNoticeVisible ? (
                   <CrmSoomgoUpdateStrip
                     status={soomgoStatus}
@@ -2378,6 +2398,14 @@ export function CrmPage() {
             !isMobileApp ? (
               <CrmToolSideNav
                 items={[
+                  {
+                    id: 'shared-memo',
+                    label: '공유 메모',
+                    icon: <CrmIconMemo />,
+                    active: sharedMemoOpen,
+                    badgeCount: sharedMemo.unread ? 1 : 0,
+                    onClick: openSharedMemo,
+                  },
                   {
                     id: 'sms',
                     label: '문자 발송',
@@ -2734,6 +2762,17 @@ export function CrmPage() {
             }
           />
         ) : null}
+        <CrmSharedMemoDrawer
+          open={sharedMemoOpen}
+          onClose={() => {
+            setSharedMemoOpen(false);
+            sharedMemo.reload();
+          }}
+          canEdit={permissions.has('schedule.staffMemo')}
+          blocked={sharedMemo.blocked}
+          pinned={sharedMemo.pinned}
+          onTogglePin={() => sharedMemo.setPinned(!sharedMemo.pinned)}
+        />
         <CrmSmsDrawer
           open={smsDrawerOpen}
           onClose={() => setSmsDrawerOpen(false)}
