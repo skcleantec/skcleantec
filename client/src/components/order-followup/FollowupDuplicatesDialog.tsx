@@ -103,7 +103,7 @@ export function FollowupDuplicatesDialog({
       <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 cursor-default bg-slate-900/40" />
       <div className="relative flex max-h-[86vh] w-[min(720px,100%)] flex-col rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start gap-3 border-b border-slate-200 px-4 py-3">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 pr-9">
             <p className="text-fluid-sm font-bold text-slate-900">중복 의심 고객</p>
             <p className="mt-0.5 text-fluid-2xs leading-relaxed text-slate-600">
               이름·닉네임이나 번호가 같은 부재·보류를 묶어 보여 줘요. 남길 줄을 고르고 합치면 메모·부재 횟수·기록이 그 줄로 옮겨지고 나머지 줄은 사라집니다. 합친 뒤에는 되돌릴 수 없어요.
