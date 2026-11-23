@@ -17,10 +17,16 @@ import {
 import {
   appendFollowupLog,
   findOpenFollowupForPhones,
+  FOLLOWUP_INCLUDE,
   mergeFollowupMemo,
   OPEN_FOLLOWUP_MERGE_STATUSES,
 } from '../order-followups/orderFollowups.service.js';
 import { mergeCustomerPhones, relinkSafeNumberRecords } from '../order-followups/customerPhoneRelink.service.js';
+import {
+  preferHigherFollowupStatus,
+  replacePhonesForTargetSave,
+  targetFollowupRejectReason,
+} from '../order-followups/orderFollowupIdentity.service.js';
 import {
   recordTelecrmAiQuoteCorrection,
   type TelecrmSentQuoteStructure,
@@ -363,6 +369,8 @@ export type FinalizeTelecrmConsultationQuoteInput = {
   actorName?: string | null;
   leadSource?: string | null;
   strictLeadSource?: boolean;
+  /** 열려 있는 부재·보류에 덮어쓸 때 */
+  targetFollowupId?: string | null;
 };
 
 export type FinalizeTelecrmConsultationQuoteResult = {
@@ -455,25 +463,56 @@ export async function finalizeTelecrmConsultationQuote(
 
   const phone2Input =
     typeof input.customerPhone2 === 'string' ? input.customerPhone2.trim().slice(0, 32) || null : null;
+  const targetFollowupId = typeof input.targetFollowupId === 'string' ? input.targetFollowupId.trim() : '';
+  if (targetFollowupId) {
+    const target = await prisma.orderFollowup.findFirst({
+      where: { id: targetFollowupId, tenantId },
+      select: { operatingCompanyId: true, status: true },
+    });
+    const reject = targetFollowupRejectReason(target, operatingCompanyId);
+    if (reject) throw new Error(reject);
+  }
 
   const finalized = await prisma.$transaction(async (tx) => {
-    const existing = await findOpenFollowupForPhones(tx, {
-      tenantId,
-      operatingCompanyId,
-      customerPhone: phone,
-      customerPhone2: phone2Input,
-      statuses: OPEN_FOLLOWUP_MERGE_STATUSES,
-    });
+    const existing = targetFollowupId
+      ? await tx.orderFollowup.findFirst({
+          where: { id: targetFollowupId, tenantId, operatingCompanyId },
+          include: FOLLOWUP_INCLUDE,
+        })
+      : await findOpenFollowupForPhones(tx, {
+          tenantId,
+          operatingCompanyId,
+          customerPhone: phone,
+          customerPhone2: phone2Input,
+          statuses: OPEN_FOLLOWUP_MERGE_STATUSES,
+        });
+    if (targetFollowupId && (!existing || existing.status === 'FULFILLED')) {
+      throw new Error(
+        existing?.status === 'FULFILLED'
+          ? '이미 처리 완료된 건이라 이어 저장할 수 없어요.'
+          : '이 브랜드에서 이어 쓸 부재·보류를 찾지 못했어요.',
+      );
+    }
     let followup: { id: string };
     let followupCreated = false;
 
     if (existing) {
-      const mergedPhones = mergeCustomerPhones({
-        prevPhone: existing.customerPhone,
-        prevPhone2: existing.customerPhone2,
-        nextPhone: phone,
-        nextPhone2: phone2Input,
-      });
+      const mergedPhones = targetFollowupId
+        ? replacePhonesForTargetSave({
+            prevPhone: existing.customerPhone,
+            prevPhone2: existing.customerPhone2,
+            nextPhone: phone,
+            nextPhone2: phone2Input,
+          })
+        : mergeCustomerPhones({
+            prevPhone: existing.customerPhone,
+            prevPhone2: existing.customerPhone2,
+            nextPhone: phone,
+            nextPhone2: phone2Input,
+          });
+      const nextStatus = targetFollowupId
+        ? preferHigherFollowupStatus(followupStatus, existing.status)
+        : followupStatus;
       followup = await tx.orderFollowup.update({
         where: { id: existing.id },
         data: {
@@ -481,7 +520,7 @@ export async function finalizeTelecrmConsultationQuote(
           nickname,
           customerPhone: mergedPhones.customerPhone || phone,
           customerPhone2: mergedPhones.customerPhone2,
-          status: followupStatus,
+          status: nextStatus,
           goldDb: goldDb || existing.goldDb,
           memo: mergeFollowupMemo(existing.memo, followupMemo),
           handledById: userId,
@@ -497,7 +536,11 @@ export async function finalizeTelecrmConsultationQuote(
         followupId: followup.id,
         actorId: userId,
         action: 'QUOTE_FINALIZE',
-        detail: JSON.stringify({ status: followupStatus, quoteGrandTotalWon: input.payload.grandTotalWon }),
+        detail: JSON.stringify({
+          status: nextStatus,
+          quoteGrandTotalWon: input.payload.grandTotalWon,
+          ...(targetFollowupId ? { source: 'create_target' } : {}),
+        }),
       });
     } else {
       const createPhones = mergeCustomerPhones({

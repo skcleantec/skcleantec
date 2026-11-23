@@ -112,6 +112,8 @@ export type FinalizeTelecrmConsultationQuoteBody = {
   actorName?: string | null;
   leadSource?: string | null;
   strictLeadSource?: boolean;
+  /** 열려 있는 부재·보류에 덮어쓸 때 */
+  targetFollowupId?: string;
 };
 
 export type FinalizeTelecrmConsultationQuoteResult = {
