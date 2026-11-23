@@ -15,6 +15,13 @@ import {
 } from './telecrmAreaResolve.service.js';
 import { predictTelecrmAiQuote } from './telecrmAiQuoteModel.service.js';
 import {
+  applyTelecrmAiQuoteCorrection,
+  dismissTelecrmAiQuoteCorrection,
+  listTelecrmAiQuoteBaseRowDtos,
+  listTelecrmAiQuoteCorrectionPrompts,
+  updateTelecrmAiQuoteBaseRow,
+} from './telecrmAiQuoteBase.service.js';
+import {
   buildTelecrmAiQuoteRuleExamples,
   chatTelecrmAiQuoteRule,
   getTelecrmAiQuoteStatus,
@@ -222,6 +229,96 @@ router.delete('/ai-quote/rules/:id', requireStaffPermission('crm.settings'), asy
   } catch (e) {
     console.error('[telecrm-ai-quote] rule delete failed', e instanceof Error ? e.message : e);
     res.status(500).json({ error: '규칙을 지우지 못했어요.' });
+  }
+});
+
+router.get('/ai-quote/base-rows', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  try {
+    res.json({ items: await listTelecrmAiQuoteBaseRowDtos(tenantId) });
+  } catch (e) {
+    console.error('[telecrm-ai-quote] base rows failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '기준표를 불러오지 못했어요.' });
+  }
+});
+
+router.patch('/ai-quote/base-rows/:id', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as { amountWon?: unknown; isActive?: unknown };
+  const amountWon = body.amountWon == null ? undefined : Math.round(Number(body.amountWon));
+  if (amountWon != null && (!Number.isFinite(amountWon) || amountWon <= 0)) {
+    res.status(400).json({ error: '금액을 확인해 주세요.' });
+    return;
+  }
+  try {
+    const row = await updateTelecrmAiQuoteBaseRow(tenantId, String(req.params.id), {
+      amountWon,
+      isActive: typeof body.isActive === 'boolean' ? body.isActive : undefined,
+    });
+    if (!row) {
+      res.status(404).json({ error: '기준표 줄을 찾을 수 없어요.' });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[telecrm-ai-quote] base row update failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '기준표를 바꾸지 못했어요.' });
+  }
+});
+
+router.get('/ai-quote/corrections', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  try {
+    const items = await listTelecrmAiQuoteCorrectionPrompts(tenantId, brandOf(req));
+    res.json({ items });
+  } catch (e) {
+    console.error('[telecrm-ai-quote] corrections failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '상담사 견적 차이를 불러오지 못했어요.' });
+  }
+});
+
+router.post('/ai-quote/corrections/:baseRowId/apply', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const amountWon = Math.round(Number((req.body as { amountWon?: unknown } | undefined)?.amountWon));
+  if (!Number.isFinite(amountWon) || amountWon <= 0) {
+    res.status(400).json({ error: '금액을 확인해 주세요.' });
+    return;
+  }
+  try {
+    const row = await applyTelecrmAiQuoteCorrection(tenantId, String(req.params.baseRowId), amountWon);
+    if (!row) {
+      res.status(404).json({ error: '기준표 줄을 찾을 수 없어요.' });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[telecrm-ai-quote] correction apply failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '기준표 금액을 바꾸지 못했어요.' });
+  }
+});
+
+router.post('/ai-quote/corrections/:baseRowId/dismiss', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const sentAmountWon = Math.round(Number((req.body as { sentAmountWon?: unknown } | undefined)?.sentAmountWon));
+  if (!Number.isFinite(sentAmountWon) || sentAmountWon <= 0) {
+    res.status(400).json({ error: '금액을 확인해 주세요.' });
+    return;
+  }
+  try {
+    const ok = await dismissTelecrmAiQuoteCorrection(tenantId, String(req.params.baseRowId), sentAmountWon);
+    if (!ok) {
+      res.status(404).json({ error: '기준표 줄을 찾을 수 없어요.' });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[telecrm-ai-quote] correction dismiss failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '확인을 미루지 못했어요.' });
   }
 });
 

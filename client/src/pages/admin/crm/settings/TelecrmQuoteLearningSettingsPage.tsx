@@ -8,6 +8,7 @@ import {
 import type { TelecrmQuoteCrewLearningOverview } from '@shared/telecrmQuoteCrewLearning';
 import { SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { CrmAiQuoteRulesSection } from '../../../../components/crm/settings/CrmAiQuoteRulesSection';
+import { CrmAiQuoteBaseSection } from '../../../../components/crm/settings/CrmAiQuoteBaseSection';
 import { formatWon } from '../../../../components/crm/settings/telecrmSettingsUi';
 
 const READINESS_BAR: Record<TelecrmQuoteCrewLearningOverview['readiness'], number> = {
@@ -92,6 +93,7 @@ export function TelecrmQuoteLearningSettingsPage() {
   return (
     <div className="space-y-4">
       <CrmAiQuoteRulesSection />
+      <CrmAiQuoteBaseSection />
 
       <SettingsCard title="견적·인원 학습">
         <p className="text-fluid-sm text-slate-600">

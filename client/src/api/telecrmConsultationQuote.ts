@@ -139,7 +139,15 @@ export async function finalizeTelecrmConsultationQuote(
 
 export async function recordTelecrmConsultationQuoteSent(
   token: string,
-  body: { phone: string; payload: TelecrmConsultationQuotePayload },
+  body: {
+    phone: string;
+    payload: TelecrmConsultationQuotePayload;
+    propertyType?: string | null;
+    isOneRoom?: boolean;
+    roomCount?: number | null;
+    bathroomCount?: number | null;
+    balconyCount?: number | null;
+  },
   operatingCompanyId?: string | null,
 ): Promise<TelecrmConsultationQuoteDto> {
   const res = await fetch(`${API}/sent`, {

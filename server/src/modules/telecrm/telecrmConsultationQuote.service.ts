@@ -21,6 +21,10 @@ import {
   OPEN_FOLLOWUP_MERGE_STATUSES,
 } from '../order-followups/orderFollowups.service.js';
 import { mergeCustomerPhones, relinkSafeNumberRecords } from '../order-followups/customerPhoneRelink.service.js';
+import {
+  recordTelecrmAiQuoteCorrection,
+  type TelecrmSentQuoteStructure,
+} from './telecrmAiQuoteCorrection.service.js';
 
 export type TelecrmConsultationQuoteDto = {
   id: string;
@@ -295,6 +299,7 @@ export async function recordTelecrmConsultationQuoteSent(
   userId: string,
   phoneRaw: string,
   payload: TelecrmConsultationQuotePayload,
+  structure?: TelecrmSentQuoteStructure | null,
 ): Promise<TelecrmConsultationQuoteDto> {
   const phone = normalizeTelecrmQuotePhone(phoneRaw);
   if (phone.length < 4) throw new Error('전화번호(4자 이상)가 필요합니다.');
@@ -303,7 +308,7 @@ export async function recordTelecrmConsultationQuoteSent(
   const jsonPayload = payload as unknown as Prisma.InputJsonValue;
 
   // 예전 보낸 견적도 SENT 로 남겨 둠 — 「누가 언제 얼마로 보냈는지」 기록을 모두 보여 주기 위함 (가장 최근 것은 updatedAt 순으로 찾음)
-  return prisma.$transaction(async (tx) => {
+  const saved = await prisma.$transaction(async (tx) => {
     const row = await tx.telecrmConsultationQuote.create({
       data: {
         tenantId,
@@ -318,6 +323,19 @@ export async function recordTelecrmConsultationQuoteSent(
     });
     return serializeQuoteRow(row);
   });
+  try {
+    await recordTelecrmAiQuoteCorrection({
+      tenantId,
+      operatingCompanyId,
+      quoteId: saved.id,
+      userId,
+      payload,
+      structure,
+    });
+  } catch (e) {
+    console.error('[telecrm-ai-quote] sent correction failed', e instanceof Error ? e.message : e);
+  }
+  return saved;
 }
 
 export type FinalizeTelecrmConsultationQuoteInput = {
