@@ -113,7 +113,30 @@ export function CrmPyeongResolveHint({
 
   if (!result) return null;
   if (result.status === '확정') {
-    return <p className="text-fluid-2xs leading-snug text-slate-500">{result.reason}</p>;
+    const literal = result.reinterpreted === 'sqm' ? result.literalPyeong : null;
+    if (literal == null) {
+      return <p className="text-fluid-2xs leading-snug text-slate-500">{result.reason}</p>;
+    }
+    // 평수 칸에 적힌 숫자를 방 구조에 맞춰 ㎡로 바꿔 읽은 경우 — 눈에 띄게 알리고 되돌릴 수 있게 한다
+    return (
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-fluid-2xs font-semibold text-violet-800">
+            ㎡로 봤어요
+          </span>
+          {!locked ? (
+            <button
+              type="button"
+              className="rounded text-fluid-2xs text-slate-500 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+              onClick={() => onPick(literal)}
+            >
+              {literal}평이 맞으면 되돌리기
+            </button>
+          ) : null}
+        </div>
+        <p className="text-fluid-2xs leading-snug text-slate-500">{result.reason}</p>
+      </div>
+    );
   }
   if (locked) return null;
 
