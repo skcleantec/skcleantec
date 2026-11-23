@@ -27,7 +27,7 @@ import {
   formatHomeStructureLine,
   formatOneRoomSpaceLine,
 } from '../../../../utils/orderFormOneRoomStructure';
-import { shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
+import { cleaningKindOption, shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import {
   displayCleaningKindLabel,
   humanizeStoredChoice,
@@ -354,7 +354,15 @@ export function ReviewStep({
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <div className="space-y-1.5">
-        {shouldCollectOrderFormCleaningKind(order?.template) ? (
+        {order?.extraWorks?.length ? (
+        <ReviewRow
+          label="청소"
+          value={[
+            cleaningKindOption(form.cleaningKind || order.prefillAnswers?.cleaningKind)?.label ?? '기본 청소',
+            ...order.extraWorks.map((line) => line.name),
+          ].join(' + ')}
+        />
+        ) : shouldCollectOrderFormCleaningKind(order?.template) ? (
         <ReviewRow
           label="청소 종류"
           value={displayCleaningKindLabel(null, form.cleaningKind, pages)}

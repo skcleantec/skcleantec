@@ -97,7 +97,14 @@ export function resolveOrderFormCustomerSteps(args: {
   const copy = (id: string) => customerPageById(pages, id);
   const shown = (id: string) => copy(id)?.enabled !== false;
   const steps: OrderFormCustomerStep[] = [];
-  if (shouldCollectOrderFormCleaningKind(order?.template) && !locked('cleaningKind') && shown('welcome')) {
+  if (order?.extraWorks?.length) {
+    // 마케터가 추가 시공을 넣은 발주서 — 청소를 고르는 대신 함께 받는 청소를 확인만 한다
+    steps.push({
+      id: 'welcome',
+      kind: 'welcome',
+      title: '예약하신 청소를 확인해 주세요',
+    });
+  } else if (shouldCollectOrderFormCleaningKind(order?.template) && !locked('cleaningKind') && shown('welcome')) {
     const page = copy('welcome');
     steps.push({
       id: 'welcome',

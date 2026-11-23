@@ -79,6 +79,10 @@ export type OrderFormLoadedOrder = {
   depositAmount: number;
   balanceAmount: number;
   optionNote: string | null;
+  /** 추가 시공이 있을 때의 기본 청소 금액 */
+  baseAmount?: number | null;
+  /** 마케터가 넣은 추가 시공 */
+  extraWorks?: Array<{ name: string; amountWon: number }> | null;
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail: string | null;

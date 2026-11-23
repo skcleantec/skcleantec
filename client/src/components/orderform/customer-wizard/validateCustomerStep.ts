@@ -54,6 +54,7 @@ export function validateCustomerStep(args: {
 
   switch (step.id) {
     case 'welcome': {
+      if (order?.extraWorks?.length) return null;
       const allowed = new Set((step.choices ?? []).map((choice) => choice.value));
       const ok = allowed.size > 0 ? allowed.has(form.cleaningKind) : isOrderFormCleaningKind(form.cleaningKind);
       return ok ? null : '청소 종류를 고른 뒤 「확인」을 눌러 주세요.';
