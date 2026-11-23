@@ -326,6 +326,9 @@ export function CrmWorkHistoryDrawer({
               <div className={`rounded-xl border px-2.5 py-1.5 ${counts.unsaved > 0 ? 'border-rose-200 bg-rose-50' : 'border-slate-200'}`}>
                 <p className={`text-[11.5px] ${counts.unsaved > 0 ? 'text-rose-800' : 'text-slate-600'}`}>저장 안 함</p>
                 <p className={`text-lg font-extrabold tabular-nums ${counts.unsaved > 0 ? 'text-rose-700' : 'text-slate-900'}`}>{counts.unsaved}명</p>
+                {counts.unsaved > 0 && pendingUnsaved.length !== counts.unsaved ? (
+                  <p className="text-[11px] text-rose-800">아직 남은 것 {pendingUnsaved.length}명</p>
+                ) : null}
               </div>
             </div>
           ) : null}
