@@ -477,7 +477,7 @@ export function CrmIntakePanel({
         ) : null
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-3" data-crm-intake-root>
         {workBrandBar ? <div className="min-w-0">{workBrandBar}</div> : null}
         <CrmSegment accent="intake" className="w-full flex flex-wrap">
           <CrmSegmentItem
@@ -502,6 +502,8 @@ export function CrmIntakePanel({
 
         {mode === 'existing' ? (
           <>
+            {/* 찾기 칸에 치는 것은 고객 정보를 고친 게 아니다 — 작업 기록에서 뺀다 */}
+            <div data-crm-work-ignore>
             <CrmPhoneField
               label="전화번호·이름·닉네임으로 찾기"
               inputType="text"
@@ -533,6 +535,7 @@ export function CrmIntakePanel({
               onCall={() => void handleCall()}
               callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
             />
+            </div>
 
             {followupImport?.snapshot ? (
               <CrmLinkedCustomerPhones

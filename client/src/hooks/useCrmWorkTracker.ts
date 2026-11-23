@@ -44,9 +44,6 @@ type Current = {
   source: TelecrmWorkSource;
   identity: Identity;
   actions: TelecrmWorkActions;
-  /** 불러온 직후의 접수란 — 여기서 달라졌으면 「고쳤다」 */
-  baseline: string | null;
-  baselineMemo: string;
   draft: CrmIntakeDraft | null;
   dirty: boolean;
 };
@@ -151,6 +148,8 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
   /** 「저장 후 계속」 직후 — 같은 내용이면 새 줄을 만들지 않는다 */
   const savedHoldRef = useRef<{ core: string; source: TelecrmWorkSource } | null>(null);
   const patchTimerRef = useRef<number | null>(null);
+  /** 기록이 시작되기 전에 친 글자 — 직접 입력으로 시작한 고객은 처음부터 고친 것으로 본다 */
+  const typedBeforeStartRef = useRef(false);
   const brandRef = useRef(operatingCompanyId);
   brandRef.current = operatingCompanyId;
   const [notice, setNotice] = useState<CrmWorkLeaveNotice | null>(null);
@@ -207,7 +206,7 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
     }, 2500);
   }, [flushPatch]);
 
-  const start = useCallback((source: TelecrmWorkSource, draft: CrmIntakeDraft, resumed: boolean, settleFirst = false) => {
+  const start = useCallback((source: TelecrmWorkSource, draft: CrmIntakeDraft, resumed: boolean) => {
     const token = getToken();
     if (!token) return;
     const identity = identityOf(draft);
@@ -224,21 +223,12 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
         .catch(() => null),
       source,
       identity,
-      actions: { ...EMPTY_ACTIONS, fieldsEdited: resumed },
-      // 직접 입력은 처음부터 고친 것으로 본다. 불러온 고객은 잠시 뒤의 모습을 기준으로 삼는다.
-      baseline: source === 'manual' && !resumed && !settleFirst ? '' : null,
-      baselineMemo: '',
+      actions: { ...EMPTY_ACTIONS, fieldsEdited: resumed || typedBeforeStartRef.current },
       draft,
       dirty: false,
     };
+    typedBeforeStartRef.current = false;
     currentRef.current = cur;
-    if (cur.baseline === null) {
-      window.setTimeout(() => {
-        if (currentRef.current !== cur || cur.baseline !== null) return;
-        cur.baseline = cur.draft ? coreOf(cur.draft) : '';
-        cur.baselineMemo = cur.draft?.requestMemo ?? '';
-      }, 1800);
-    }
   }, []);
 
   const finish = useCallback(
@@ -305,6 +295,7 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
   /** 고객을 불러오는 곳에서 먼저 부른다 — 다음 접수란 변화가 「새 고객」인지 가리는 데 쓴다 */
   const noteLoad = useCallback((source: TelecrmWorkSource, loadOpts?: { resumed?: boolean }) => {
     pendingLoadRef.current = { source, at: Date.now(), resumed: loadOpts?.resumed === true };
+    typedBeforeStartRef.current = false;
   }, []);
 
   /** 접수란 내용이 바뀔 때마다 부른다 */
@@ -326,13 +317,6 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
         }
         cur.identity = identity;
         cur.draft = draft;
-        if (cur.baseline !== null) {
-          const core = coreOf(draft);
-          if (core !== cur.baseline) {
-            cur.actions.fieldsEdited = true;
-            if ((draft.requestMemo ?? '') !== cur.baselineMemo) cur.actions.memoEdited = true;
-          }
-        }
         schedulePatch();
         return;
       }
@@ -341,9 +325,7 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
       if (!pending && hold && hold.core === coreOf(draft)) return;
       savedHoldRef.current = null;
       pendingLoadRef.current = null;
-      // 저장 직후 같은 고객을 이어서 볼 때는, 화면이 자리 잡은 뒤의 모습을 기준으로 삼는다
-      if (!pending && hold) start(hold.source, draft, false, true);
-      else start(pending?.source ?? 'manual', draft, pending?.resumed === true);
+      start(pending?.source ?? hold?.source ?? 'manual', draft, pending?.resumed === true);
     },
     [enabled, finish, schedulePatch, start],
   );
@@ -386,12 +368,31 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
       });
       setNotice(null);
     };
+    // 접수란에서 상담사가 직접 치거나 고른 것만 「고쳤다」로 본다 — 불러오기로 채워진 값은 세지 않는다
+    const onUserInput = (e: Event) => {
+      if (!e.isTrusted) return;
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest?.('[data-crm-intake-root]')) return;
+      if (target.closest('[data-crm-work-ignore]')) return;
+      const cur = currentRef.current;
+      if (!cur) {
+        typedBeforeStartRef.current = true;
+        return;
+      }
+      cur.actions.fieldsEdited = true;
+      if (target.tagName === 'TEXTAREA') cur.actions.memoEdited = true;
+      schedulePatch();
+    };
     // 창을 닫거나 새로고침할 때 — 응답을 기다리지 않고 보낸다
     const onPageHide = () => finish({ outcome: 'LEFT', leftBy: 'close', showNotice: false }, true);
     window.addEventListener(ACTION_EVENT, onAction);
     window.addEventListener(SAVED_EVENT, onSaved);
     window.addEventListener('pagehide', onPageHide);
+    document.addEventListener('input', onUserInput, true);
+    document.addEventListener('change', onUserInput, true);
     return () => {
+      document.removeEventListener('input', onUserInput, true);
+      document.removeEventListener('change', onUserInput, true);
       window.removeEventListener(ACTION_EVENT, onAction);
       window.removeEventListener(SAVED_EVENT, onSaved);
       window.removeEventListener('pagehide', onPageHide);
