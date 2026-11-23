@@ -2,6 +2,7 @@ import { API } from './apiPrefix';
 import { appendPublicQuery } from '../utils/publicTenantQuery';
 import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 import type { OrderFormCleaningKind } from '@shared/orderFormCleaningKind';
+import type { OrderFormExtraWorkLine } from '@shared/orderFormExtraWorks';
 import {
   isDesignerPreviewOrderToken,
   ORDER_FORM_PREVIEW_TEMPLATE_QUERY,
@@ -48,6 +49,10 @@ export interface OrderForm {
   depositAmount: number;
   balanceAmount: number;
   optionNote: string | null;
+  /** 추가 시공이 있을 때의 기본 청소 금액 */
+  baseAmount?: number | null;
+  /** 마케터가 넣은 추가 시공 */
+  extraWorks?: OrderFormExtraWorkLine[] | null;
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail: string | null;
@@ -138,6 +143,8 @@ export interface OrderFormCustomerSubmissionSnapshotV1 {
     depositAmount: number;
     balanceAmount: number;
     optionNote: string | null;
+    baseAmount?: number | null;
+    extraWorks?: OrderFormExtraWorkLine[] | null;
     profOptionsExtraSum?: number;
     grandTotalAmount?: number;
     profOptionGuideLines?: string[];
@@ -307,6 +314,8 @@ export interface OrderFormPublicEditable {
   depositAmount: number;
   balanceAmount: number;
   optionNote: string | null;
+  baseAmount?: number | null;
+  extraWorks?: OrderFormExtraWorkLine[] | null;
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail: string | null;
@@ -387,6 +396,8 @@ export interface ForceMatchOrderFormCandidate {
   totalAmount: number;
   depositAmount: number;
   balanceAmount: number;
+  baseAmount?: number | null;
+  extraWorks?: OrderFormExtraWorkLine[] | null;
   submittedAt: string | null;
   createdAt: string;
   createdBy?: OrderFormCreatedBy | null;
@@ -519,6 +530,12 @@ export async function createOrderForm(
     collaborationMarketerId?: string | null;
     /** 체크 시에만 고객에게 추가 시공비 안내를 띄운다. 기본은 끔 */
     extraWorkNotice?: boolean;
+    /** 추가 시공. 한 줄이라도 있으면 서버가 총액을 기본 금액+합계로 다시 계산한다 */
+    extraWorks?: OrderFormExtraWorkLine[];
+    /** 추가 시공이 있을 때의 기본 청소 금액 */
+    baseAmount?: number;
+    /** 추가 시공이 있을 때 발급 전에 정해 둔 청소 종류 */
+    cleaningKind?: OrderFormCleaningKind;
   }
 ): Promise<OrderForm> {
   const res = await fetch(`${API}/orderforms`, {
@@ -565,6 +582,8 @@ export interface OrderFormPrefillPayload {
   specialNotes?: string;
   professionalOptionIds?: Array<string | { id: string; quantity?: number; unitAmount?: number | null }>;
   answers?: Record<string, unknown>;
+  extraWorks?: OrderFormExtraWorkLine[];
+  baseAmount?: number;
 }
 
 /** 발급 화면 인라인 폼 데이터 — 선택 양식의 폼/옵션/설정(+선택 대기접수 프리필) */

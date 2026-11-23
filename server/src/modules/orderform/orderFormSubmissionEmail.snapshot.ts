@@ -50,6 +50,10 @@ export type OrderFormSubmissionSnapshotV1 = {
     depositAmount: number;
     balanceAmount: number;
     optionNote: string | null;
+    /** 추가 시공이 있을 때의 기본 청소 금액 */
+    baseAmount?: number | null;
+    /** 마케터가 발급 때 넣은 추가 시공. 전문 시공 옵션과 별개 */
+    extraWorks?: Array<{ name: string; amountWon: number }> | null;
     /** 추가 시공 옵션 합계(원) — totalAmount 에 더한 값 */
     profOptionsExtraSum?: number;
     /** 서비스 견적 + 추가 시공 */
@@ -257,10 +261,23 @@ export function buildEmailDetailSections(
     ],
   });
 
+  const extraLines = (issued.extraWorks ?? []).filter(
+    (line) => line && line.name.trim() && Number.isFinite(line.amountWon),
+  );
+  const showExtraSplit = extraLines.length > 0 && typeof issued.baseAmount === 'number';
   sections.push({
     title: '금액 안내',
     rows: [
-      { label: '기본 서비스 견적', value: formatWon(issued.totalAmount) },
+      {
+        label: '기본 서비스 견적',
+        value: formatWon(showExtraSplit ? issued.baseAmount! : issued.totalAmount),
+      },
+      ...(showExtraSplit
+        ? [
+            ...extraLines.map((line) => ({ label: line.name.trim(), value: formatWon(line.amountWon) })),
+            { label: '총액', value: formatWon(issued.totalAmount) },
+          ]
+        : []),
       ...(issued.profOptionsExtraSum != null && issued.profOptionsExtraSum > 0
         ? [{ label: '추가 시공 합계', value: formatWon(issued.profOptionsExtraSum) }]
         : []),

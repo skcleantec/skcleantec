@@ -322,6 +322,9 @@ export interface InquiryItem {
     depositAmount?: number | null;
     totalAmount?: number | null;
     balanceAmount?: number | null;
+    /** 배정 상세는 총액을 내려 주므로 추가 시공 금액도 함께 온다 */
+    baseAmount?: number | null;
+    extraWorks?: Array<{ name: string; amountWon: number }> | null;
     customerSpecialNotes?: string | null;
     customerAnswers?: Record<string, unknown> | null;
     prefillAnswers?: Record<string, unknown> | null;

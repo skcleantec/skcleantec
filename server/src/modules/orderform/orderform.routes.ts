@@ -193,8 +193,14 @@ import {
 import {
   ORDER_FORM_CLEANING_KIND_FIELD_KEY,
   ORDER_FORM_CLEANING_KIND_LABEL,
+  parseOrderFormCleaningKind,
   shouldCollectOrderFormCleaningKind,
 } from '../../lib/orderFormCleaningKind.js';
+import {
+  normalizeOrderFormExtraWorks,
+  resolveOrderFormIssueMoney,
+  type ResolvedOrderFormIssueMoney,
+} from '../../lib/orderFormExtraWorks.js';
 import {
   humanizeCustomerSubmissionSnapshot,
   labelForCustomerCleaningKind,
@@ -333,6 +339,62 @@ function validateOrderFormIssueAmountWon(value: number, label: string): string |
     return `${label}은(는) ${(ORDER_FORM_ISSUE_AMOUNT_MAX_WON / 10_000).toLocaleString('ko-KR')}만원 이하여야 합니다.`;
   }
   return null;
+}
+
+function cleaningKindFromIssueBody(body: Record<string, unknown>, existingPrefill?: unknown): string | null {
+  const direct = parseOrderFormCleaningKind(body.cleaningKind);
+  if (direct) return direct;
+  const prefill = body.prefillAnswers;
+  if (prefill && typeof prefill === 'object' && !Array.isArray(prefill)) {
+    const fromBody = parseOrderFormCleaningKind((prefill as Record<string, unknown>).cleaningKind);
+    if (fromBody) return fromBody;
+  }
+  if (existingPrefill && typeof existingPrefill === 'object' && !Array.isArray(existingPrefill)) {
+    return parseOrderFormCleaningKind((existingPrefill as Record<string, unknown>).cleaningKind);
+  }
+  return null;
+}
+
+function prefillWithCleaningKind(existing: unknown, kind: string | null): Prisma.InputJsonValue | undefined {
+  const hasExisting = existing && typeof existing === 'object' && !Array.isArray(existing);
+  if (!kind && !hasExisting) return undefined;
+  const base = hasExisting ? { ...(existing as Record<string, unknown>) } : {};
+  if (kind) base.cleaningKind = kind;
+  return base as Prisma.InputJsonValue;
+}
+
+function extraWorkColumns(
+  resolved: Extract<ResolvedOrderFormIssueMoney, { hasExtraWorks: true }>,
+): {
+  extraWorks: Prisma.InputJsonValue;
+  baseAmount: number;
+  totalAmount: number;
+  balanceAmount: number;
+} {
+  return {
+    extraWorks: resolved.lines as unknown as Prisma.InputJsonValue,
+    baseAmount: resolved.baseAmount,
+    totalAmount: resolved.totalAmount,
+    balanceAmount: resolved.balanceAmount,
+  };
+}
+
+function inquiryExtraWorkFromForm(form: { extraWorks?: unknown; baseAmount?: number | null }): {
+  extraWorks?: Prisma.InputJsonValue;
+  baseAmount?: number | null;
+} {
+  const lines = publicExtraWorkLines(form.extraWorks);
+  if (!lines) return {};
+  return {
+    extraWorks: lines as unknown as Prisma.InputJsonValue,
+    baseAmount: form.baseAmount ?? null,
+  };
+}
+
+function publicExtraWorkLines(raw: unknown) {
+  const normalized = normalizeOrderFormExtraWorks(raw);
+  if (!normalized.ok || normalized.lines.length === 0) return null;
+  return normalized.lines;
 }
 
 function parseBodyAreaFloat(value: unknown): number | null {
@@ -959,6 +1021,10 @@ async function buildEditableOrderPayload(
     totalAmount: form.totalAmount,
     depositAmount: form.depositAmount,
     balanceAmount: form.balanceAmount,
+    ...(() => {
+      const extraWorks = publicExtraWorkLines(form.extraWorks);
+      return extraWorks ? { extraWorks, baseAmount: form.baseAmount ?? null } : {};
+    })(),
     optionNote: form.optionNote,
     preferredDate: form.preferredDate,
     extraWorkNotice: form.extraWorkNotice === true,
@@ -1415,6 +1481,9 @@ router.get('/force-match-candidates', authMiddleware, requireStaffPermission('or
       totalAmount: form.totalAmount,
       depositAmount: form.depositAmount,
       balanceAmount: form.balanceAmount,
+      ...(publicExtraWorkLines(form.extraWorks)
+        ? { extraWorks: publicExtraWorkLines(form.extraWorks), baseAmount: form.baseAmount ?? null }
+        : {}),
       submittedAt: form.submittedAt,
       createdAt: form.createdAt,
       createdBy: form.createdBy,
@@ -1496,16 +1565,6 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     res.status(400).json({ error: '고객명을 입력해주세요.' });
     return;
   }
-  const totalAmount = parseBodyInt(totalRaw);
-  if (totalAmount == null || totalAmount < 0) {
-    res.status(400).json({ error: '총 금액을 입력해주세요.' });
-    return;
-  }
-  const totalAmountErr = validateOrderFormIssueAmountWon(totalAmount, '총 금액');
-  if (totalAmountErr) {
-    res.status(400).json({ error: totalAmountErr });
-    return;
-  }
   const depositParsed = parseBodyInt(depositRaw);
   const deposit = depositParsed != null && depositParsed >= 0 ? depositParsed : 20000;
   const depositErr = validateOrderFormIssueAmountWon(deposit, '예약금');
@@ -1513,14 +1572,45 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     res.status(400).json({ error: depositErr });
     return;
   }
-  const balanceParsed = parseBodyInt(balanceRaw);
-  const balance =
-    balanceParsed != null && balanceParsed >= 0 ? balanceParsed : Math.max(0, totalAmount - deposit);
+  const issueBody = req.body as Record<string, unknown>;
+  const issueCleaningKind = cleaningKindFromIssueBody(issueBody);
+  const extraResolved = resolveOrderFormIssueMoney({
+    extraWorks: issueBody.extraWorks,
+    baseAmount: issueBody.baseAmount,
+    depositAmount: deposit,
+    cleaningKind: issueCleaningKind,
+  });
+  if (!extraResolved.ok) {
+    res.status(400).json({ error: extraResolved.error });
+    return;
+  }
+  let totalAmount: number;
+  let balance: number;
+  if (extraResolved.hasExtraWorks) {
+    totalAmount = extraResolved.totalAmount;
+    balance = extraResolved.balanceAmount;
+  } else {
+    const parsedTotal = parseBodyInt(totalRaw);
+    if (parsedTotal == null || parsedTotal < 0) {
+      res.status(400).json({ error: '총 금액을 입력해주세요.' });
+      return;
+    }
+    totalAmount = parsedTotal;
+    const balanceParsed = parseBodyInt(balanceRaw);
+    balance =
+      balanceParsed != null && balanceParsed >= 0 ? balanceParsed : Math.max(0, totalAmount - deposit);
+  }
+  const totalAmountErr = validateOrderFormIssueAmountWon(totalAmount, '총 금액');
+  if (totalAmountErr) {
+    res.status(400).json({ error: totalAmountErr });
+    return;
+  }
   const balanceErr = validateOrderFormIssueAmountWon(balance, '잔금');
   if (balanceErr) {
     res.status(400).json({ error: balanceErr });
     return;
   }
+  const extraWorkData = extraResolved.hasExtraWorks ? extraWorkColumns(extraResolved) : null;
   const token = randomBytes(12).toString('hex');
 
   let leadSourceLabel: string;
@@ -1667,14 +1757,21 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
             areaPyeong: issueAreaPyeong,
             areaBasis: issueAreaBasis,
             extraWorkNotice,
+            ...(extraWorkData ?? {}),
             createdById: userId,
             ...templateData,
             ...reviewPaybackTokenCreateField(),
-            ...(pending.intakeCustomAnswers &&
-            typeof pending.intakeCustomAnswers === 'object' &&
-            !Array.isArray(pending.intakeCustomAnswers)
-              ? { prefillAnswers: pending.intakeCustomAnswers as Prisma.InputJsonValue }
-              : {}),
+            ...(() => {
+              const prefillAnswers = prefillWithCleaningKind(
+                pending.intakeCustomAnswers &&
+                  typeof pending.intakeCustomAnswers === 'object' &&
+                  !Array.isArray(pending.intakeCustomAnswers)
+                  ? pending.intakeCustomAnswers
+                  : undefined,
+                extraWorkData ? issueCleaningKind : null,
+              );
+              return prefillAnswers ? { prefillAnswers } : {};
+            })(),
           },
         });
         await chargeInquiryCoinInTx(tx, {
@@ -1698,6 +1795,15 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
               : {}),
             ...(issueAreaPyeong != null && issueAreaBasis
               ? { areaPyeong: issueAreaPyeong, areaBasis: issueAreaBasis, exclusiveAreaSqm: null }
+              : {}),
+            ...(extraWorkData
+              ? {
+                  serviceTotalAmount: extraWorkData.totalAmount,
+                  serviceDepositAmount: deposit,
+                  serviceBalanceAmount: extraWorkData.balanceAmount,
+                  extraWorks: extraWorkData.extraWorks,
+                  baseAmount: extraWorkData.baseAmount,
+                }
               : {}),
           },
         });
@@ -1787,9 +1893,16 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           areaPyeong: issueAreaPyeong,
           areaBasis: issueAreaBasis,
           extraWorkNotice,
+          ...(extraWorkData ?? {}),
           createdById: userId,
           ...templateData,
           ...reviewPaybackTokenCreateField(),
+          ...(() => {
+            const prefillAnswers = extraWorkData
+              ? prefillWithCleaningKind(undefined, issueCleaningKind)
+              : undefined;
+            return prefillAnswers ? { prefillAnswers } : {};
+          })(),
         },
       });
       const linkedInquiry = await tx.inquiry.create({
@@ -1816,6 +1929,9 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           serviceTotalAmount: totalAmount,
           serviceDepositAmount: deposit,
           serviceBalanceAmount: balance,
+          ...(extraWorkData
+            ? { extraWorks: extraWorkData.extraWorks, baseAmount: extraWorkData.baseAmount }
+            : {}),
           areaPyeong: issueAreaPyeong,
           areaBasis: issueAreaBasis,
         },
@@ -2064,6 +2180,50 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
 
   const customFieldKeys = await listTemplateCustomFieldKeysForPrefill(prisma, tenantId, form.templateId);
   const prefill = buildPrefillFromPayload(body, customFieldKeys);
+  const sentExtraWorks = Object.prototype.hasOwnProperty.call(body, 'extraWorks');
+  const sentBaseAmount = Object.prototype.hasOwnProperty.call(body, 'baseAmount');
+  let extraWorkUpdate: {
+    extraWorks: Prisma.InputJsonValue | typeof Prisma.DbNull;
+    baseAmount: number | null;
+    totalAmount?: number;
+    balanceAmount?: number;
+  } | null = null;
+  if (sentExtraWorks || sentBaseAmount) {
+    const kind = cleaningKindFromIssueBody(body, prefill) ?? cleaningKindFromIssueBody(body, form.prefillAnswers);
+    const resolved = resolveOrderFormIssueMoney({
+      extraWorks: sentExtraWorks ? body.extraWorks : form.extraWorks,
+      baseAmount: sentBaseAmount ? body.baseAmount : form.baseAmount,
+      depositAmount: form.depositAmount,
+      cleaningKind: kind,
+    });
+    if (!resolved.ok) {
+      res.status(400).json({ error: resolved.error });
+      return;
+    }
+    if (resolved.hasExtraWorks) {
+      const totalErr = validateOrderFormIssueAmountWon(resolved.totalAmount, '총 금액');
+      const balanceErr = validateOrderFormIssueAmountWon(resolved.balanceAmount, '잔금');
+      if (totalErr || balanceErr) {
+        res.status(400).json({ error: totalErr ?? balanceErr });
+        return;
+      }
+      if (kind) prefill.cleaningKind = kind;
+      extraWorkUpdate = extraWorkColumns(resolved);
+    } else if (sentExtraWorks) {
+      const clearedTotal =
+        body.totalAmount != null && body.totalAmount !== ''
+          ? parseBodyInt(body.totalAmount)
+          : form.baseAmount;
+      const nextTotal = clearedTotal != null && clearedTotal >= 0 ? clearedTotal : form.totalAmount;
+      const nextBalance = Math.max(0, nextTotal - form.depositAmount);
+      extraWorkUpdate = {
+        extraWorks: Prisma.DbNull,
+        baseAmount: null,
+        totalAmount: nextTotal,
+        balanceAmount: nextBalance,
+      };
+    }
+  }
   const prefillCustomerNotes = customerSpecialNotesUpdateFromPrefill(prefill);
 
   try {
@@ -2080,6 +2240,7 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
           areaBasis: lockAreaBasis,
           prefillAnswers: prefill as Prisma.InputJsonValue,
           ...prefillCustomerNotes,
+          ...(extraWorkUpdate ?? {}),
         },
       });
       const pending = await tx.inquiry.findFirst({
@@ -2103,6 +2264,19 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
               ? { areaPyeong: lockAreaPyeong, areaBasis: lockAreaBasis, exclusiveAreaSqm: null }
               : {}),
             ...prefillInquiryPatch,
+            ...(extraWorkUpdate
+              ? {
+                  extraWorks: extraWorkUpdate.extraWorks,
+                  baseAmount: extraWorkUpdate.baseAmount,
+                  ...(extraWorkUpdate.totalAmount != null
+                    ? {
+                        serviceTotalAmount: extraWorkUpdate.totalAmount,
+                        serviceDepositAmount: form.depositAmount,
+                        serviceBalanceAmount: extraWorkUpdate.balanceAmount,
+                      }
+                    : {}),
+                }
+              : {}),
           },
         });
       }
@@ -2153,6 +2327,8 @@ router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('
         totalAmount: true,
         depositAmount: true,
         balanceAmount: true,
+        extraWorks: true,
+        baseAmount: true,
         submittedAt: true,
         createdById: true,
       },
@@ -2239,6 +2415,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('
       serviceTotalAmount: source?.serviceTotalAmount ?? form.totalAmount,
       serviceDepositAmount: source?.serviceDepositAmount ?? form.depositAmount,
       serviceBalanceAmount: source?.serviceBalanceAmount ?? form.balanceAmount,
+      ...inquiryExtraWorkFromForm(form),
     };
     if (source) {
       data.customerName = source.customerName || form.customerName;
@@ -3398,6 +3575,7 @@ router.post('/submit/:token', async (req, res) => {
       depositAmount: form.depositAmount,
       balanceAmount: form.balanceAmount,
       optionNote: form.optionNote,
+      ...inquiryExtraWorkFromForm(form),
       profOptionsExtraSum,
       grandTotalAmount,
       profOptionGuideLines: profIssuedSummary.guideLines,
@@ -3499,6 +3677,7 @@ router.post('/submit/:token', async (req, res) => {
           serviceTotalAmount: form.totalAmount,
           serviceDepositAmount: form.depositAmount,
           serviceBalanceAmount: form.balanceAmount,
+          ...inquiryExtraWorkFromForm(form),
           intakeChannel: 'order_form_submit',
           status: 'RECEIVED',
           professionalOptionIds: professionalOptionIdsJson,
@@ -3601,6 +3780,7 @@ router.post('/submit/:token', async (req, res) => {
           serviceTotalAmount: form.totalAmount,
           serviceDepositAmount: form.depositAmount,
           serviceBalanceAmount: form.balanceAmount,
+          ...inquiryExtraWorkFromForm(form),
           source: '발주서',
           intakeChannel: 'order_form_submit',
           status: 'RECEIVED',

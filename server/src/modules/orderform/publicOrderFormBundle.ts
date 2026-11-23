@@ -117,6 +117,8 @@ export async function loadPublicOrderFormByToken(
         'areaPyeong', area_pyeong,
         'areaBasis', area_basis,
         'extraWorkNotice', extra_work_notice,
+        'extraWorks', extra_works,
+        'baseAmount', base_amount,
         'customerSpecialNotes', customer_special_notes,
         'customerAnswers', customer_answers,
         'prefillAnswers', prefill_answers,
@@ -452,6 +454,9 @@ export async function loadPublicOrderFormByToken(
         totalAmount: form.totalAmount,
         depositAmount: form.depositAmount,
         balanceAmount: form.balanceAmount,
+        ...(Array.isArray(form.extraWorks) && form.extraWorks.length > 0
+          ? { extraWorks: form.extraWorks, baseAmount: form.baseAmount ?? null }
+          : {}),
         optionNote: form.optionNote,
         preferredDate: form.preferredDate,
         extraWorkNotice: form.extraWorkNotice === true,

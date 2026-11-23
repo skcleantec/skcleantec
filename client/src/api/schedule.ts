@@ -106,6 +106,8 @@ export interface ScheduleItem {
     totalAmount: number;
     depositAmount: number;
     balanceAmount: number;
+    baseAmount?: number | null;
+    extraWorks?: Array<{ name: string; amountWon: number }> | null;
     submittedAt?: string | null;
     customerSpecialNotes?: string | null;
     /** 마케터 선입력 — 고객 제출 전 원/투룸 등 스케줄 표시 fallback */
