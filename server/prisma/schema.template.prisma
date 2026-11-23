@@ -3078,6 +3078,10 @@ model Inquiry {
   serviceTotalAmount   Int? @map("service_total_amount")
   serviceDepositAmount Int? @map("service_deposit_amount")
   serviceBalanceAmount Int? @map("service_balance_amount")
+  /// 발주서 추가 시공 줄 [{ name, amountWon }]. 없으면 null. 전문 시공 옵션과 별개.
+  extraWorks Json? @map("extra_works")
+  /// 추가 시공이 있을 때의 기본 청소 금액. 없으면 null. 총액은 serviceTotalAmount.
+  baseAmount Int? @map("base_amount")
   /// 현장 투입 비로그인 팀원 인원 수(관리자 입력)
   crewMemberCount Int?       @map("crew_member_count")
   /// 팀원 누구 투입 등 수기 메모(예: 김,태)
@@ -4367,6 +4371,10 @@ model OrderForm {
   customerSpecialNotes String? @map("customer_special_notes") @db.Text
   /// 발급 시 체크하면 고객 확인 단계에서 추가 시공비 안내를 띄운다. 기본은 끔.
   extraWorkNotice Boolean @default(false) @map("extra_work_notice")
+  /// 마케터가 발급 때 넣는 추가 시공 [{ name, amountWon }]. 전문 시공 옵션·추가 사항 글과 별개.
+  extraWorks Json? @map("extra_works")
+  /// 추가 시공이 있을 때의 기본 청소 금액. 없으면 null. totalAmount 는 기본+추가 합계.
+  baseAmount Int? @map("base_amount")
   customerSubmissionSnapshot Json? @map("customer_submission_snapshot")
   /// 동적 템플릿 추가 항목(systemField 미연결)의 고객 답변 {fieldKey: value}
   customerAnswers Json? @map("customer_answers")

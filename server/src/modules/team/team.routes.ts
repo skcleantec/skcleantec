@@ -265,6 +265,8 @@ const teamInquiryInclude = {
       depositAmount: true,
       totalAmount: true,
       balanceAmount: true,
+      extraWorks: true,
+      baseAmount: true,
       customerSpecialNotes: true,
       customerAnswers: true,
       prefillAnswers: true,

@@ -49,6 +49,8 @@ export const inquiryDetailInclude = {
       totalAmount: true,
       depositAmount: true,
       balanceAmount: true,
+      extraWorks: true,
+      baseAmount: true,
       submittedAt: true,
       customerSpecialNotes: true,
       customerAnswers: true,

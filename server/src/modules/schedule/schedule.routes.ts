@@ -341,6 +341,8 @@ router.get('/', async (req, res) => {
                 totalAmount: true,
                 depositAmount: true,
                 balanceAmount: true,
+                extraWorks: true,
+                baseAmount: true,
                 submittedAt: true,
                 customerSpecialNotes: true,
                 prefillAnswers: true,
