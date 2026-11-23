@@ -161,7 +161,7 @@ describe('방 구조로 평·㎡ 가리기', () => {
     assert.equal(result.pyeong, 9);
     assert.equal(result.reinterpreted, 'sqm');
     assert.equal(result.literalPyeong, 31);
-    assert.equal(result.reason, '고객이 적은 값 31 · 오피스텔 1.5룸 → 31㎡로 봄 → 9평');
+    assert.equal(result.reason, '고객이 적은 값 31 · 오피스텔 1.5룸 → 31㎡로 봄 → 전용 9평');
     assert.doesNotMatch(result.reason, /아파트 공급/);
     const classified = classifyAiQuote({
       propertyTypeLabel: '오피스텔',
@@ -176,18 +176,61 @@ describe('방 구조로 평·㎡ 가리기', () => {
     assert.match(quote?.label ?? '', /기준표/);
   });
 
-  it('원룸 15는 15평 그대로', () => {
-    const result = resolveTelecrmArea({ raw: '15', isOneRoom: true, roomText: '원룸' });
+  it('오피스텔 원룸 15는 15평 그대로', () => {
+    const result = resolveTelecrmArea({ raw: '15', buildingType: '오피스텔', isOneRoom: true, roomText: '원룸' });
     assert.equal(result.pyeong, 15);
+    assert.equal(result.status, '확정');
     assert.equal(result.reinterpreted, null);
   });
 
-  it('방3 84는 25평', () => {
+  it('아파트 방3 84는 확인 필요이고 후보에 공급 34평', () => {
     const result = resolveTelecrmArea({ raw: '84', buildingType: '아파트', roomCount: 3, bathroomCount: 2 });
-    assert.equal(result.pyeong, 25);
+    assert.equal(result.status, '확인 필요');
+    assert.equal(result.pyeong, null);
+    assert.equal(result.reinterpreted, null);
+    assert.equal(result.candidates.some((row) => row.pyeong === 34), true);
+    assert.match(result.candidates.find((row) => row.pyeong === 34)?.label ?? '', /84형/);
+  });
+
+  it('아파트 방3 84㎡는 공급 34평', () => {
+    const result = resolveTelecrmArea({ raw: '84㎡', buildingType: '아파트', roomCount: 3, bathroomCount: 2 });
+    assert.equal(result.status, '확정');
+    assert.equal(result.pyeong, 34);
+    assert.equal(result.reinterpreted, null);
+  });
+
+  it('아파트 방3 59는 확인 필요', () => {
+    const result = resolveTelecrmArea({ raw: '59', buildingType: '아파트', roomCount: 3, bathroomCount: 2 });
+    assert.equal(result.status, '확인 필요');
+    assert.equal(result.pyeong, null);
+    assert.equal(result.reinterpreted, null);
+    assert.equal(result.candidates.some((row) => row.pyeong === 25), true);
+  });
+
+  it('아파트 방2 공급면적 73은 공급 22평', () => {
+    const result = resolveTelecrmArea({ raw: '공급면적 73', buildingType: '아파트', roomCount: 2, bathroomCount: 1 });
+    assert.equal(result.status, '확정');
+    assert.equal(result.pyeong, 22);
     assert.equal(result.reinterpreted, 'sqm');
-    assert.equal(result.literalPyeong, 84);
-    assert.match(result.reason, /84㎡로 봄 → 25평/);
+    assert.equal(result.literalPyeong, 73);
+    assert.equal(result.reason, '고객이 적은 값 73 · 아파트 방2 → 73㎡로 봄 → 공급 22평');
+  });
+
+  it('아파트 방2 공급면적 84는 대표 전용 크기라 확인 필요', () => {
+    const result = resolveTelecrmArea({ raw: '공급면적 84', buildingType: '아파트', roomCount: 2, bathroomCount: 1 });
+    assert.equal(result.status, '확인 필요');
+    assert.equal(result.pyeong, null);
+    assert.equal(result.reinterpreted, 'sqm');
+    assert.equal(result.candidates.some((row) => row.pyeong === 34), true);
+  });
+
+  it('빌라 방2 59는 전용 18평', () => {
+    const result = resolveTelecrmArea({ raw: '59', buildingType: '빌라', roomCount: 2, bathroomCount: 1 });
+    assert.equal(result.status, '확정');
+    assert.equal(result.pyeong, 18);
+    assert.equal(result.reinterpreted, 'sqm');
+    assert.equal(result.literalPyeong, 59);
+    assert.equal(result.reason, '고객이 적은 값 59 · 빌라 방2 → 59㎡로 봄 → 전용 18평');
   });
 
   it('방3 33은 33평 그대로이고 아파트는 공급', () => {
@@ -195,13 +238,6 @@ describe('방 구조로 평·㎡ 가리기', () => {
     assert.equal(result.pyeong, 33);
     assert.equal(result.reinterpreted, null);
     assert.match(result.reason, /아파트 공급 33평 \(기본 규칙\)/);
-  });
-
-  it('방2 59는 18평', () => {
-    const result = resolveTelecrmArea({ raw: '59', buildingType: '아파트', roomCount: 2, bathroomCount: 1 });
-    assert.equal(result.pyeong, 18);
-    assert.equal(result.reinterpreted, 'sqm');
-    assert.equal(result.literalPyeong, 59);
   });
 
   it('31평이라고 적으면 오피스텔 1.5룸이어도 31평', () => {
@@ -252,9 +288,18 @@ describe('방 구조로 평·㎡ 가리기', () => {
     assert.equal(result.source, '사장님 기준');
   });
 
-  it('방 수가 기타여도 원문에서 투룸을 읽는다', () => {
+  it('방 수가 기타여도 원문에서 투룸을 읽어 ㎡로만 가린다', () => {
     const judged = judgeBareAreaUnit({ value: 59, unitExplicit: false, roomCount: null, roomText: '기타: 투룸' });
     assert.equal(judged.applied, true);
-    if (judged.applied) assert.equal(judged.pyeong, 18);
+    if (judged.applied) {
+      assert.equal(judged.reinterpreted, 'sqm');
+      assert.equal(judged.literalPyeong, 59);
+      assert.match(judged.speech, /투룸/);
+    }
+  });
+
+  it('방3 84는 평과 ㎡가 둘 다 범위 안이라 구조를 적용하지 않는다', () => {
+    const judged = judgeBareAreaUnit({ value: 84, unitExplicit: false, buildingType: '아파트', roomCount: 3 });
+    assert.equal(judged.applied, false);
   });
 });
