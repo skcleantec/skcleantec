@@ -1,3 +1,4 @@
+import { emitCrmWorkAction } from '../../../hooks/useCrmWorkTracker';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getToken } from '../../../stores/auth';
 import {
@@ -141,6 +142,7 @@ export function CrmSmsDrawer({
       customerMatch,
       imageUrl,
     });
+    emitCrmWorkAction({ kind: 'sms' });
     const notice = telecrmDispatchNotice(result, 'sms');
     if (notice) onDispatchNotice?.(notice);
   };

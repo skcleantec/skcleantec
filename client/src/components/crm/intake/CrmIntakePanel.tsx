@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { TelecrmCustomerCandidateDto, TelecrmCustomerLookupDto } from '../../../api/telecrm';
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
+import { emitCrmWorkAction } from '../../../hooks/useCrmWorkTracker';
 import { CrmLinkedCustomerPhones } from './CrmLinkedCustomerPhones';
 import { buildCrmLookupApply } from '../../../utils/crmLookupApply';
 import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultationQuote';
@@ -441,6 +442,7 @@ export function CrmIntakePanel({
       },
       bridgeStatus: soomgoBridgeStatus,
     });
+    emitCrmWorkAction({ kind: 'call' });
     const notice = autoNotice ?? callNotice;
     if (notice) onDispatchNotice?.(notice);
   };
