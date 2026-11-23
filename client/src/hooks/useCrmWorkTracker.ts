@@ -184,7 +184,7 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
       contactPhone: cur.identity.contactPhone || null,
       safePhone: cur.identity.safePhone || null,
       actions: { ...cur.actions },
-      draft: touched(cur.actions) ? (cur.draft as unknown as Record<string, unknown> | null) : null,
+      draft: cur.draft as unknown as Record<string, unknown> | null,
       summary: summarize(cur.draft),
     };
     void cur.idPromise.then((id) => {
@@ -278,7 +278,8 @@ export function useCrmWorkTracker(opts: { enabled: boolean; operatingCompanyId: 
           {
             outcome: unsaved ? 'UNSAVED' : 'VIEWED',
             leftBy: how.leftBy,
-            draft: unsaved ? (cur.draft as unknown as Record<string, unknown> | null) : null,
+            // 보기만 한 고객도 다시 불러올 수 있게 내용을 남긴다
+            draft: cur.draft as unknown as Record<string, unknown> | null,
             summary: summarize(cur.draft),
           },
           { keepalive },

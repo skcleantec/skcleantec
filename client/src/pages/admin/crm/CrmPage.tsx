@@ -177,6 +177,20 @@ import {
 } from '../../../utils/crmQuickScheduleChannel';
 import { openCrmQuickScheduleWindow } from '../../../utils/openCrmQuickScheduleWindow';
 
+
+/** 이름·닉네임·번호 중 하나라도 같으면 같은 고객의 접수란으로 본다 */
+function sameIntakeDraftCustomer(a: CrmIntakeDraft, b: CrmIntakeDraft): boolean {
+  const name = (a.customerName ?? '').trim();
+  if (name && name !== '고객' && name === (b.customerName ?? '').trim()) return true;
+  const nick = (a.nickname ?? '').trim();
+  if (nick && nick === (b.nickname ?? '').trim()) return true;
+  const digitsOf = (d: CrmIntakeDraft) =>
+    [d.contactPhone, d.safePhone].map((p) => (p ?? '').replace(/\D/g, '')).filter((p) => p.length >= 8);
+  const mine = digitsOf(a);
+  const theirs = digitsOf(b);
+  return mine.some((p) => theirs.includes(p));
+}
+
 export function CrmPage() {
   const [searchParams] = useSearchParams();
   const isPopup = searchParams.get('popup') === '1';
@@ -318,6 +332,9 @@ export function CrmPage() {
   const [workHistoryOpen, setWorkHistoryOpen] = useState(false);
   const [workHistoryRefreshKey, setWorkHistoryRefreshKey] = useState(0);
   const [workResumingId, setWorkResumingId] = useState<string | null>(null);
+  /** 신규 → 기존으로 넘어갈 때 맡아 둔 접수란 내용 */
+  const newModeStashRef = useRef<CrmIntakeDraft | null>(null);
+  const applyIntakeDraftRef = useRef<((draft: CrmIntakeDraft, message: string) => void) | null>(null);
   const openSharedMemo = () => {
     sharedMemo.markSeen();
     setSharedMemoOpen(true);
@@ -576,6 +593,23 @@ export function CrmPage() {
     return crmIntakeDraftHasContent(draft) ? draft : null;
   }, [mode, contactPhone, safePhone, contactUnknown, pyeong, customerName, intakeKind, activeOperatingCompanyId]);
 
+  /** 접수란 전체(건물 유형·구조 포함) — 신규↔기존을 오갈 때 그대로 되돌리는 데 쓴다 */
+  const buildFullIntakeDraft = useCallback((): CrmIntakeDraft | null => {
+    const form = formSnapshotRef.current;
+    if (!form) return buildCurrentIntakeDraft();
+    const draft: CrmIntakeDraft = {
+      mode,
+      contactPhone,
+      safePhone,
+      contactUnknown,
+      pyeong,
+      ...form,
+      operatingCompanyId: activeOperatingCompanyId ?? null,
+      savedAt: Date.now(),
+    };
+    return crmIntakeDraftHasContent(draft) ? draft : null;
+  }, [mode, contactPhone, safePhone, contactUnknown, pyeong, activeOperatingCompanyId, buildCurrentIntakeDraft]);
+
   const dismissRecoverableDraft = useCallback(() => {
     setRecoverableDraft(null);
     clearCrmIntakeRecoverDraft();
@@ -736,7 +770,20 @@ export function CrmPage() {
 
   const handleModeChange = useCallback(
     (next: CrmCustomerMode) => {
+      if (next === 'existing' && mode === 'new') {
+        // 신규에서 채워 둔 내용 — 「기존」을 눌러 봤다가 돌아와도 남도록 잠시 맡아 둔다
+        newModeStashRef.current = buildFullIntakeDraft();
+      }
       if (next === 'new') {
+        const stash = newModeStashRef.current;
+        newModeStashRef.current = null;
+        const now = buildFullIntakeDraft();
+        if (stash && (!now || sameIntakeDraftCustomer(stash, now))) {
+          // 기존에서 다른 고객을 불러오지 않았으면 신규에 있던 내용을 그대로 되돌린다
+          work.noteLoad('manual');
+          applyIntakeDraftRef.current?.({ ...stash, mode: 'new', savedAt: Date.now() }, '신규에 적어 둔 내용을 그대로 뒀어요.');
+          return;
+        }
         work.leave('reset');
         resetQuotePricingState();
         setContactPhone('');
@@ -778,7 +825,7 @@ export function CrmPage() {
       }
       setMode(next);
     },
-    [resetQuotePricingState],
+    [resetQuotePricingState, mode, work.leave, work.noteLoad, buildFullIntakeDraft],
   );
 
   const showDispatchNotice = useCallback((message: string, action?: { label: string; run: () => void } | null) => {
@@ -1168,6 +1215,8 @@ export function CrmPage() {
     clearCrmIntakeRecoverDraft();
     showDispatchNotice(message);
   }, [resetQuotePricingState, showDispatchNotice]);
+
+  applyIntakeDraftRef.current = applyIntakeDraft;
 
   const applyRecoverableDraft = useCallback(() => {
     if (!recoverableDraft) return;

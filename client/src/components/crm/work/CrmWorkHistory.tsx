@@ -451,7 +451,7 @@ export function CrmWorkHistoryDrawer({
             ) : null}
             <ul>
               {items.map((item) => (
-                <li key={item.id} className="grid grid-cols-[3.75rem_minmax(0,1fr)_auto] items-center gap-2 border-t border-slate-100 py-2">
+                <li key={item.id} className="grid grid-cols-[3.75rem_minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-slate-100 py-2">
                   <span className="text-fluid-2xs tabular-nums text-slate-600">{timeLabel(item.startedAt)}</span>
                   <span className="min-w-0 truncate">
                     <span className="text-fluid-xs font-bold text-slate-900">{nameOf(item)}</span>{' '}
@@ -462,6 +462,18 @@ export function CrmWorkHistoryDrawer({
                     </span>
                   </span>
                   <OutcomeChip item={item} />
+                  {item.userId === myUserId && item.hasDraft && item.outcome !== 'SAVED' && item.outcome !== 'OPEN' ? (
+                    <button
+                      type="button"
+                      disabled={resumingId != null}
+                      onClick={() => onResume(item.id)}
+                      className="inline-flex h-7 items-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:opacity-50"
+                    >
+                      {resumingId === item.id ? '불러오는 중…' : '다시 불러오기'}
+                    </button>
+                  ) : (
+                    <span />
+                  )}
                 </li>
               ))}
             </ul>
