@@ -62,6 +62,9 @@ import {
   FollowupDetailTabBar,
 } from './FollowupCallNotesHistory';
 import { SafePhoneExpiryBadge } from './SafePhoneExpiryBadge';
+import { FollowupDuplicatesDialog } from './FollowupDuplicatesDialog';
+import { OtherBrandsNote } from './OtherBrandsNote';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { isSafePhoneCallBlocked } from '../../utils/safePhoneExpiry';
 import { FollowupIntakeExtrasFields } from './FollowupIntakeExtrasFields';
 import {
@@ -395,6 +398,8 @@ export function AdminOrderFormFollowupPanel({
 }) {
   const [searchParams] = useSearchParams();
   const [listIntakeOpen, setListIntakeOpen] = useState(false);
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
+  const { role: staffRole } = useAdminStaffSession();
   const [items, setItems] = useState<OrderFollowupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
@@ -987,6 +992,16 @@ export function AdminOrderFormFollowupPanel({
               >
                 일반 등록
               </button>
+              {staffRole === 'ADMIN' ? (
+                <button
+                  type="button"
+                  onClick={() => setDuplicatesOpen(true)}
+                  className="inline-flex min-h-[36px] shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-fluid-2xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:text-fluid-xs"
+                  title="이름·닉네임이나 번호가 같은 부재·보류를 찾아 한 줄로 합칩니다 (관리자)"
+                >
+                  중복 의심
+                </button>
+              ) : null}
               {datePreset === 'month' && (
                 <YearMonthSelect
                   value={dateMonthKey}
@@ -1190,6 +1205,7 @@ export function AdminOrderFormFollowupPanel({
                           createdAt={row.createdAt}
                           className="mt-0.5"
                         />
+                        <OtherBrandsNote otherBrands={row.otherBrands} className="mt-0.5" />
                       </td>
                       <td className="py-2.5 px-2">
                         <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
@@ -1293,6 +1309,7 @@ export function AdminOrderFormFollowupPanel({
                           createdAt={row.createdAt}
                           className="ml-1.5 align-middle"
                         />
+                        <OtherBrandsNote otherBrands={row.otherBrands} className="ml-1.5 align-middle" />
                       </p>
                     </div>
                     {(row.customerPhone ?? '').replace(/\D/g, '').length >= 8 &&
@@ -1385,6 +1402,16 @@ export function AdminOrderFormFollowupPanel({
           </>
         )}
       </section>
+
+      {duplicatesOpen ? (
+        <FollowupDuplicatesDialog
+          token={token}
+          brands={operatingCompanies.map((oc) => ({ id: oc.id, name: oc.name }))}
+          initialBrandId={filterOperatingCompanyId || undefined}
+          onClose={() => setDuplicatesOpen(false)}
+          onMerged={() => void load({ silent: true })}
+        />
+      ) : null}
 
       {logFor &&
         createPortal(
