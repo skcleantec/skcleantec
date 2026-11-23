@@ -40,6 +40,8 @@ export async function fetchTelecrmQuoteCrewLearningHints(
     propertyType?: string;
     buildingType?: string;
     isOneRoom?: boolean;
+    oneRoomLoft?: boolean | null;
+    memoText?: string;
     roomCount?: string;
     bathroomCount?: string;
     balconyCount?: string;
@@ -51,6 +53,9 @@ export async function fetchTelecrmQuoteCrewLearningHints(
   if (query.propertyType?.trim()) params.set('propertyType', query.propertyType.trim());
   if (query.buildingType?.trim()) params.set('buildingType', query.buildingType.trim());
   if (query.isOneRoom) params.set('isOneRoom', 'true');
+  if (query.oneRoomLoft === true) params.set('oneRoomLoft', 'true');
+  else if (query.oneRoomLoft === false) params.set('oneRoomLoft', 'false');
+  if (query.memoText?.trim()) params.set('memoText', query.memoText.trim().slice(0, 2000));
   if (query.roomCount?.trim()) params.set('roomCount', query.roomCount.trim());
   if (query.bathroomCount?.trim()) params.set('bathroomCount', query.bathroomCount.trim());
   if (query.balconyCount?.trim()) params.set('balconyCount', query.balconyCount.trim());
@@ -157,6 +162,8 @@ export async function previewTelecrmAiQuote(
     bathroomCount?: number | null;
     balconyCount?: number | null;
     isOneRoom?: boolean;
+    oneRoomLoft?: boolean | null;
+    memoText?: string | null;
     propertyType?: string | null;
     operatingCompanyId?: string | null;
   },
@@ -302,6 +309,23 @@ export async function dismissTelecrmAiQuoteCorrection(token: string, baseRowId: 
     body: JSON.stringify({ sentAmountWon }),
   });
   return parseJson<{ ok: true }>(res);
+}
+
+export async function fetchTelecrmAiQuoteLoft(token: string, operatingCompanyId?: string | null) {
+  const q = operatingCompanyId ? `?operatingCompanyId=${encodeURIComponent(operatingCompanyId)}` : '';
+  const res = await fetch(`${API}/quote-learning/ai-quote/loft${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJson<{ amountWon: number }>(res);
+}
+
+export async function saveTelecrmAiQuoteLoft(token: string, amountWon: number, operatingCompanyId?: string | null) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/loft`, {
+    method: 'PUT',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ amountWon, operatingCompanyId: operatingCompanyId ?? undefined }),
+  });
+  return parseJson<{ amountWon: number }>(res);
 }
 
 export async function chatTelecrmAiQuoteRule(

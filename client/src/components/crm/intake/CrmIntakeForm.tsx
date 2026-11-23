@@ -27,6 +27,7 @@ const crmIntakeFieldClass = `${crmFieldCompactClass} h-9`;
 /** 접수란 칸 이름 */
 const crmIntakeLabelClass = 'mb-1 block whitespace-nowrap text-fluid-2xs font-semibold text-slate-700';
 import { CrmRequestMemoField } from './CrmRequestMemoField';
+import { memoSaysLoft } from '../../../utils/crmLoftDetect';
 import { InquiryLeadSourceSelect } from '../../inquiry/InquiryLeadSourceSelect';
 import { CollaborationMarketerSelect } from '../../inquiry/CollaborationMarketerSelect';
 import { useCollaborationMarketerOptions } from '../../../hooks/useCollaborationMarketerOptions';
@@ -210,7 +211,7 @@ export function CrmIntakeForm({
     if (initialFormDraft.propertyType != null) setPropertyType(initialFormDraft.propertyType);
     if (initialFormDraft.buildingType != null) setBuildingType(initialFormDraft.buildingType);
     if (initialFormDraft.isOneRoom != null) setIsOneRoom(initialFormDraft.isOneRoom);
-    setOneRoomLoft(initialFormDraft.isOneRoom ? (initialFormDraft.oneRoomLoft ?? null) : null);
+    setOneRoomLoft(initialFormDraft.oneRoomLoft ?? null);
     setOneRoomSlidingPartition(
       initialFormDraft.isOneRoom ? (initialFormDraft.oneRoomSlidingPartition ?? null) : null,
     );
@@ -244,6 +245,12 @@ export function CrmIntakeForm({
   useEffect(() => {
     if (kind === 'received') setShowMore(true);
   }, [kind]);
+
+  useEffect(() => {
+    if (oneRoomLoft != null) return;
+    if (!memoSaysLoft(requestMemo)) return;
+    setOneRoomLoft(true);
+  }, [oneRoomLoft, requestMemo]);
 
   useEffect(() => {
     if (!onFormChange) return;
@@ -621,28 +628,25 @@ export function CrmIntakeForm({
                 onChange={(e) => {
                   const on = e.target.checked;
                   setIsOneRoom(on);
-                  if (!on) {
-                    setOneRoomLoft(null);
-                    setOneRoomSlidingPartition(null);
-                  }
+                  if (!on) setOneRoomSlidingPartition(null);
                 }}
                 disabled={saving}
                 className="border-slate-300"
               />
               원룸
             </label>
-            {isOneRoom ? (
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-5">
-                <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={oneRoomLoft === true}
-                    onChange={(e) => setOneRoomLoft(e.target.checked)}
-                    disabled={saving}
-                    className="border-slate-300"
-                  />
-                  복층
-                </label>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-5">
+              <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={oneRoomLoft === true}
+                  onChange={(e) => setOneRoomLoft(e.target.checked)}
+                  disabled={saving}
+                  className="border-slate-300"
+                />
+                복층
+              </label>
+              {isOneRoom ? (
                 <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
                   <input
                     type="checkbox"
@@ -653,8 +657,8 @@ export function CrmIntakeForm({
                   />
                   미닫이 분리형
                 </label>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
               <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
                 <input

@@ -404,7 +404,17 @@ export function CrmPricingPanel({
   const hasBaseRow = estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0;
 
   const applyAiRecommended = useCallback(
-    async ({ amountWon, matchCount }: { amountWon: number; matchCount: number }) => {
+    async ({
+      amountWon,
+      matchCount,
+      loftWon = 0,
+    }: {
+      amountWon: number;
+      matchCount: number;
+      loftWon?: number;
+    }) => {
+      const loftAmount = loftWon > 0 ? loftWon : 0;
+      const baseWon = Math.max(0, amountWon - loftAmount);
       const label = matchCount > 0 ? `AI 견적 (예약 ${matchCount.toLocaleString('ko-KR')}건으로 배움)` : 'AI 견적';
       const existingAiLine = quoteLines.find((l) => l.key.startsWith(AI_RECOMMEND_LINE_KEY_PREFIX));
       if (hasBaseRow && onBaseEstimateOverrideChange) {
@@ -414,7 +424,7 @@ export function CrmPricingPanel({
         if (manuallyEdited) {
           const ok = await confirmDialog({
             title: '직접 고친 금액이 있어요',
-            body: `기본견적을 AI 견적 ${formatWon(amountWon)}으로 바꿀까요?`,
+            body: `기본견적을 AI 견적 ${formatWon(baseWon)}으로 바꿀까요?`,
             confirmLabel: 'AI 견적으로 바꾸기',
           });
           if (!ok) return;
@@ -427,8 +437,19 @@ export function CrmPricingPanel({
         if (existingAiLine) {
           setQuoteLines(quoteLines.filter((l) => !l.key.startsWith(AI_RECOMMEND_LINE_KEY_PREFIX)));
         }
-        onBaseEstimateOverrideChange(amountWon);
+        onBaseEstimateOverrideChange(baseWon);
         setAiBaseLabel(label);
+        if (loftAmount > 0) {
+          const loftLine: CrmPricingQuoteLine = {
+            key: 'ai-loft',
+            label: '복층',
+            source: 'telecrm',
+            catalogAmountWon: loftAmount,
+            amountWon: loftAmount,
+          };
+          const withoutLoft = quoteLines.filter((l) => l.key !== 'ai-loft' && !l.key.startsWith(AI_RECOMMEND_LINE_KEY_PREFIX));
+          setQuoteLines([...withoutLoft, loftLine]);
+        }
       } else {
         if (existingAiLine && existingAiLine.amountWon !== existingAiLine.catalogAmountWon) {
           const ok = await confirmDialog({

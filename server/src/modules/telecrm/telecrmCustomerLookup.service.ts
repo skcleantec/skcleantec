@@ -305,7 +305,7 @@ async function resolveTelecrmCustomerByPhone(
       bathroomCount: row.bathroomCount ?? null,
       balconyCount: row.balconyCount ?? null,
       isOneRoom: row.isOneRoom === true,
-      oneRoomLoft: row.isOneRoom === true ? row.oneRoomLoft ?? null : null,
+      oneRoomLoft: row.oneRoomLoft ?? null,
       oneRoomSlidingPartition: row.isOneRoom === true ? row.oneRoomSlidingPartition ?? null : null,
       structureBalconyNonExpanded: row.structureBalconyNonExpanded ?? null,
       structurePartitionWall: row.structurePartitionWall ?? null,

@@ -370,6 +370,7 @@ model Tenant {
   telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
   telecrmAiQuoteRules TelecrmAiQuoteRule[]
   telecrmAiQuoteBaseRows TelecrmAiQuoteBaseRow[]
+  telecrmAiQuoteLoftSettings TelecrmAiQuoteLoftSetting[]
   telecrmAiQuoteCorrections TelecrmAiQuoteCorrection[]
   telecrmAiQuoteCorrectionDismissals TelecrmAiQuoteCorrectionDismiss[]
   telecrmAreaRules TelecrmAreaRule[]
@@ -1789,6 +1790,7 @@ model OperatingCompany {
   crmQuickScheduleLeads      CrmQuickScheduleLead[]
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
   telecrmAiQuoteCorrections  TelecrmAiQuoteCorrection[]
+  telecrmAiQuoteLoftSettings TelecrmAiQuoteLoftSetting[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSmsTemplates         TelecrmSmsTemplate[]
   telecrmResponseCards        TelecrmResponseCard[]
@@ -5499,6 +5501,20 @@ model TelecrmAiQuoteBaseRow {
 
   @@index([tenantId, sortOrder])
   @@map("telecrm_ai_quote_base_rows")
+}
+
+/// 텔레CRM AI 견적 — 브랜드별 복층 추가금. 줄이 없으면 3만 원.
+model TelecrmAiQuoteLoftSetting {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String   @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  amountWon          Int      @default(30000) @map("amount_won")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, operatingCompanyId])
+  @@map("telecrm_ai_quote_loft_settings")
 }
 
 /// 상담사가 견적보내기로 보낸 기본청소 금액. 고객 이름·전화번호는 두지 않는다.

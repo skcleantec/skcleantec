@@ -435,13 +435,12 @@ export async function finalizeTelecrmConsultationQuote(
   if (input.roomCount !== undefined) intakeExtrasData.roomCount = input.roomCount;
   if (input.bathroomCount !== undefined) intakeExtrasData.bathroomCount = input.bathroomCount;
   if (input.balconyCount !== undefined) intakeExtrasData.balconyCount = input.balconyCount;
+  if (input.oneRoomLoft !== undefined) intakeExtrasData.oneRoomLoft = input.oneRoomLoft ?? null;
   if (input.isOneRoom === true) {
     intakeExtrasData.isOneRoom = true;
-    intakeExtrasData.oneRoomLoft = input.oneRoomLoft ?? null;
     intakeExtrasData.oneRoomSlidingPartition = input.oneRoomSlidingPartition ?? null;
   } else if (input.isOneRoom === false) {
     intakeExtrasData.isOneRoom = false;
-    intakeExtrasData.oneRoomLoft = null;
     intakeExtrasData.oneRoomSlidingPartition = null;
   }
   if (input.structureBalconyNonExpanded !== undefined) {

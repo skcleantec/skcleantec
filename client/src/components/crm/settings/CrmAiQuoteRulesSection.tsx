@@ -12,10 +12,12 @@ import {
   chatTelecrmAiQuoteRule,
   deleteTelecrmAiQuoteRule,
   deleteTelecrmAreaRule,
+  fetchTelecrmAiQuoteLoft,
   fetchTelecrmAiQuoteRules,
   fetchTelecrmAiQuoteStatus,
   fetchTelecrmAreaRules,
   previewTelecrmAiQuote,
+  saveTelecrmAiQuoteLoft,
   saveTelecrmAiQuoteRule,
   saveTelecrmAreaRule,
   updateTelecrmAiQuoteRule,
@@ -87,6 +89,7 @@ function ExampleList({ examples, afterOnly = false }: { examples: TelecrmAiQuote
 export function CrmAiQuoteRulesSection() {
   const token = getToken();
   const { activeOperatingCompanyId } = useCrmWorkBrand();
+  const [loftWon, setLoftWon] = useState('30000');
   const propertyOptions = useCrmPropertyChoiceOptions();
   const [status, setStatus] = useState<TelecrmAiQuoteModelStatus | null>(null);
   const [rules, setRules] = useState<TelecrmAiQuoteRuleDto[]>([]);
@@ -106,15 +109,17 @@ export function CrmAiQuoteRulesSection() {
   const load = useCallback(async () => {
     if (!token) return;
     try {
-      const [s, r, area] = await Promise.all([
+      const [s, r, area, loft] = await Promise.all([
         fetchTelecrmAiQuoteStatus(token, activeOperatingCompanyId),
         fetchTelecrmAiQuoteRules(token),
         fetchTelecrmAreaRules(token, activeOperatingCompanyId),
+        fetchTelecrmAiQuoteLoft(token, activeOperatingCompanyId),
       ]);
       setStatus(s);
       setRules(r.items);
       setAreaRules(area.items);
       setAreaCaseCount(area.caseCount);
+      setLoftWon(String(loft.amountWon));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'AI 견적 정보를 불러오지 못했어요.');
     }
@@ -309,6 +314,38 @@ export function CrmAiQuoteRulesSection() {
           말로 넣은 규칙 {status?.activeRuleCount ?? 0}개 켜짐
           {status && status.ruleCount > status.activeRuleCount ? ` (꺼짐 ${status.ruleCount - status.activeRuleCount}개)` : ''}
         </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-fluid-xs text-slate-700">
+        <span className="font-semibold text-slate-900">복층 추가금</span>
+        <input
+          value={loftWon}
+          onChange={(e) => setLoftWon(e.target.value.replace(/[^\d]/g, ''))}
+          inputMode="numeric"
+          className="h-8 w-28 rounded-lg border border-slate-300 px-2 tabular-nums"
+        />
+        <span>원</span>
+        <button
+          type="button"
+          className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-slate-700 hover:bg-slate-50"
+          onClick={() => {
+            if (!token || !activeOperatingCompanyId) {
+              toast.error('작업 브랜드를 선택해 주세요.');
+              return;
+            }
+            const amountWon = Math.round(Number(loftWon));
+            if (!Number.isFinite(amountWon) || amountWon < 0) return;
+            void saveTelecrmAiQuoteLoft(token, amountWon, activeOperatingCompanyId)
+              .then((saved) => {
+                setLoftWon(String(saved.amountWon));
+                toast.success(saved.amountWon === 0 ? '복층 추가금을 껐어요.' : '복층 추가금을 저장했어요.');
+              })
+              .catch((e) => toast.error(e instanceof Error ? e.message : '저장하지 못했어요.'));
+          }}
+        >
+          저장
+        </button>
+        <span className="text-slate-500">0이면 더하지 않아요. 이 브랜드 견적에만 적용돼요.</span>
       </div>
 
       <div className="rounded-xl border border-slate-200">

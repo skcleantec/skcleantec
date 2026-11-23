@@ -17,6 +17,10 @@ export type CrmQuoteLearningContext = {
   propertyType?: string;
   buildingType?: string;
   isOneRoom?: boolean;
+  /** 복층 체크. null 이면 메모에서 판단 */
+  oneRoomLoft?: boolean | null;
+  /** 통화 중 메모·숨고 고객요청 */
+  memoText?: string;
   /** 작업 브랜드 — 브랜드 예약이 충분하면 그 브랜드 가격으로 배움 */
   operatingCompanyId?: string;
 };
@@ -113,8 +117,8 @@ export function CrmQuoteLearningHintBanner({
   /** 업체 평당 기준가로 계산한 금액 — 추천가와 비교해 보여 줌 (초보 마케터가 추천가를 기준가로 오해하지 않게) */
   baseAmountWon?: number | null;
   onOpenLearningSettings?: () => void;
-  /** 「AI 추천가 넣기」 — 안내 목록에 추천 금액 반영 */
-  onApplyRecommended?: (input: { amountWon: number; matchCount: number }) => void;
+  /** 「AI 추천가 넣기」 — 안내 목록에 추천 금액 반영. loftWon 은 기본 금액과 따로 둔다 */
+  onApplyRecommended?: (input: { amountWon: number; matchCount: number; loftWon?: number }) => void;
 }) {
   const token = getToken();
   const [hints, setHints] = useState<TelecrmQuoteCrewLearningHints | null>(null);
@@ -131,6 +135,8 @@ export function CrmQuoteLearningHintBanner({
         context.propertyType ?? '',
         context.buildingType ?? '',
         context.isOneRoom ? '1' : '0',
+        context.oneRoomLoft === true ? '1' : context.oneRoomLoft === false ? '0' : '',
+        context.memoText ?? '',
         context.operatingCompanyId ?? '',
       ].join('|'),
     [context],
@@ -168,6 +174,8 @@ export function CrmQuoteLearningHintBanner({
           propertyType: context.propertyType,
           buildingType: context.buildingType,
           isOneRoom: context.isOneRoom,
+          oneRoomLoft: context.oneRoomLoft,
+          memoText: context.memoText,
           operatingCompanyId: context.operatingCompanyId,
         }),
         FETCH_TIMEOUT_MS,
@@ -318,7 +326,11 @@ export function CrmQuoteLearningHintBanner({
               variant="primary"
               title={`AI 견적 ${formatWon(recommendedAmount)}을 안내 목록에 넣어요`}
               onClick={() =>
-                onApplyRecommended({ amountWon: recommendedAmount, matchCount: quote?.sampleCount ?? hints.matchCount })
+                onApplyRecommended({
+                  amountWon: recommendedAmount,
+                  matchCount: quote?.sampleCount ?? hints.matchCount,
+                  loftWon: quote?.loft?.applied ? quote.loft.amountWon : 0,
+                })
               }
             >
               AI 견적 넣기
