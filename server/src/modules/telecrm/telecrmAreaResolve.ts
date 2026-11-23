@@ -1,7 +1,7 @@
 /**
  * 숨고 면적 글을 견적 평수로 바꾼다.
  * 아파트는 공급평, 그 외는 전용평. 1평 = 3.305785㎡.
- * 순서: 표시 없는 단지만 사례·기준 > 건축물대장 > 고객이 적은 공급·전용 > 평수만 있을 때 사장님 기준 > 기본 규칙.
+ * 순서: 단위가 글자로 있으면 그 단위 > 사장님이 적어 둔 평수 규칙 > 방 구조로 평·㎡ 가리기 > 사례 > 건축물대장 > 기본 규칙.
  */
 export type TelecrmAreaStatus = '확정' | '확인 필요';
 export type TelecrmAreaSource = '건축물대장' | '사장님 기준' | '사례' | '기본 규칙';
@@ -14,6 +14,10 @@ export type TelecrmAreaResolveResult = {
   source: TelecrmAreaSource;
   customerValue: number | null;
   customerMark: string | null;
+  /** 단위 없는 숫자를 ㎡로 다시 읽었으면 sqm. */
+  reinterpreted: 'sqm' | null;
+  /** 평으로 읽었을 때의 값. 되돌릴 때 쓴다. */
+  literalPyeong: number | null;
 };
 export type TelecrmAreaRuleSpec = {
   kind: 'assume' | 'confirmBand' | 'complex' | 'ratio' | 'basis';
@@ -57,11 +61,47 @@ export type AreaCaseRow = {
 export type AreaResolveInput = {
   raw: string;
   buildingType?: string | null;
+  propertyType?: string | null;
   address?: string | null;
   ledger?: AreaLedgerGroup[] | null;
   rules?: TelecrmAreaRuleSpec[];
   cases?: AreaCaseRow[];
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  isOneRoom?: boolean | null;
+  /** 숨고 「방 개수」 답 원문. 예: 「기타: 1.5룸」 */
+  roomText?: string | null;
 };
+
+/** 단위 없는 숫자를 평으로 봐도 되는 범위. 방 구조 가리기에만 쓴다. */
+export const AREA_STRUCTURE_PYEONG = {
+  oneRoomMax: 20,
+  twoRoomMax: 35,
+  threeRoomMin: 15,
+  fourRoomMin: 25,
+} as const;
+
+export type AreaStructureInput = {
+  value: number;
+  /** 평·㎡·m2·제곱미터처럼 단위가 글자로 있으면 true. 이때는 구조를 보지 않는다. */
+  unitExplicit: boolean;
+  buildingType?: string | null;
+  propertyType?: string | null;
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  isOneRoom?: boolean | null;
+  roomText?: string | null;
+};
+
+export type AreaStructureJudgement =
+  | { applied: false }
+  | {
+      applied: true;
+      reinterpreted: 'sqm';
+      pyeong: number;
+      literalPyeong: number;
+      reason: string;
+    };
 
 type Reading = {
   value: number;
@@ -182,6 +222,151 @@ function buildingLabel(buildingType: string, apartment: boolean): string {
   return apartment ? '아파트' : '건물';
 }
 
+const NON_APARTMENT = /오피스텔|주상복합|빌라|연립|다세대|원룸|주택|단독|상가/;
+
+/** 아파트만 공급, 그 외 유형은 전용. 유형이 하나도 없으면 지금처럼 아파트로 본다. */
+function describePlace(buildingType: string, propertyType: string): { apartment: boolean; place: string } {
+  const building = buildingType.trim();
+  const property = propertyType.trim();
+  const blob = `${building} ${property}`.trim();
+  const nonApartment = NON_APARTMENT.test(blob);
+  const apartmentWord = /아파트/.test(blob) && !/오피스텔|주상복합/.test(blob);
+  if (nonApartment && !apartmentWord) {
+    const place =
+      [building, property].find((name) => NON_APARTMENT.test(name)) || building || property || '건물';
+    return { apartment: false, place };
+  }
+  if (!blob || apartmentWord) {
+    const place = [building, property].find((name) => isApartment(name)) || '아파트';
+    return { apartment: true, place };
+  }
+  return { apartment: false, place: building || property };
+}
+
+/** 방 원문에서 1.5룸·원룸·투룸·쓰리룸을 읽는다. 방 수가 비어 있거나 「기타」일 때 보완한다. */
+export function readRoomStructureFromText(roomText: string | null | undefined): {
+  rooms: number | null;
+  oneRoom: boolean;
+  label: string | null;
+} {
+  const text = String(roomText ?? '').replace(/\s+/g, '');
+  if (!text) return { rooms: null, oneRoom: false, label: null };
+  if (/1\.5룸/.test(text)) return { rooms: 1.5, oneRoom: true, label: '1.5룸' };
+  if (/쓰리룸|3룸/.test(text)) return { rooms: 3, oneRoom: false, label: '쓰리룸' };
+  if (/투룸|2룸/.test(text)) return { rooms: 2, oneRoom: false, label: '투룸' };
+  if (/원룸/.test(text) || /(?<![.\d])1룸/.test(text)) return { rooms: 1, oneRoom: true, label: '원룸' };
+  return { rooms: null, oneRoom: false, label: null };
+}
+
+function inStructureBand(pyeong: number, band: { min?: number; max?: number }): boolean {
+  if (band.max != null && pyeong > band.max) return false;
+  if (band.min != null && pyeong < band.min) return false;
+  return true;
+}
+
+function structureBand(input: {
+  rooms: number | null;
+  baths: number | null;
+  oneRoom: boolean;
+  label: string | null;
+}): { min?: number; max?: number; speech: string } | null {
+  const { rooms, baths, oneRoom, label } = input;
+  const small =
+    oneRoom || label === '1.5룸' || label === '원룸' || (rooms != null && rooms > 0 && rooms <= 1.5);
+  if (small) {
+    if (rooms === 1 && baths === 1 && !oneRoom && label !== '1.5룸' && label !== '원룸') {
+      return { max: AREA_STRUCTURE_PYEONG.oneRoomMax, speech: '방1 화1' };
+    }
+    const speech = label === '1.5룸' || rooms === 1.5 ? '1.5룸' : '원룸';
+    return { max: AREA_STRUCTURE_PYEONG.oneRoomMax, speech };
+  }
+  if (rooms === 2 || label === '투룸') {
+    return { max: AREA_STRUCTURE_PYEONG.twoRoomMax, speech: label === '투룸' ? '투룸' : '방2' };
+  }
+  if (rooms === 3 || label === '쓰리룸') {
+    return { min: AREA_STRUCTURE_PYEONG.threeRoomMin, speech: label === '쓰리룸' ? '쓰리룸' : '방3' };
+  }
+  if (rooms != null && rooms >= 4) {
+    return { min: AREA_STRUCTURE_PYEONG.fourRoomMin, speech: `방${Math.round(rooms)}` };
+  }
+  return null;
+}
+
+/**
+ * 단위가 없는 숫자를 방 구조와 맞춰 평인지 ㎡인지 가린다.
+ * 평으로 읽으면 범위를 벗어나고 ㎡로 읽으면 범위 안이면 ㎡.
+ * 둘 다 범위 안이어도, 59·84처럼 단위 없는 대표 ㎡(60 이상 포함)이고 ㎡로 바꾼 평수가 범위 안이면 ㎡로 읽는다.
+ * 둘 다 범위 밖이거나 방 정보가 없으면 지금 동작을 그대로 둔다.
+ */
+export function judgeBareAreaUnit(input: AreaStructureInput): AreaStructureJudgement {
+  if (input.unitExplicit) return { applied: false };
+  const value = input.value;
+  if (!Number.isFinite(value) || value <= 0) return { applied: false };
+  const fromText = readRoomStructureFromText(input.roomText);
+  const roomBlank = input.roomCount == null || !Number.isFinite(input.roomCount);
+  const textSaysOther = /기타/.test(String(input.roomText ?? ''));
+  const useText = fromText.rooms != null && (roomBlank || textSaysOther);
+  const rooms = useText ? fromText.rooms : input.roomCount ?? null;
+  const oneRoom = input.isOneRoom === true || (useText && fromText.oneRoom) || (roomBlank && fromText.oneRoom);
+  const label = useText || roomBlank ? fromText.label : null;
+  const baths = input.bathroomCount != null && Number.isFinite(input.bathroomCount) ? input.bathroomCount : null;
+  const hasStructure = rooms != null || oneRoom || label != null;
+  if (!hasStructure) return { applied: false };
+  const band = structureBand({ rooms, baths, oneRoom, label });
+  if (!band) return { applied: false };
+  const asPyeong = roundPyeong(value);
+  const asSqm = roundPyeong(value / SQM_PER_PYEONG);
+  const pyeongOk = inStructureBand(asPyeong, band);
+  const sqmOk = inStructureBand(asSqm, band);
+  const preferSqm = !pyeongOk && sqmOk;
+  const representativeSqm = pyeongOk && sqmOk && looksLikeBareSqm(value) && asPyeong !== asSqm;
+  if (!preferSqm && !representativeSqm) return { applied: false };
+  const { place } = describePlace(input.buildingType ?? '', input.propertyType ?? '');
+  const placeBit = place && place !== '건물' ? place : '';
+  const speech = [placeBit, band.speech].filter(Boolean).join(' ');
+  return {
+    applied: true,
+    reinterpreted: 'sqm',
+    pyeong: asSqm,
+    literalPyeong: asPyeong,
+    reason: `고객이 적은 값 ${formatNum(value)} · ${speech} → ${formatNum(value)}㎡로 봄 → ${formatNum(asSqm)}평`,
+  };
+}
+
+function explicitAreaRuleMatches(
+  reading: Reading,
+  rules: TelecrmAreaRuleSpec[],
+  buildingType: string,
+  apartment: boolean,
+  address: string,
+): boolean {
+  for (const rule of rules) {
+    if (rule.kind === 'assume') {
+      const min = rule.pyeongMin ?? reading.value;
+      const max = rule.pyeongMax ?? reading.value;
+      if (buildingMatches(rule.buildingType, buildingType || '아파트', apartment) && reading.value >= min && reading.value <= max) {
+        return true;
+      }
+    }
+    if (rule.kind === 'confirmBand' && buildingMatches(rule.buildingType, buildingType || '아파트', apartment)) {
+      const min = rule.pyeongMin ?? rule.pyeongMax ?? reading.value;
+      const max = rule.pyeongMax ?? rule.pyeongMin ?? reading.value;
+      if (reading.value >= min && reading.value <= max) return true;
+    }
+    if (
+      rule.kind === 'complex' &&
+      rule.address &&
+      rule.customerValue != null &&
+      rule.supplyPyeong != null &&
+      sameComplex(rule.address, address) &&
+      near(rule.customerValue, reading.value, 0.2)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function done(
   pyeong: number | null,
   status: TelecrmAreaResolveResult['status'],
@@ -189,6 +374,7 @@ function done(
   reason: string,
   source: TelecrmAreaSource,
   reading: Reading | null,
+  extra?: { reinterpreted?: 'sqm' | null; literalPyeong?: number | null },
 ): TelecrmAreaResolveResult {
   return {
     pyeong,
@@ -198,6 +384,8 @@ function done(
     source,
     customerValue: reading?.value ?? null,
     customerMark: reading?.mark ?? null,
+    reinterpreted: extra?.reinterpreted ?? null,
+    literalPyeong: extra?.literalPyeong ?? null,
   };
 }
 
@@ -311,15 +499,37 @@ function uniqueGroups(groups: AreaLedgerGroup[]): AreaLedgerGroup[] {
 
 export function resolveTelecrmArea(input: AreaResolveInput): TelecrmAreaResolveResult {
   const reading = parseAreaReading(input.raw);
-  const buildingType = (input.buildingType ?? '').trim();
-  const apartment = !buildingType || isApartment(buildingType) || (/아파트/.test(buildingType) && !/오피스텔|주상복합/.test(buildingType));
-  const place = buildingLabel(buildingType, apartment);
+  const propertyType = (input.propertyType ?? '').trim();
+  const buildingType = (input.buildingType ?? '').trim() || propertyType;
+  const described = describePlace(buildingType, propertyType);
+  const apartment = described.apartment;
+  const place = described.place || buildingLabel(buildingType, apartment);
   const rules = input.rules ?? [];
   if (!reading) {
     return done(null, '확인 필요', [], '면적 숫자를 못 찾았어요. 상담사가 확인해 주세요.', '기본 규칙', null);
   }
 
   const address = input.address ?? '';
+  if (reading.range) {
+    return done(null, '확인 필요', [], `고객: ${reading.label}은 범위라 평수를 확정하지 않아요.`, '기본 규칙', reading);
+  }
+  const structure = judgeBareAreaUnit({
+    value: reading.value,
+    unitExplicit: !reading.bare || reading.unit === 'sqm',
+    buildingType,
+    propertyType,
+    roomCount: input.roomCount,
+    bathroomCount: input.bathroomCount,
+    isOneRoom: input.isOneRoom,
+    roomText: input.roomText,
+  });
+  if (structure.applied && !explicitAreaRuleMatches(reading, rules, buildingType, apartment, address)) {
+    return done(structure.pyeong, '확정', [], structure.reason, '기본 규칙', reading, {
+      reinterpreted: 'sqm',
+      literalPyeong: structure.literalPyeong,
+    });
+  }
+
   if (address.trim() && !reading.mark) {
     const hits = (input.cases ?? []).filter(
       (row) =>
@@ -353,10 +563,6 @@ export function resolveTelecrmArea(input: AreaResolveInput): TelecrmAreaResolveR
         reading,
       );
     }
-  }
-
-  if (reading.range) {
-    return done(null, '확인 필요', [], `고객: ${reading.label}은 범위라 평수를 확정하지 않아요.`, '기본 규칙', reading);
   }
 
   const groups = input.ledger ?? [];
@@ -419,7 +625,7 @@ export function resolveTelecrmArea(input: AreaResolveInput): TelecrmAreaResolveR
   }
 
   const assume =
-    !reading.mark && !reading.bare
+    !reading.mark
       ? [...rules].reverse().find(
           (rule) =>
             rule.kind === 'assume' &&

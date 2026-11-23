@@ -390,8 +390,22 @@ router.post('/ai-quote/preview', requireStaffPermission('crm.view', 'crm.setting
 router.post('/area/resolve', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
-  const body = (req.body ?? {}) as { raw?: unknown; buildingType?: unknown; address?: unknown };
+  const body = (req.body ?? {}) as {
+    raw?: unknown;
+    buildingType?: unknown;
+    propertyType?: unknown;
+    address?: unknown;
+    roomCount?: unknown;
+    bathroomCount?: unknown;
+    isOneRoom?: unknown;
+    roomText?: unknown;
+  };
   const raw = String(body.raw ?? '').trim().slice(0, 500);
+  const optNum = (value: unknown): number | null => {
+    if (value == null || value === '') return null;
+    const n = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(n) ? n : null;
+  };
   if (!raw) {
     res.status(400).json({ error: '면적 글이 비어 있어요.' });
     return;
@@ -403,7 +417,12 @@ router.post('/area/resolve', requireStaffPermission('crm.view', 'crm.settings'),
         operatingCompanyId: brandOf(req),
         raw,
         buildingType: typeof body.buildingType === 'string' ? body.buildingType : null,
+        propertyType: typeof body.propertyType === 'string' ? body.propertyType : null,
         address: typeof body.address === 'string' ? body.address : null,
+        roomCount: optNum(body.roomCount),
+        bathroomCount: optNum(body.bathroomCount),
+        isOneRoom: body.isOneRoom === true ? true : body.isOneRoom === false ? false : null,
+        roomText: typeof body.roomText === 'string' ? body.roomText.slice(0, 200) : null,
       }),
     );
   } catch (e) {
