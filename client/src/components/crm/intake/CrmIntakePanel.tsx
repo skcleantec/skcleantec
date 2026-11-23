@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { TelecrmCustomerCandidateDto, TelecrmCustomerLookupDto } from '../../../api/telecrm';
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
+import { CrmLinkedCustomerPhones } from './CrmLinkedCustomerPhones';
 import { buildCrmLookupApply } from '../../../utils/crmLookupApply';
 import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultationQuote';
 import {
@@ -530,6 +531,24 @@ export function CrmIntakePanel({
               onCall={() => void handleCall()}
               callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
             />
+
+            {followupImport?.snapshot ? (
+              <CrmLinkedCustomerPhones
+                followupId={followupImport.snapshot.followupId}
+                linkKey={followupImport.key}
+                customerLabel={
+                  followupImport.snapshot.nickname.trim() || followupImport.snapshot.customerName.trim() || '이 고객'
+                }
+                contactPhone={followupImport.snapshot.contactPhone}
+                safePhone={followupImport.snapshot.safePhone}
+                onSaved={(next) => {
+                  setSearchMode('phone');
+                  onContactPhoneChange(next.contactPhone);
+                  onSafePhoneChange(next.safePhone);
+                  if (next.contactPhone || next.safePhone) onContactUnknownChange(false);
+                }}
+              />
+            ) : null}
 
             {lookupBlockedByBrand ? (
               <p className="rounded-xl border border-dashed border-amber-200 bg-amber-50/80 px-3 py-2 text-fluid-2xs leading-snug text-amber-900">
