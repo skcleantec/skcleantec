@@ -24,6 +24,7 @@ import { telecrmQuoteCrewLearningRouter } from './telecrmQuoteCrewLearning.route
 import { crmQuickScheduleRouter } from './crmQuickSchedule.routes.js';
 import { telecrmQuickQuoteRouter } from './telecrmQuickQuote.routes.js';
 import { telecrmResponseCardsRouter } from './telecrmResponseCards.routes.js';
+import { telecrmWorkHistoryRouter } from './telecrmWorkHistory.routes.js';
 
 const router = Router();
 router.use(authMiddleware, requireFeature('mod_telecrm'), requireTelecrmUserAccess);
@@ -45,6 +46,7 @@ router.use('/quote-learning', telecrmQuoteCrewLearningRouter);
 router.use('/quick-schedule', crmQuickScheduleRouter);
 router.use('/quick-quote', telecrmQuickQuoteRouter);
 router.use('/response-cards', telecrmResponseCardsRouter);
+router.use('/work-history', telecrmWorkHistoryRouter);
 router.use('/', telecrmMobileRouter);
 
 export const telecrmRoutes = router;
