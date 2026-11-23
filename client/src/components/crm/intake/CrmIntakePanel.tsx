@@ -617,6 +617,16 @@ export function CrmIntakePanel({
             operatingCompanyId={operatingCompanyId}
             existingInquiry={existingInquiryForSave}
             linkedFollowupId={followupImport?.snapshot.followupId ?? null}
+            linkedIdentity={
+              followupImport?.snapshot
+                ? {
+                    customerName: followupImport.snapshot.customerName,
+                    nickname: followupImport.snapshot.nickname,
+                    contactPhone: followupImport.snapshot.contactPhone,
+                    safePhone: followupImport.snapshot.safePhone,
+                  }
+                : null
+            }
             linkedHotMark={followupImport?.snapshot.myHotMark ?? null}
             hotEditable={followupImport?.snapshot.myHotMarkEditable !== false}
             hotLinkKey={followupImport?.key ?? 0}

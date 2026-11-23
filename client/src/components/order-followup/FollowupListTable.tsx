@@ -12,6 +12,7 @@ import {
   formatDateCompactWithWeekday,
 } from './followupListDisplay';
 import { SafePhoneExpiryBadge } from './SafePhoneExpiryBadge';
+import { OtherBrandsNote } from './OtherBrandsNote';
 
 /** 부재·보류 목록 — 관리 표와 동일 열 (작업 열 제외) */
 export function FollowupListTable({
@@ -104,6 +105,7 @@ export function FollowupListTable({
                     createdAt={row.createdAt}
                     className="mt-0.5"
                   />
+                  <OtherBrandsNote otherBrands={row.otherBrands} className="mt-0.5" />
                 </td>
                 <td className="py-2 px-1.5 text-slate-700 truncate" title={followupLeadSourceLabel(row)}>
                   {followupLeadSourceLabel(row)}

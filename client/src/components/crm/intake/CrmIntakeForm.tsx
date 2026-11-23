@@ -14,7 +14,14 @@ import {
   type CrmIntakeExistingInquiry,
   type CrmIntakeSubmitResult,
 } from './crmIntakeSubmit';
-import { saveOrderFollowupHotMark, type OrderFollowupHotMark } from '../../../api/orderFollowups';
+import {
+  findSimilarOrderFollowups,
+  saveOrderFollowupHotMark,
+  type OrderFollowupCandidate,
+  type OrderFollowupHotMark,
+} from '../../../api/orderFollowups';
+import { CrmSimilarFollowupDialog } from './CrmSimilarFollowupDialog';
+import { resolveCrmStoredPhones } from '../../../utils/crmContactPhone';
 import { FollowupHotIntakeSlot } from '../followup/FollowupHotIntakeSlot';
 import type { HotMarkDraft } from '../followup/FollowupHotMarkPopover';
 import { confirmAlreadySavedIntake } from './CrmIntakeSaveNotice';
@@ -44,6 +51,28 @@ function choiceListWithCurrent(
   if (!v || options.some((o) => o.value === v)) return options;
   const label = /[가-힣]/.test(v) ? v : '이전 선택';
   return [...options, { value: v, label }];
+}
+
+export type CrmIntakeTargetIdentity = {
+  customerName: string;
+  nickname: string;
+  contactPhone: string;
+  safePhone: string;
+};
+
+function identityDigits(id: CrmIntakeTargetIdentity): string[] {
+  return [id.contactPhone, id.safePhone].map((p) => p.replace(/\D/g, '')).filter((d) => d.length >= 8);
+}
+
+/** 이름·닉네임·번호 중 하나라도 같으면 같은 고객으로 본다 */
+function sameIntakeCustomer(a: CrmIntakeTargetIdentity, b: CrmIntakeTargetIdentity): boolean {
+  const nameA = a.customerName.trim();
+  const nameB = b.customerName.trim();
+  if (nameA && nameA !== '고객' && nameA === nameB) return true;
+  const nickA = a.nickname.trim();
+  if (nickA && nickA === b.nickname.trim()) return true;
+  const digitsB = identityDigits(b);
+  return identityDigits(a).some((d) => digitsB.includes(d));
 }
 
 const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
@@ -84,6 +113,7 @@ export function CrmIntakeForm({
   operatingCompanyId = null,
   existingInquiry = null,
   linkedFollowupId = null,
+  linkedIdentity = null,
   linkedHotMark = null,
   hotEditable = true,
   hotLinkKey = 0,
@@ -115,6 +145,8 @@ export function CrmIntakeForm({
   existingInquiry?: CrmIntakeExistingInquiry | null;
   /** 부재·보류에서 가져온 건. 있으면 가망 표시를 그 건에 바로 저장 */
   linkedFollowupId?: string | null;
+  /** 불러온 부재·보류의 이름·번호 — 접수란이 다른 고객으로 바뀌었으면 그 줄에 덮어쓰지 않는다 */
+  linkedIdentity?: CrmIntakeTargetIdentity | null;
   linkedHotMark?: OrderFollowupHotMark | null;
   hotEditable?: boolean;
   hotLinkKey?: number;
@@ -156,6 +188,13 @@ export function CrmIntakeForm({
     mark: OrderFollowupHotMark | null;
   } | null>(null);
   const [savedFollowupId, setSavedFollowupId] = useState<string | null>(null);
+  const [savedIdentity, setSavedIdentity] = useState<CrmIntakeTargetIdentity | null>(null);
+  /** 상담사가 「새 고객으로」를 고르면 이어 저장을 끈다 */
+  const [targetDetached, setTargetDetached] = useState(false);
+  const [similarAsk, setSimilarAsk] = useState<{
+    candidates: OrderFollowupCandidate[];
+    opts: { keepForm: boolean; incrementDefer?: boolean };
+  } | null>(null);
 
   const canSave = canSubmitKind(kind);
 
@@ -190,12 +229,30 @@ export function CrmIntakeForm({
     setPendingHot(null);
     setHotSession(null);
     setSavedFollowupId(null);
+    setSavedIdentity(null);
+    setTargetDetached(false);
+    setSimilarAsk(null);
     appliedDraftRef.current = 0;
   }, [formResetKey]);
 
   useEffect(() => {
     setSavedFollowupId(null);
+    setSavedIdentity(null);
+    setTargetDetached(false);
   }, [linkedFollowupId]);
+
+  // 이어서 저장할 줄 — 접수란의 이름·닉네임·번호가 그 고객과 하나도 안 맞으면 다른 고객으로 본다
+  const currentIdentity: CrmIntakeTargetIdentity = { customerName, nickname, contactPhone, safePhone };
+  const linkedTarget =
+    linkedFollowupId && (!linkedIdentity || sameIntakeCustomer(linkedIdentity, currentIdentity))
+      ? { id: linkedFollowupId, identity: linkedIdentity }
+      : null;
+  const savedTarget =
+    savedFollowupId && savedIdentity && sameIntakeCustomer(savedIdentity, currentIdentity)
+      ? { id: savedFollowupId, identity: savedIdentity }
+      : null;
+  const activeTarget = targetDetached ? null : (linkedTarget ?? savedTarget);
+  const isFollowupKind = CRM_INTAKE_FOLLOWUP_DEFER_KINDS.has(kind);
 
   useEffect(() => {
     setPendingHot(null);
@@ -314,7 +371,11 @@ export function CrmIntakeForm({
     onSaveFlash({ tone: 'err', text });
   };
 
-  const submit = async (opts: { keepForm: boolean; incrementDefer?: boolean }) => {
+  const submit = async (
+    opts: { keepForm: boolean; incrementDefer?: boolean },
+    /** undefined = 알아서 정함, null = 새 고객으로, 문자열 = 그 줄에 저장 */
+    pickedTargetId?: string | null,
+  ) => {
     const { keepForm, incrementDefer = false } = opts;
     const token = getToken();
     if (!token) return;
@@ -330,9 +391,31 @@ export function CrmIntakeForm({
       flashSaveError('부재+1은 요청·부재·보류 처리 구분에서만 사용할 수 있습니다.');
       return;
     }
+    let targetFollowupId: string | null = pickedTargetId === undefined ? (activeTarget?.id ?? null) : pickedTargetId;
     setSaving(true);
     setErr(null);
     try {
+      // 이어 저장할 줄이 없으면, 번호는 안 겹쳐도 이름이 같은 부재·보류가 있는지 먼저 묻는다
+      if (pickedTargetId === undefined && !targetFollowupId && isFollowupKind) {
+        try {
+          const stored = resolveCrmStoredPhones(contactPhone, safePhone);
+          const similar = await findSimilarOrderFollowups(token, {
+            customerName: customerName.trim(),
+            nickname: nickname.trim() || null,
+            leadSource: leadSource.trim() || null,
+            customerPhone: stored.customerPhone,
+            customerPhone2: stored.customerPhone2,
+            operatingCompanyId,
+          });
+          if (similar.items.length > 0) {
+            setSimilarAsk({ candidates: similar.items, opts });
+            return;
+          }
+        } catch {
+          /* 후보를 못 찾아도 저장은 그대로 한다 */
+        }
+      }
+      targetFollowupId = targetFollowupId ?? null;
       const result = await submitCrmIntake(
         token,
         {
@@ -367,7 +450,7 @@ export function CrmIntakeForm({
           quotePayload,
           incrementDefer,
           existingInquiry,
-          targetFollowupId: linkedFollowupId || savedFollowupId,
+          targetFollowupId,
         },
       );
       const freshStart = incrementDefer || !keepForm;
@@ -381,7 +464,10 @@ export function CrmIntakeForm({
       }
       if (result.kind === 'followup' && result.followupId && !freshStart) {
         setSavedFollowupId(result.followupId);
+        setSavedIdentity(currentIdentity);
+        setTargetDetached(false);
       }
+      setSimilarAsk(null);
       if (result.alreadySaved) {
         await confirmAlreadySavedIntake({ result, contactPhone, safePhone });
       } else {
@@ -756,6 +842,24 @@ export function CrmIntakeForm({
 
       {err ? <p className="text-fluid-2xs text-red-600">{err}</p> : null}
 
+      {isFollowupKind && activeTarget ? (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-fluid-2xs leading-snug text-slate-600">
+          <span>
+            <span className="font-semibold text-slate-800">
+              {activeTarget.identity?.nickname.trim() || activeTarget.identity?.customerName.trim() || '불러온 고객'}
+            </span>
+            님 부재·보류에 이어서 저장돼요. 연락처를 고치면 그 줄의 번호가 바뀝니다.
+          </span>
+          <button
+            type="button"
+            onClick={() => setTargetDetached(true)}
+            className="rounded font-semibold text-violet-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+          >
+            새 고객으로 저장
+          </button>
+        </p>
+      ) : null}
+
       <div className="sticky -bottom-2.5 z-10 -mx-2.5 flex flex-nowrap gap-1.5 border-t border-slate-200 bg-white px-2.5 py-2">
         <button
           type="button"
@@ -795,6 +899,16 @@ export function CrmIntakeForm({
         ) : null}
       </div>
     </div>
+    {similarAsk ? (
+      <CrmSimilarFollowupDialog
+        candidates={similarAsk.candidates}
+        customerLabel={nickname.trim() || customerName.trim() || '이 고객'}
+        busy={saving}
+        onPick={(id) => void submit(similarAsk.opts, id)}
+        onSaveAsNew={() => void submit(similarAsk.opts, null)}
+        onClose={() => setSimilarAsk(null)}
+      />
+    ) : null}
     </>
   );
 }

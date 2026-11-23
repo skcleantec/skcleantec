@@ -419,3 +419,30 @@ export async function recordOrderFollowupHotResult(
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
+
+/** 관리자 — 같은 브랜드에서 이름·닉네임이나 번호가 같은 열린 부재·보류 묶음 */
+export async function listOrderFollowupDuplicates(
+  token: string,
+  opts: { operatingCompanyId: string; limit?: number; offset?: number },
+): Promise<{ total: number; items: Array<{ rows: OrderFollowupCandidate[] }> }> {
+  const q = new URLSearchParams({ operatingCompanyId: opts.operatingCompanyId });
+  if (opts.limit != null) q.set('limit', String(opts.limit));
+  if (opts.offset != null) q.set('offset', String(opts.offset));
+  const res = await fetch(`${API}/order-followups/duplicates?${q.toString()}`, { headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 관리자 — 고른 줄들을 남길 줄 하나로 합친다. 되돌릴 수 없다 */
+export async function mergeOrderFollowups(
+  token: string,
+  body: { keepId: string; mergeIds: string[] },
+): Promise<{ item: OrderFollowupItem; mergedIds: string[] }> {
+  const res = await fetch(`${API}/order-followups/merge`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
