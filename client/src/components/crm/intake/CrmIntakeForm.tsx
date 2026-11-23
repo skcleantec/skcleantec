@@ -155,6 +155,7 @@ export function CrmIntakeForm({
     followupId: string;
     mark: OrderFollowupHotMark | null;
   } | null>(null);
+  const [savedFollowupId, setSavedFollowupId] = useState<string | null>(null);
 
   const canSave = canSubmitKind(kind);
 
@@ -188,8 +189,13 @@ export function CrmIntakeForm({
     setErr(null);
     setPendingHot(null);
     setHotSession(null);
+    setSavedFollowupId(null);
     appliedDraftRef.current = 0;
   }, [formResetKey]);
+
+  useEffect(() => {
+    setSavedFollowupId(null);
+  }, [linkedFollowupId]);
 
   useEffect(() => {
     setPendingHot(null);
@@ -356,7 +362,13 @@ export function CrmIntakeForm({
           extractPlatform,
         },
         pyeong,
-        { operatingCompanyId, quotePayload, incrementDefer, existingInquiry },
+        {
+          operatingCompanyId,
+          quotePayload,
+          incrementDefer,
+          existingInquiry,
+          targetFollowupId: linkedFollowupId || savedFollowupId,
+        },
       );
       const freshStart = incrementDefer || !keepForm;
       if (result.kind === 'followup' && result.followupId && pendingHot) {
@@ -366,6 +378,9 @@ export function CrmIntakeForm({
           setHotSession({ followupId: result.followupId, mark: saved.myHotMark });
           setPendingHot(null);
         }
+      }
+      if (result.kind === 'followup' && result.followupId && !freshStart) {
+        setSavedFollowupId(result.followupId);
       }
       if (result.alreadySaved) {
         await confirmAlreadySavedIntake({ result, contactPhone, safePhone });

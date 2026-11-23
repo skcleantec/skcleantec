@@ -225,6 +225,8 @@ export async function submitCrmIntake(
     incrementDefer?: boolean;
     /** 기존 고객 — 진행 중 접수가 있으면 새로 만들지 않고 이어서 저장 */
     existingInquiry?: CrmIntakeExistingInquiry | null;
+    /** 열려 있는 부재·보류에 덮어쓸 때. 없으면 예전처럼 번호가 겹칠 때만 합친다 */
+    targetFollowupId?: string | null;
   },
 ): Promise<CrmIntakeSubmitResult> {
   if (opts.incrementDefer && !CRM_INTAKE_FOLLOWUP_DEFER_KINDS.has(values.kind)) {
@@ -248,6 +250,7 @@ export async function submitCrmIntake(
     channel: 'telecrm' as const,
     ...(values.extractPlatform ? { extractPlatform: values.extractPlatform } : {}),
   };
+  const targetFollowupId = opts.targetFollowupId?.trim() || undefined;
   const inquiryCreateBody = {
     strictLeadSource: true,
     intakeMeta,
@@ -281,6 +284,7 @@ export async function submitCrmIntake(
           extraMemo: followupMemo,
           leadSource: values.leadSource.trim(),
           strictLeadSource: true,
+          ...(targetFollowupId ? { targetFollowupId } : {}),
           ...followupExtras,
         },
         operatingCompanyId,
@@ -308,6 +312,7 @@ export async function submitCrmIntake(
       goldDb: values.goldDb,
       leadSource: values.leadSource.trim(),
       strictLeadSource: true,
+      ...(targetFollowupId ? { targetFollowupId } : {}),
       ...followupExtras,
       ...brandBody,
     });
@@ -366,6 +371,7 @@ export async function submitCrmIntake(
         inquiryId: existing.id,
         leadSource: values.leadSource.trim(),
         strictLeadSource: true,
+        ...(targetFollowupId ? { targetFollowupId } : {}),
         ...followupExtras,
         ...brandBody,
       });
@@ -426,6 +432,7 @@ export async function submitCrmIntake(
     inquiryId: created.id,
     leadSource: values.leadSource.trim(),
     strictLeadSource: true,
+    ...(targetFollowupId ? { targetFollowupId } : {}),
     ...followupExtras,
     ...brandBody,
   });

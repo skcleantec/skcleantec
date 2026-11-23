@@ -74,6 +74,28 @@ export interface OrderFollowupItem {
   myHotMark?: OrderFollowupHotMark | null;
   /** 관리자가 다른 마케터 목록을 볼 때는 결과 버튼을 숨긴다 */
   myHotMarkEditable?: boolean;
+  /** 다른 브랜드에 같은 고객으로 열린 건 */
+  otherBrands?: OrderFollowupOtherBrand[];
+}
+
+export interface OrderFollowupOtherBrand {
+  operatingCompanyId: string;
+  brandName: string;
+  followupId: string;
+  status: OrderFollowupStatus;
+}
+
+export interface OrderFollowupCandidate {
+  id: string;
+  customerName: string;
+  nickname: string | null;
+  customerPhone: string;
+  customerPhone2: string | null;
+  status: OrderFollowupStatus;
+  deferCount: number;
+  handlerName: string | null;
+  createdAt: string;
+  memoPreview: string | null;
 }
 
 export interface OrderFollowupHotMark {
@@ -173,6 +195,26 @@ export async function listOrderFollowups(
   return res.json();
 }
 
+export async function findSimilarOrderFollowups(
+  token: string,
+  body: {
+    customerName?: string;
+    nickname?: string | null;
+    leadSource?: string | null;
+    customerPhone?: string;
+    customerPhone2?: string | null;
+    operatingCompanyId?: string;
+  },
+): Promise<{ items: OrderFollowupCandidate[] }> {
+  const res = await fetch(`${API}/order-followups/similar`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
 export async function fetchOrderFollowup(
   token: string,
   id: string,
@@ -214,6 +256,8 @@ export async function createOrderFollowup(
     operatingCompanyId?: string;
     leadSource?: string;
     strictLeadSource?: boolean;
+    /** 열려 있는 부재·보류에 덮어쓸 때 */
+    targetFollowupId?: string;
   }
 ): Promise<{
   item: OrderFollowupItem;

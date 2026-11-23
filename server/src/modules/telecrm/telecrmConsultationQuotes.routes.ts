@@ -188,6 +188,7 @@ router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'cr
       actorName: typeof body.actorName === 'string' ? body.actorName : null,
       leadSource: typeof body.leadSource === 'string' ? body.leadSource : null,
       strictLeadSource,
+      targetFollowupId: typeof body.targetFollowupId === 'string' ? body.targetFollowupId : null,
     });
     res.status(result.followupCreated ? 201 : 200).json(result);
   } catch (e) {

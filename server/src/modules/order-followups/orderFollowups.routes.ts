@@ -51,6 +51,14 @@ import {
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import type { UserRole } from '@prisma/client';
 import { mergeCustomerPhones, relinkSafeNumberRecords } from './customerPhoneRelink.service.js';
+import {
+  attachOtherBrands,
+  listDuplicateFollowupGroups,
+  listSimilarFollowups,
+  mergeFollowupsForAdmin,
+  replacePhonesForTargetSave,
+  targetFollowupRejectReason,
+} from './orderFollowupIdentity.service.js';
 import { readCrmWorkBrandInput, resolveCrmWorkOperatingCompanyId } from '../telecrm/crmWorkBrandResolve.service.js';
 import {
   bookOpenHotMarksForCustomerPhones,
@@ -383,7 +391,13 @@ router.get('/', async (req, res) => {
       orderBy: [{ createdAt: 'desc' }],
       take: 40,
     });
-    res.json({ items: rows.map((r) => serializeFollowup(r)), total: rows.length });
+    const items = await attachOtherBrands(
+      prisma,
+      tenantId,
+      rows,
+      rows.map((row) => serializeFollowup(row)),
+    );
+    res.json({ items, total: rows.length });
     return;
   }
 
@@ -406,10 +420,13 @@ router.get('/', async (req, res) => {
       userId: markOwnerId,
       followupIds: page.rows.map((row) => row.id),
     });
-    res.json({
-      items: page.rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
-      total: page.total,
-    });
+    const items = await attachOtherBrands(
+      prisma,
+      tenantId,
+      page.rows,
+      page.rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
+    );
+    res.json({ items, total: page.total });
     return;
   }
 
@@ -428,10 +445,13 @@ router.get('/', async (req, res) => {
     userId: user.userId,
     followupIds: rows.map((row) => row.id),
   });
-  res.json({
-    items: rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
-    total,
-  });
+  const items = await attachOtherBrands(
+    prisma,
+    tenantId,
+    rows,
+    rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
+  );
+  res.json({ items, total });
 });
 
 router.get('/hot-summary', async (req, res) => {
@@ -616,6 +636,98 @@ router.get('/call-notes', async (req, res) => {
   });
 });
 
+router.post('/similar', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  let operatingCompanyId: string;
+  try {
+    const isStaffAdmin = await userHasStaffAdminAccess(user);
+    const brandInput = readCrmWorkBrandInput({}, body);
+    operatingCompanyId = await resolveCrmWorkOperatingCompanyId({
+      tenantId,
+      userId: user.userId,
+      userRole: user.role as UserRole,
+      isStaffAdmin,
+      ...brandInput,
+    });
+  } catch (e) {
+    const mapped = mapOperatingCompanyResolveError(e);
+    if (mapped) {
+      res.status(mapped.status).json({ error: mapped.message });
+      return;
+    }
+    throw e;
+  }
+  const items = await listSimilarFollowups(prisma, {
+    tenantId,
+    operatingCompanyId,
+    customerName: typeof body.customerName === 'string' ? body.customerName : '',
+    nickname: typeof body.nickname === 'string' ? body.nickname : null,
+    leadSource: typeof body.leadSource === 'string' ? body.leadSource : null,
+    customerPhone: typeof body.customerPhone === 'string' ? body.customerPhone : '',
+    customerPhone2: typeof body.customerPhone2 === 'string' ? body.customerPhone2 : null,
+  });
+  res.json({ items });
+});
+
+router.get('/duplicates', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  if (!(await userHasStaffAdminAccess(user))) {
+    res.status(403).json({ error: '중복 목록은 관리자만 볼 수 있어요.' });
+    return;
+  }
+  const operatingCompanyId = typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : '';
+  if (!operatingCompanyId) {
+    res.status(400).json({ error: '브랜드를 선택해 주세요.' });
+    return;
+  }
+  const parsedLimit = Number.parseInt(String(req.query.limit ?? '20'), 10);
+  const parsedOffset = Number.parseInt(String(req.query.offset ?? '0'), 10);
+  const limit = Number.isFinite(parsedLimit) ? Math.min(50, Math.max(1, parsedLimit)) : 20;
+  const offset = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
+  const page = await listDuplicateFollowupGroups(prisma, { tenantId, operatingCompanyId, limit, offset });
+  res.json(page);
+});
+
+router.post('/merge', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  if (!(await userHasStaffAdminAccess(user))) {
+    res.status(403).json({ error: '중복을 합치는 것은 관리자만 할 수 있어요.' });
+    return;
+  }
+  const body = (req.body ?? {}) as { keepId?: unknown; mergeIds?: unknown };
+  const keepId = typeof body.keepId === 'string' ? body.keepId.trim() : '';
+  const mergeIds = Array.isArray(body.mergeIds)
+    ? body.mergeIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '' && id !== keepId)
+    : [];
+  if (!keepId || mergeIds.length === 0) {
+    res.status(400).json({ error: '남길 건과 합칠 건을 모두 지정해 주세요.' });
+    return;
+  }
+  try {
+    const id = await mergeFollowupsForAdmin(prisma, { tenantId, actorId: user.userId, keepId, mergeIds });
+    const full = await prisma.orderFollowup.findUniqueOrThrow({ where: { id }, include: FOLLOWUP_INCLUDE });
+    res.json({ item: serializeFollowup(full), mergedIds: mergeIds });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '합치지 못했어요.' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
@@ -637,7 +749,13 @@ router.get('/:id', async (req, res) => {
     userId: user.userId,
     followupIds: [row.id],
   });
-  res.json({ item: serializeFollowupWithHotMark(row, marks.get(row.id) ?? null) });
+  const [item] = await attachOtherBrands(
+    prisma,
+    tenantId,
+    [row],
+    [serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)],
+  );
+  res.json({ item });
 });
 
 router.get('/:id/logs', async (req, res) => {
@@ -753,11 +871,26 @@ router.post('/', async (req, res) => {
   }
 
   /**
-   * 동일 연락처(연락처1·2 교차 비교)의 열린 부재현황, 또는 같은 접수에 연결된 부재현황이 있으면
-   * 들어온 상태와 관계없이 그 행에 합친다(메모는 이어 붙임).
+   * targetFollowupId 가 있으면 그 행에 덮어쓴다.
+   * 없으면 같은 접수, 또는 연락처가 겹치는 열린 부재현황에 합친다.
    */
+  const targetFollowupId = typeof body.targetFollowupId === 'string' ? body.targetFollowupId.trim() : '';
+  let targetReplace = false;
   let existing: FollowupWithRelations | null = null;
-  if (connectInquiryId) {
+  if (targetFollowupId) {
+    const target = await prisma.orderFollowup.findFirst({
+      where: { id: targetFollowupId, tenantId },
+      include: FOLLOWUP_INCLUDE,
+    });
+    const reject = targetFollowupRejectReason(target, operatingCompanyId);
+    if (reject) {
+      res.status(400).json({ error: reject });
+      return;
+    }
+    existing = target;
+    targetReplace = true;
+  }
+  if (!existing && connectInquiryId) {
     existing = await prisma.orderFollowup.findFirst({
       where: { tenantId, inquiryId: connectInquiryId },
       include: FOLLOWUP_INCLUDE,
@@ -790,12 +923,19 @@ router.post('/', async (req, res) => {
 
   {
     if (existing) {
-      const mergedPhones = mergeCustomerPhones({
-        prevPhone: existing.customerPhone,
-        prevPhone2: existing.customerPhone2,
-        nextPhone: customerPhone,
-        nextPhone2: customerPhone2 ?? null,
-      });
+      const mergedPhones = targetReplace
+        ? replacePhonesForTargetSave({
+            prevPhone: existing.customerPhone,
+            prevPhone2: existing.customerPhone2,
+            nextPhone: customerPhone,
+            nextPhone2: customerPhone2 ?? null,
+          })
+        : mergeCustomerPhones({
+            prevPhone: existing.customerPhone,
+            prevPhone2: existing.customerPhone2,
+            nextPhone: customerPhone,
+            nextPhone2: customerPhone2 ?? null,
+          });
       const mergedMemo = mergeFollowupMemo(existing.memo, memo);
       /** 합칠 때 상태는 내리지 않는다 (요청·부재·보류 < 예약금 대기 < 입금 완료 < 처리 완료) */
       const mergedStatus =
@@ -843,7 +983,7 @@ router.post('/', async (req, res) => {
         actorId: user.userId,
         action: 'UPSERT',
         detail: JSON.stringify({
-          source: 'create_dedup',
+          source: targetReplace ? 'create_target' : 'create_dedup',
           customerName,
           nickname,
           customerPhone: mergedPhones.customerPhone || customerPhone,
@@ -1213,6 +1353,30 @@ router.patch('/:id', async (req, res) => {
       await syncInquiryWhenFollowupDepositPending(full.inquiryId, tenantId);
     } else if (full.status === 'RESERVED') {
       await syncInquiryWhenFollowupDepositComplete(full.inquiryId, tenantId);
+    }
+  }
+  if ((data.customerPhone !== undefined || data.customerPhone2 !== undefined) && prev.inquiryId) {
+    const nextPhone1 = data.customerPhone !== undefined ? String(data.customerPhone).trim() : '';
+    const inquiryPhone: { customerPhone?: string; customerPhone2?: string | null } = {};
+    if (nextPhone1) inquiryPhone.customerPhone = nextPhone1;
+    if (data.customerPhone2 !== undefined) {
+      inquiryPhone.customerPhone2 = (data.customerPhone2 as string | null)?.trim() || null;
+    }
+    if (Object.keys(inquiryPhone).length > 0) {
+      const updated = await prisma.inquiry.updateMany({
+        where: { id: prev.inquiryId, tenantId },
+        data: inquiryPhone,
+      });
+      if (updated.count > 0) {
+        await prisma.inquiryChangeLog.create({
+          data: {
+            inquiryId: prev.inquiryId,
+            customerName: prev.customerName,
+            actorId: user.userId,
+            lines: ['부재·보류에서 고친 연락처를 접수에도 반영'],
+          },
+        });
+      }
     }
   }
   if (data.customerPhone !== undefined || data.customerPhone2 !== undefined) {
