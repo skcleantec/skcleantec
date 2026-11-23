@@ -244,7 +244,10 @@ export function CrmIntakePanel({
   } | null>(null);
 
   useEffect(() => {
-    if (skipAutoFillPhone) autoFilledKeyRef.current = skipAutoFillPhone;
+    // 되살린 내용을 기존 고객 조회가 덮어쓰지 않게 — 조회 키와 같은 모양(phone:숫자)으로 맞춘다
+    if (skipAutoFillPhone) {
+      autoFilledKeyRef.current = `phone:${skipAutoFillPhone.split('|')[0].replace(/\D/g, '')}`;
+    }
   }, [skipAutoFillPhone]);
 
   useEffect(() => {
