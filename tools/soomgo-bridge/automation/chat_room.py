@@ -7,6 +7,7 @@ import re
 import time
 from typing import Any, Literal
 
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
@@ -32,6 +33,19 @@ from automation.soomgo_text_filters import (
 from automation.soomgo_hired_other import hired_other_js_helpers
 
 logger = logging.getLogger(__name__)
+
+STALE_RETRY_ATTEMPTS = 3
+STALE_RETRY_PAUSE_SEC = 0.25
+SEND_UNCONFIRMED_MESSAGE = (
+    '전송됐는지 확인하지 못했어요. 숨고 채팅방에서 메시지가 갔는지 본 뒤 다시 보내 주세요.'
+)
+IMAGE_UNCONFIRMED_MESSAGE = (
+    '이미지를 보냈는지 확인하지 못했어요. 숨고 채팅방에서 확인한 뒤 다시 보내 주세요.'
+)
+
+
+class SendOutcomeUncertain(Exception):
+    """전송 버튼을 누른 뒤 화면 요소가 낡아, 다시 누르면 중복 전송이 된다."""
 
 _PHONE_RE = re.compile(r'01[016789][-\s]?\d{3,4}[-\s]?\d{4}')
 _PYEONG_RE = re.compile(r'(\d{1,4})\s*평')
@@ -310,6 +324,31 @@ class ChatRoomManager:
                 return best
         return None
 
+    def _retry_stale(self, action, attempts: int = STALE_RETRY_ATTEMPTS):
+        """StaleElementReferenceException 이면 짧게 쉬고 최대 attempts 번 다시 실행."""
+        last: StaleElementReferenceException | None = None
+        for attempt in range(attempts):
+            try:
+                return action()
+            except StaleElementReferenceException as exc:
+                last = exc
+                logger.debug('stale element retry %s/%s', attempt + 1, attempts)
+                if attempt + 1 >= attempts:
+                    raise
+                time.sleep(STALE_RETRY_PAUSE_SEC)
+        raise last  # pragma: no cover
+
+    def _with_message_input(self, action, attempts: int = STALE_RETRY_ATTEMPTS):
+        """입력창을 쓸 때마다 다시 찾는다. 없으면 None."""
+
+        def run():
+            elem = self._find_message_input()
+            if elem is None:
+                return None
+            return action(elem)
+
+        return self._retry_stale(run, attempts)
+
     def _find_send_button(self, input_elem):
         input_rect = input_elem.rect
         send_btn = None
@@ -336,6 +375,8 @@ class ChatRoomManager:
         try:
             remaining = (input_elem.get_attribute('value') or input_elem.text or '').strip()
             return remaining == message.strip()
+        except StaleElementReferenceException:
+            raise
         except Exception:
             return False
 
@@ -353,21 +394,66 @@ class ChatRoomManager:
         self.driver.execute_script(_INPUT_JS, input_elem, message)
         time.sleep(0.35)
         send_btn = self._find_send_button(input_elem)
-        if send_btn:
-            try:
-                ActionChains(self.driver).move_to_element(send_btn).click().perform()
-            except Exception:
-                send_btn.click()
-        else:
-            input_elem.send_keys(Keys.RETURN)
-        time.sleep(self.delay * 0.5)
-        return not self._input_still_has_text(input_elem, message)
+        self._send_pressed = True
+        try:
+            if send_btn:
+                try:
+                    ActionChains(self.driver).move_to_element(send_btn).click().perform()
+                except StaleElementReferenceException:
+                    raise
+                except Exception:
+                    send_btn.click()
+            else:
+                input_elem.send_keys(Keys.RETURN)
+            time.sleep(self.delay * 0.5)
+            fresh = self._find_message_input() or input_elem
+            return not self._input_still_has_text(fresh, message)
+        except StaleElementReferenceException as exc:
+            raise SendOutcomeUncertain() from exc
 
     def _message_input_cleared(self, message: str) -> bool:
-        input_elem = self._find_message_input()
-        if not input_elem:
+        def check(elem) -> bool:
+            return not self._input_still_has_text(elem, message)
+
+        cleared = self._with_message_input(check)
+        if cleared is None:
             return True
-        return not self._input_still_has_text(input_elem, message)
+        return bool(cleared)
+
+    def _own_last_bubble_matches(self, message: str) -> bool:
+        """오른쪽 정렬(내 말풍선) 마지막 글이 보낸 문장과 같은지."""
+        texts = self.driver.execute_script(
+            """
+            var out = [];
+            var allLi = document.querySelectorAll('li');
+            for (var i = 0; i < allLi.length; i++) {
+                var li = allLi[i];
+                var style = window.getComputedStyle(li);
+                if (style.textAlign !== 'right') continue;
+                var text = (li.textContent || '')
+                    .replace(/오전|오후|안읽음|읽음/g, '').trim();
+                if (text) out.push(text);
+            }
+            return out;
+            """
+        )
+        if not isinstance(texts, list) or not texts:
+            return False
+        return str(texts[-1]).strip() == message.strip()
+
+    def _confirm_sent_without_resend(self, message: str) -> tuple[bool, str | None]:
+        """전송을 누른 뒤에는 다시 보내지 않고, 입력창·말풍선만 본다."""
+        try:
+            if self._message_input_cleared(message):
+                return True, None
+        except StaleElementReferenceException as exc:
+            logger.error('send_message confirm input: %s', exc, exc_info=True)
+        try:
+            if self._own_last_bubble_matches(message):
+                return True, None
+        except Exception as exc:
+            logger.error('send_message confirm bubble: %s', exc, exc_info=True)
+        return False, SEND_UNCONFIRMED_MESSAGE
 
     def is_in_chat_room(self) -> bool:
         try:
@@ -620,7 +706,11 @@ class ChatRoomManager:
             batches = [existing] if mode == 'bundle' else [[p] for p in existing]
 
             for batch in batches:
-                file_input = self._click_attachment_and_find_file_input()
+                try:
+                    file_input = self._retry_stale(self._click_attachment_and_find_file_input)
+                except StaleElementReferenceException as exc:
+                    logger.error('upload_images locate: %s', exc, exc_info=True)
+                    return False, '이미지 첨부 칸을 찾지 못했어요. 숨고 채팅방을 연 뒤 다시 시도해 주세요.'
                 if not file_input:
                     return False, '숨고 채팅 이미지 첨부 입력을 찾지 못했습니다.'
 
@@ -628,62 +718,103 @@ class ChatRoomManager:
                 payload = '\n'.join(abs_paths)
                 try:
                     file_input.send_keys(payload)
-                except Exception as e:
-                    logger.warning('upload_images send_keys: %s', e)
+                except StaleElementReferenceException as exc:
+                    logger.error('upload_images send_keys: %s', exc, exc_info=True)
+                    return False, IMAGE_UNCONFIRMED_MESSAGE
+                except Exception as exc:
+                    logger.warning('upload_images send_keys: %s', exc)
                     return False, '이미지 첨부에 실패했습니다. 채팅방 입력창을 확인해 주세요.'
 
                 time.sleep(self.delay * 1.2)
+                handed_off = False
 
-                input_elem = self._find_message_input()
-                if input_elem:
-                    send_btn = self._find_send_button(input_elem)
-                    if send_btn:
-                        try:
-                            send_btn.click()
-                        except Exception:
-                            pass
-                        time.sleep(self.delay * 0.8)
+                def press(elem) -> bool:
+                    nonlocal handed_off
+                    if handed_off:
+                        raise StaleElementReferenceException('image send already pressed')
+                    send_btn = self._find_send_button(elem)
+                    if not send_btn:
+                        return False
+                    handed_off = True
+                    send_btn.click()
+                    return True
+
+                try:
+                    self._with_message_input(press)
+                except StaleElementReferenceException as exc:
+                    logger.error('upload_images press: %s', exc, exc_info=True)
+                    return False, IMAGE_UNCONFIRMED_MESSAGE
+                time.sleep(self.delay * 0.8)
 
             return True, None
-        except Exception as e:
-            logger.error('upload_images: %s', e)
-            return False, f'이미지 전송 중 오류: {e}'
+        except StaleElementReferenceException as exc:
+            logger.error('upload_images stale: %s', exc, exc_info=True)
+            return False, IMAGE_UNCONFIRMED_MESSAGE
+        except Exception as exc:
+            logger.error('upload_images: %s', exc, exc_info=True)
+            return False, '이미지를 보내지 못했어요. 숨고 채팅방을 연 뒤 다시 시도해 주세요.'
 
-    def send_message(self, message: str) -> tuple[bool, str | None]:
-        try:
-            self._hide_tooltips()
-            result = self.driver.execute_script(_SEND_MESSAGE_JS, message)
-            if isinstance(result, dict) and result.get('ok'):
-                time.sleep(self.delay * 0.35)
-                if self._message_input_cleared(message):
-                    return True, None
-
-            input_elem = self._find_message_input()
-            if not input_elem:
-                return False, '채팅 입력창을 찾지 못했습니다. 숨고 채팅방을 연 상태인지 확인해 주세요.'
-
+    def _send_message_body(self, message: str) -> tuple[bool, str | None]:
+        self._hide_tooltips()
+        result = self.driver.execute_script(_SEND_MESSAGE_JS, message)
+        js_ok = isinstance(result, dict) and bool(result.get('ok'))
+        if js_ok:
+            self._send_pressed = True
+            time.sleep(self.delay * 0.35)
             if self._message_input_cleared(message):
                 return True, None
 
-            if self._send_via_dom_fill(input_elem, message):
-                time.sleep(self.delay * 0.3)
+        def fill(elem) -> bool:
+            return self._send_via_dom_fill(elem, message)
+
+        filled = self._with_message_input(fill)
+        if filled is None:
+            if self._send_pressed:
+                return self._confirm_sent_without_resend(message)
+            return False, '채팅 입력창을 찾지 못했습니다. 숨고 채팅방을 연 상태인지 확인해 주세요.'
+        if filled:
+            time.sleep(self.delay * 0.3)
+            return True, None
+
+        if self._send_pressed and js_ok:
+            return self._confirm_sent_without_resend(message)
+
+        reason = result.get('reason') if isinstance(result, dict) else 'unknown'
+        logger.warning('send_message retry js after dom fill: %s', reason)
+        retry = self.driver.execute_script(_SEND_MESSAGE_JS, message)
+        if isinstance(retry, dict) and retry.get('ok'):
+            self._send_pressed = True
+            time.sleep(self.delay * 0.35)
+            if self._message_input_cleared(message):
                 return True, None
 
-            reason = result.get('reason') if isinstance(result, dict) else 'unknown'
-            logger.warning('send_message retry js after dom fill: %s', reason)
-            retry = self.driver.execute_script(_SEND_MESSAGE_JS, message)
-            if isinstance(retry, dict) and retry.get('ok'):
-                time.sleep(self.delay * 0.35)
-                if self._message_input_cleared(message):
-                    return True, None
+        if self._message_input_cleared(message):
+            return True, None
+        return False, '메시지가 입력만 되고 전송되지 않았습니다. 숨고 채팅방·전송 버튼을 확인해 주세요.'
 
-            if not self._input_still_has_text(input_elem, message):
-                return True, None
-
-            return False, '메시지가 입력만 되고 전송되지 않았습니다. 숨고 채팅방·전송 버튼을 확인해 주세요.'
-        except Exception as e:
-            logger.error('send_message: %s', e)
-            return False, f'메시지 전송 중 오류: {e}'
+    def send_message(self, message: str) -> tuple[bool, str | None]:
+        self._send_pressed = False
+        try:
+            return self._send_message_body(message)
+        except SendOutcomeUncertain as exc:
+            logger.error('send_message uncertain: %s', exc, exc_info=True)
+            return self._confirm_sent_without_resend(message)
+        except StaleElementReferenceException as exc:
+            logger.error('send_message stale: %s', exc, exc_info=True)
+            if not self._send_pressed:
+                self._send_pressed = False
+                try:
+                    return self._send_message_body(message)
+                except StaleElementReferenceException as again:
+                    logger.error('send_message stale retry: %s', again, exc_info=True)
+                    if not self._send_pressed:
+                        return False, '메시지를 보내지 못했어요. 숨고 채팅방을 연 뒤 다시 시도해 주세요.'
+            return self._confirm_sent_without_resend(message)
+        except Exception as exc:
+            logger.error('send_message: %s', exc, exc_info=True)
+            if self._send_pressed:
+                return self._confirm_sent_without_resend(message)
+            return False, '메시지를 보내지 못했어요. 숨고 채팅방을 연 뒤 다시 시도해 주세요.'
 
     def open_chat_list(self) -> bool:
         try:
