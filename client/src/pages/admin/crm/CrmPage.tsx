@@ -1161,7 +1161,8 @@ export function CrmPage() {
       extractPlatform: draft.extractPlatform,
     });
     const dial = restoredContact || restoredSafe;
-    if (dial) setDraftRestoredPhone(dial);
+    // 같은 번호를 다시 되살려도 알 수 있게 시각을 붙인다
+    if (dial) setDraftRestoredPhone(`${dial}|${Date.now()}`);
     setHasUnsavedDraft(true);
     setRecoverableDraft(null);
     clearCrmIntakeRecoverDraft();
