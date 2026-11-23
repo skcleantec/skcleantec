@@ -21,6 +21,7 @@ import {
   type OrderFollowupHotMark,
 } from '../../../api/orderFollowups';
 import { CrmSimilarFollowupDialog } from './CrmSimilarFollowupDialog';
+import { emitCrmWorkSaved } from '../../../hooks/useCrmWorkTracker';
 import { resolveCrmStoredPhones } from '../../../utils/crmContactPhone';
 import { FollowupHotIntakeSlot } from '../followup/FollowupHotIntakeSlot';
 import type { HotMarkDraft } from '../followup/FollowupHotMarkPopover';
@@ -454,6 +455,12 @@ export function CrmIntakeForm({
         },
       );
       const freshStart = incrementDefer || !keepForm;
+      emitCrmWorkSaved({
+        intakeKind: result.intakeKind,
+        followupId: result.kind === 'followup' ? (result.followupId ?? null) : null,
+        inquiryId: result.kind === 'inquiry' ? result.inquiryId : null,
+        freshStart,
+      });
       if (result.kind === 'followup' && result.followupId && pendingHot) {
         const saved = await saveOrderFollowupHotMark(token, result.followupId, pendingHot);
         window.dispatchEvent(new Event('crm-hot-summary-refresh'));

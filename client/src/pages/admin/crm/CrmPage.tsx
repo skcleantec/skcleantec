@@ -23,6 +23,13 @@ import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
 import { CrmHeaderStats } from '../../../components/crm/session/CrmHeaderStats';
 import { CrmToolSideNav, CrmIconMessage } from '../../../components/crm/layout/CrmToolSideNav';
+import {
+  CrmIconWorkHistory,
+  CrmWorkHistoryDrawer,
+  CrmWorkLeaveNoticeBar,
+} from '../../../components/crm/work/CrmWorkHistory';
+import { emitCrmWorkAction, useCrmWorkTracker } from '../../../hooks/useCrmWorkTracker';
+import { resumeTelecrmWorkEntry } from '../../../api/telecrmWorkHistory';
 import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import {
   CrmIconMemo,
@@ -307,6 +314,10 @@ export function CrmPage() {
   const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
   const [sharedMemoOpen, setSharedMemoOpen] = useState(false);
   const sharedMemo = useCrmSharedMemo(!isMobileApp);
+  const work = useCrmWorkTracker({ enabled: !isMobileApp, operatingCompanyId: activeOperatingCompanyId ?? null });
+  const [workHistoryOpen, setWorkHistoryOpen] = useState(false);
+  const [workHistoryRefreshKey, setWorkHistoryRefreshKey] = useState(0);
+  const [workResumingId, setWorkResumingId] = useState<string | null>(null);
   const openSharedMemo = () => {
     sharedMemo.markSeen();
     setSharedMemoOpen(true);
@@ -488,12 +499,13 @@ export function CrmPage() {
       if (crmIntakeDraftHasContent(draft)) {
         saveCrmIntakeDraft(draft);
         setHasUnsavedDraft(true);
+        work.observe(draft);
       } else {
         clearCrmIntakeDraft();
         setHasUnsavedDraft(false);
       }
     },
-    [mode, contactPhone, safePhone, contactUnknown, pyeong, activeOperatingCompanyId],
+    [mode, contactPhone, safePhone, contactUnknown, pyeong, activeOperatingCompanyId, work.observe],
   );
 
   useEffect(() => {
@@ -725,6 +737,7 @@ export function CrmPage() {
   const handleModeChange = useCallback(
     (next: CrmCustomerMode) => {
       if (next === 'new') {
+        work.leave('reset');
         resetQuotePricingState();
         setContactPhone('');
         setSafePhone('');
@@ -1044,6 +1057,8 @@ export function CrmPage() {
 
   const resetIntakeFormState = useCallback(
     (notice?: string | null) => {
+      // 저장한 뒤라면 이미 마무리돼 있어 아무 일도 없다
+      work.leave('reset');
       resetQuotePricingState();
       setContactPhone('');
       setSafePhone('');
@@ -1092,7 +1107,7 @@ export function CrmPage() {
       lookupChatOpenedKeyRef.current = null;
       if (notice) showDispatchNotice(notice);
     },
-    [resetQuotePricingState, showDispatchNotice],
+    [resetQuotePricingState, showDispatchNotice, work.leave],
   );
 
   const handleIntakeReset = useCallback(() => {
@@ -1100,9 +1115,7 @@ export function CrmPage() {
   }, [resetIntakeFormState]);
 
   /** 「이전 입력 복구」 — 신규로 넣되, 기존 고객으로 쓰던 연락처가 있으면 기존 고객 조회로 */
-  const applyRecoverableDraft = useCallback(() => {
-    const draft = recoverableDraft;
-    if (!draft) return;
+  const applyIntakeDraft = useCallback((draft: CrmIntakeDraft, message: string) => {
     const restoredContact = (draft.contactPhone ?? draft.phone ?? '').trim();
     const restoredSafe = (draft.safePhone ?? '').trim();
     const restoreMode: CrmCustomerMode =
@@ -1152,11 +1165,50 @@ export function CrmPage() {
     setHasUnsavedDraft(true);
     setRecoverableDraft(null);
     clearCrmIntakeRecoverDraft();
-    showDispatchNotice('이전에 입력하던 내용을 되살렸어요.');
-  }, [recoverableDraft, resetQuotePricingState, showDispatchNotice]);
+    showDispatchNotice(message);
+  }, [resetQuotePricingState, showDispatchNotice]);
+
+  const applyRecoverableDraft = useCallback(() => {
+    if (!recoverableDraft) return;
+    work.noteLoad('manual', { resumed: true });
+    applyIntakeDraft(recoverableDraft, '이전에 입력하던 내용을 되살렸어요.');
+  }, [recoverableDraft, applyIntakeDraft, work.noteLoad]);
+
+  /** 작업 기록의 「이어서 하기」·「되돌리기」 — 그때 적던 내용을 접수란에 되살린다 */
+  const resumeWorkEntry = useCallback(
+    async (entryId: string) => {
+      const token = getToken();
+      if (!token || workResumingId) return;
+      setWorkResumingId(entryId);
+      try {
+        const res = await resumeTelecrmWorkEntry(token, entryId);
+        const draft = res.draft as unknown as CrmIntakeDraft | null;
+        if (!draft || typeof draft !== 'object') {
+          showDispatchNotice('되살릴 내용이 남아 있지 않아요.');
+          return;
+        }
+        // 지금 접수란에 있던 고객은 저장 안 했으면 작업 기록에 남는다
+        work.leave('switch');
+        work.noteLoad(draft.extractPlatform === 'miso' ? 'miso' : draft.extractPlatform === 'soomgo' ? 'soomgo' : 'manual', {
+          resumed: true,
+        });
+        applyIntakeDraft({ ...draft, savedAt: Date.now() }, '작업 기록에서 적던 내용을 되살렸어요.');
+        work.dismissNotice();
+        work.refreshUnsavedCount();
+        setWorkHistoryRefreshKey((k) => k + 1);
+        setWorkHistoryOpen(false);
+      } catch (e) {
+        showDispatchNotice(e instanceof Error ? e.message : '되살리지 못했어요.');
+      } finally {
+        setWorkResumingId(null);
+      }
+    },
+    [applyIntakeDraft, showDispatchNotice, work, workResumingId],
+  );
 
   const handleSoomgoImport = useCallback(
     (data: SoomgoExtractedChat) => {
+      work.noteLoad('soomgo');
       if (data.chatId?.trim()) lastIntakeChatIdRef.current = data.chatId.trim();
       const mergeBase = followupSoomgoMergeRef.current;
       if (mergeBase) {
@@ -1297,6 +1349,7 @@ export function CrmPage() {
 
   const handleMisoImport = useCallback(
     (data: MisoExtractPayload) => {
+      work.noteLoad('miso');
       resetQuotePricingState();
       const intakeDefaults = deriveMisoIntakeDefaults(data);
       const name = data.customerName?.trim() || '';
@@ -1835,6 +1888,7 @@ export function CrmPage() {
       });
       const notice = noticeForSoomgoQuoteAutoSend(result);
       if (notice) showDispatchNotice(notice);
+      if (result.sent) emitCrmWorkAction({ kind: 'quote', amountWon: quoteGrandTotal ?? null });
       if (result.sent && telecrmQuotePayloadHasContent(quotePayload)) {
         const digits = outboundPhone.replace(/\D/g, '');
         if (digits.length >= 4 && activeOperatingCompanyId) {
@@ -1892,6 +1946,7 @@ export function CrmPage() {
         extractPlatform?: 'soomgo';
       },
     ) => {
+      work.noteLoad('followup');
       resetQuotePricingState();
       setMode('existing');
       setContactPhone(snapshot.contactPhone);
@@ -2461,6 +2516,17 @@ export function CrmPage() {
                     onClick: openSharedMemo,
                   },
                   {
+                    id: 'work-history',
+                    label: '작업 기록',
+                    icon: <CrmIconWorkHistory />,
+                    active: workHistoryOpen,
+                    badgeCount: work.unsavedCount,
+                    onClick: () => {
+                      setWorkHistoryRefreshKey((k) => k + 1);
+                      setWorkHistoryOpen(true);
+                    },
+                  },
+                  {
                     id: 'sms',
                     label: '문자 발송',
                     icon: <CrmIconMessage />,
@@ -2572,6 +2638,7 @@ export function CrmPage() {
                 onIntakeReset={handleIntakeReset}
                 onPricingReset={resetQuotePricingState}
                 onLookupApplied={(payload) => {
+                  work.noteLoad('lookup');
                   setIntakeIdentity({
                     customerName: payload.customerName,
                     nickname: payload.nickname,
@@ -2599,7 +2666,7 @@ export function CrmPage() {
                 followupImport={followupImport}
                 onSelectFollowup={canFollowupEdit ? handleSelectFollowupFromLookup : undefined}
                 workBrandBar={
-                  showWorkBrandSwitcher || recoverableDraftVisible ? (
+                  showWorkBrandSwitcher || recoverableDraftVisible || work.notice ? (
                     <>
                       {showWorkBrandSwitcher ? (
                         <CrmWorkBrandBar
@@ -2622,6 +2689,14 @@ export function CrmPage() {
                             지우기
                           </Button>
                         </div>
+                      ) : null}
+                      {work.notice ? (
+                        <CrmWorkLeaveNoticeBar
+                          notice={work.notice}
+                          busy={workResumingId != null}
+                          onRestore={() => void resumeWorkEntry(work.notice!.entryId)}
+                          onDismiss={work.dismissNotice}
+                        />
                       ) : null}
                     </>
                   ) : null
@@ -2818,6 +2893,16 @@ export function CrmPage() {
             }
           />
         ) : null}
+        <CrmWorkHistoryDrawer
+          open={workHistoryOpen}
+          onClose={() => setWorkHistoryOpen(false)}
+          isAdmin={permissions.me?.role === 'ADMIN'}
+          myUserId={authUserId}
+          refreshKey={workHistoryRefreshKey}
+          resumingId={workResumingId}
+          onResume={(id) => void resumeWorkEntry(id)}
+          onChanged={work.refreshUnsavedCount}
+        />
         <CrmSharedMemoDrawer
           open={sharedMemoOpen}
           onClose={() => {

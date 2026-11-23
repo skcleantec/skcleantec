@@ -1,3 +1,4 @@
+import { emitCrmWorkAction } from '../../../hooks/useCrmWorkTracker';
 import { applyPlaceholdersToSoomgoSteps, type TelecrmSoomgoMessageFieldCtx } from '@shared/telecrmSoomgoFollowupAuto';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SoomgoBridgeStatus } from '@shared/soomgoBridge';
@@ -177,6 +178,7 @@ export function CrmSoomgoDrawer({
     setError(null);
     try {
       await sendSoomgoBridgeMessage(body);
+      emitCrmWorkAction({ kind: 'soomgo' });
       setMessage('');
       notify('숨고 채팅방에 메시지를 보냈습니다.');
       onClose();
@@ -230,6 +232,7 @@ export function CrmSoomgoDrawer({
     setError(null);
     try {
       await sendSoomgoBridgeSequence(applyPlaceholdersToSoomgoSteps(preset.steps, messageFieldCtx ?? {}), bridgeStatus);
+      emitCrmWorkAction({ kind: 'soomgo' });
       notify(`「${preset.label}」 프리셋을 전송했습니다.`);
       onClose();
     } catch (e) {
