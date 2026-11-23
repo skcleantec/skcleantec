@@ -29,7 +29,7 @@ import {
   CrmWorkLeaveNoticeBar,
 } from '../../../components/crm/work/CrmWorkHistory';
 import { emitCrmWorkAction, useCrmWorkTracker } from '../../../hooks/useCrmWorkTracker';
-import { resumeTelecrmWorkEntry } from '../../../api/telecrmWorkHistory';
+import { fetchTelecrmWorkEntry, resumeTelecrmWorkEntry } from '../../../api/telecrmWorkHistory';
 import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import {
   CrmIconMemo,
@@ -1181,6 +1181,7 @@ export function CrmPage() {
       if (!token || workResumingId) return;
       setWorkResumingId(entryId);
       try {
+        const original = await fetchTelecrmWorkEntry(token, entryId).catch(() => null);
         const res = await resumeTelecrmWorkEntry(token, entryId);
         const draft = res.draft as unknown as CrmIntakeDraft | null;
         if (!draft || typeof draft !== 'object') {
@@ -1189,9 +1190,7 @@ export function CrmPage() {
         }
         // 지금 접수란에 있던 고객은 저장 안 했으면 작업 기록에 남는다
         work.leave('switch');
-        work.noteLoad(draft.extractPlatform === 'miso' ? 'miso' : draft.extractPlatform === 'soomgo' ? 'soomgo' : 'manual', {
-          resumed: true,
-        });
+        work.noteLoad(original?.item.source ?? 'manual', { resumed: true });
         applyIntakeDraft({ ...draft, savedAt: Date.now() }, '작업 기록에서 적던 내용을 되살렸어요.');
         work.dismissNotice();
         work.refreshUnsavedCount();
