@@ -118,7 +118,11 @@ export function buildCrmLookupApply(
             oneRoomLoft: followup.oneRoomLoft ?? null,
             oneRoomSlidingPartition: followup.oneRoomSlidingPartition ?? null,
           }
-        : { isOneRoom: false, oneRoomLoft: null, oneRoomSlidingPartition: null }),
+        : {
+            isOneRoom: false,
+            oneRoomLoft: inquiry?.oneRoomLoft ?? followup?.oneRoomLoft ?? null,
+            oneRoomSlidingPartition: null,
+          }),
     structureBalconyNonExpanded:
       inquiry?.structureBalconyNonExpanded ?? followup?.structureBalconyNonExpanded ?? null,
     structurePartitionWall: inquiry?.structurePartitionWall ?? followup?.structurePartitionWall ?? null,

@@ -23,6 +23,7 @@ export function pickSentBaseCleaningWon(payload: unknown): number | null {
     const line = raw as Record<string, unknown>;
     const text = `${line.label ?? ''} ${line.sublabel ?? ''}`;
     if (EXTRA.test(text)) continue;
+    if (/복층/.test(text) && !BASE.test(text)) continue;
     if (!BASE.test(text)) continue;
     const won = lineWon(line);
     if (won != null) return won;

@@ -475,6 +475,12 @@ export async function getTelecrmQuoteCrewLearningHints(
     roomCount: structure.roomCount,
     bathroomCount: structure.bathroomCount,
     balconyCount: structure.balconyCount,
+    oneRoomLoft: query.oneRoomLoft === 'true' || query.oneRoomLoft === true
+      ? true
+      : query.oneRoomLoft === 'false' || query.oneRoomLoft === false
+        ? false
+        : null,
+    memoText: typeof query.memoText === 'string' ? query.memoText : null,
   }).catch((e) => {
     console.error('[telecrm-ai-quote] predict failed', e instanceof Error ? e.message : e);
     return null;

@@ -21,6 +21,8 @@ import {
   listTelecrmAiQuoteCorrectionPrompts,
   updateTelecrmAiQuoteBaseRow,
 } from './telecrmAiQuoteBase.service.js';
+import { DEFAULT_LOFT_SURCHARGE_WON } from './telecrmAiQuoteLoft.js';
+import { getTelecrmAiQuoteLoftAmount, saveTelecrmAiQuoteLoftAmount } from './telecrmAiQuoteLoft.store.js';
 import {
   buildTelecrmAiQuoteRuleExamples,
   chatTelecrmAiQuoteRule,
@@ -322,6 +324,39 @@ router.post('/ai-quote/corrections/:baseRowId/dismiss', requireStaffPermission('
   }
 });
 
+router.get('/ai-quote/loft', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  try {
+    const amountWon = await getTelecrmAiQuoteLoftAmount(tenantId, brandOf(req));
+    res.json({ amountWon });
+  } catch (e) {
+    console.error('[telecrm-ai-quote] loft load failed', e instanceof Error ? e.message : e);
+    res.json({ amountWon: DEFAULT_LOFT_SURCHARGE_WON });
+  }
+});
+
+router.put('/ai-quote/loft', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const brand = brandOf(req);
+  if (!brand) {
+    res.status(400).json({ error: '작업 브랜드를 선택해 주세요.' });
+    return;
+  }
+  const amountWon = Math.round(Number((req.body as { amountWon?: unknown } | undefined)?.amountWon));
+  if (!Number.isFinite(amountWon) || amountWon < 0) {
+    res.status(400).json({ error: '금액을 확인해 주세요.' });
+    return;
+  }
+  try {
+    res.json({ amountWon: await saveTelecrmAiQuoteLoftAmount(tenantId, brand, amountWon) });
+  } catch (e) {
+    console.error('[telecrm-ai-quote] loft save failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '복층 추가금을 저장하지 못했어요.' });
+  }
+});
+
 /** 직접 물어보기 — 조건을 넣으면 지금 AI 견적이 얼마로 계산하는지 */
 router.post('/ai-quote/preview', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
@@ -342,6 +377,8 @@ router.post('/ai-quote/preview', requireStaffPermission('crm.view', 'crm.setting
       roomCount: num(b.roomCount),
       bathroomCount: num(b.bathroomCount),
       balconyCount: num(b.balconyCount),
+      oneRoomLoft: b.oneRoomLoft === true ? true : b.oneRoomLoft === false ? false : null,
+      memoText: typeof b.memoText === 'string' ? b.memoText : null,
     });
     res.json({ quote });
   } catch (e) {

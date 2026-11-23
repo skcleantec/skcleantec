@@ -89,11 +89,20 @@ export type TelecrmQuoteCrewLearningHints = {
 /** AI 견적 근거 한 줄 (예: 「24평 아파트 기본」 240,000 / 「화장실 2개」 +10,000) */
 export type TelecrmAiQuotePart = { label: string; amountWon: number; /** 말로 넣은 규칙에서 나온 줄 */ rule?: boolean };
 
+export type TelecrmAiQuoteLoft = {
+  applied: boolean;
+  amountWon: number;
+  source: 'check' | 'memo' | 'none';
+  matchedText?: string | null;
+};
+
 export type TelecrmAiQuote = {
-  /** 확정 금액 — 1만원 단위 */
+  /** 확정 금액 — 기본 청소(1만원 단위) + 복층 추가금 */
   amountWon: number;
   /** 금액이 어떻게 나왔는지 (기본 + 더하고 빼는 항목) */
   parts: TelecrmAiQuotePart[];
+  /** 복층 추가금. 기본 청소 금액에는 섞지 않는다 */
+  loft?: TelecrmAiQuoteLoft | null;
   /** 배운 예약 수 */
   sampleCount: number;
   /** 마지막으로 다시 배운 시각 */

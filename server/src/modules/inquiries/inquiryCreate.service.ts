@@ -245,13 +245,11 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
         buildingType: body.buildingType ? String(body.buildingType) : null,
         isOneRoom: body.isOneRoom === true || body.isOneRoom === 'true',
         oneRoomLoft:
-          body.isOneRoom === true || body.isOneRoom === 'true'
-            ? body.oneRoomLoft === true || body.oneRoomLoft === 'true'
-              ? true
-              : body.oneRoomLoft === false || body.oneRoomLoft === 'false'
-                ? false
-                : null
-            : null,
+          body.oneRoomLoft === true || body.oneRoomLoft === 'true'
+            ? true
+            : body.oneRoomLoft === false || body.oneRoomLoft === 'false'
+              ? false
+              : null,
         oneRoomSlidingPartition:
           body.isOneRoom === true || body.isOneRoom === 'true'
             ? body.oneRoomSlidingPartition === true || body.oneRoomSlidingPartition === 'true'

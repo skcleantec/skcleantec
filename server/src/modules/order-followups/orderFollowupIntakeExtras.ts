@@ -63,12 +63,9 @@ export function parseFollowupIntakeExtrasFromBody(
   if (Object.prototype.hasOwnProperty.call(body, 'isOneRoom')) {
     const on = body.isOneRoom === true || body.isOneRoom === 'true' || body.isOneRoom === 1 || body.isOneRoom === '1';
     out.isOneRoom = on;
-    if (!on) {
-      out.oneRoomLoft = null;
-      out.oneRoomSlidingPartition = null;
-    }
+    if (!on) out.oneRoomSlidingPartition = null;
   }
-  if (out.isOneRoom !== false && Object.prototype.hasOwnProperty.call(body, 'oneRoomLoft')) {
+  if (Object.prototype.hasOwnProperty.call(body, 'oneRoomLoft')) {
     out.oneRoomLoft = parseOptionalBool(body.oneRoomLoft) ?? null;
   }
   if (out.isOneRoom !== false && Object.prototype.hasOwnProperty.call(body, 'oneRoomSlidingPartition')) {

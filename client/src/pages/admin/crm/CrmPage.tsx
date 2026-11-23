@@ -234,6 +234,8 @@ export function CrmPage() {
     propertyType?: string;
     buildingType?: string;
     isOneRoom?: boolean;
+    oneRoomLoft?: boolean | null;
+    requestMemo?: string;
   }>({
     roomCount: '',
     bathroomCount: '',
@@ -594,6 +596,8 @@ export function CrmPage() {
         propertyType: snapshot.propertyType ?? '',
         buildingType: snapshot.buildingType ?? '',
         isOneRoom: snapshot.isOneRoom === true,
+        oneRoomLoft: snapshot.oneRoomLoft ?? null,
+        requestMemo: snapshot.requestMemo ?? '',
       });
       setIntakeIdentity({
         customerName: snapshot.customerName,
@@ -686,6 +690,8 @@ export function CrmPage() {
         balconyCount: intakeStructure.balconyCount,
         propertyType: intakeStructure.propertyType,
         isOneRoom: intakeStructure.isOneRoom,
+        oneRoomLoft: intakeStructure.oneRoomLoft,
+        memoText: intakeStructure.requestMemo,
         operatingCompanyId: activeOperatingCompanyId,
       }}
       onPick={pickAreaPyeong}
@@ -1106,7 +1112,7 @@ export function CrmPage() {
       propertyType: draft.propertyType ?? '',
       buildingType: draft.buildingType ?? '',
       isOneRoom: draft.isOneRoom === true,
-      oneRoomLoft: draft.isOneRoom ? (draft.oneRoomLoft ?? null) : null,
+      oneRoomLoft: draft.oneRoomLoft ?? null,
       oneRoomSlidingPartition: draft.isOneRoom ? (draft.oneRoomSlidingPartition ?? null) : null,
       structureBalconyNonExpanded: draft.structureBalconyNonExpanded ?? null,
       structurePartitionWall: draft.structurePartitionWall ?? null,
@@ -1140,8 +1146,7 @@ export function CrmPage() {
           propertyType: mergedBase.propertyType?.trim() || mergedChoice.propertyType,
           buildingType: mergedBase.buildingType?.trim() || mergedChoice.buildingType,
           isOneRoom: mergedBase.isOneRoom === true || mergedChoice.isOneRoom,
-          oneRoomLoft:
-            mergedBase.isOneRoom === true || mergedChoice.isOneRoom ? (mergedBase.oneRoomLoft ?? null) : null,
+          oneRoomLoft: mergedBase.oneRoomLoft ?? null,
           oneRoomSlidingPartition:
             mergedBase.isOneRoom === true || mergedChoice.isOneRoom
               ? (mergedBase.oneRoomSlidingPartition ?? null)
@@ -1878,6 +1883,8 @@ export function CrmPage() {
         propertyType: snapshot.propertyType ?? '',
         buildingType: snapshot.buildingType ?? '',
         isOneRoom: snapshot.isOneRoom === true,
+        oneRoomLoft: snapshot.oneRoomLoft ?? null,
+        requestMemo: snapshot.requestMemo ?? '',
       });
       const extractPlatform = opts?.extractPlatform;
       const leadSource =
@@ -1895,7 +1902,7 @@ export function CrmPage() {
         propertyType: snapshot.propertyType ?? '',
         buildingType: snapshot.buildingType ?? '',
         isOneRoom: snapshot.isOneRoom === true,
-        oneRoomLoft: snapshot.isOneRoom ? (snapshot.oneRoomLoft ?? null) : null,
+        oneRoomLoft: snapshot.oneRoomLoft ?? null,
         oneRoomSlidingPartition: snapshot.isOneRoom ? (snapshot.oneRoomSlidingPartition ?? null) : null,
         structureBalconyNonExpanded: snapshot.structureBalconyNonExpanded ?? null,
         structurePartitionWall: snapshot.structurePartitionWall ?? null,
@@ -2681,6 +2688,8 @@ export function CrmPage() {
                 propertyType: intakeStructure.propertyType,
                 buildingType: intakeStructure.buildingType,
                 isOneRoom: intakeStructure.isOneRoom,
+                oneRoomLoft: intakeStructure.oneRoomLoft,
+                memoText: intakeStructure.requestMemo,
                 operatingCompanyId: activeOperatingCompanyId ?? undefined,
               }}
               areaBasis={

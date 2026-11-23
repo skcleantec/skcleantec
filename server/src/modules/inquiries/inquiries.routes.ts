@@ -1012,7 +1012,6 @@ router.patch('/:id', async (req, res) => {
   const nextIsOneRoom = data.isOneRoom !== undefined ? Boolean(data.isOneRoom) : inquiry.isOneRoom;
   if (!nextIsOneRoom) {
     data.oneTwoRoomKind = null;
-    data.oneRoomLoft = null;
     data.oneRoomSlidingPartition = null;
   }
   else if (data.oneTwoRoomKind !== undefined && data.oneTwoRoomKind !== 'ONE' && data.oneTwoRoomKind !== 'TWO') {

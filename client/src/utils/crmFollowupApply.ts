@@ -161,7 +161,7 @@ function oneRoomStructureFromRow(row: {
   const on = row.isOneRoom === true;
   return {
     isOneRoom: on,
-    oneRoomLoft: on ? (row.oneRoomLoft ?? null) : null,
+    oneRoomLoft: row.oneRoomLoft ?? null,
     oneRoomSlidingPartition: on ? (row.oneRoomSlidingPartition ?? null) : null,
     structureBalconyNonExpanded: row.structureBalconyNonExpanded ?? null,
     structurePartitionWall: row.structurePartitionWall ?? null,

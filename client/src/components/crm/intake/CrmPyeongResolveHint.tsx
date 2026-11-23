@@ -13,6 +13,8 @@ export type CrmPyeongQuoteContext = {
   balconyCount?: string;
   propertyType?: string;
   isOneRoom?: boolean;
+  oneRoomLoft?: boolean | null;
+  memoText?: string;
   operatingCompanyId?: string | null;
 };
 
@@ -88,6 +90,8 @@ export function CrmPyeongResolveHint({
             bathroomCount: countOrNull(bathroomCount),
             balconyCount: countOrNull(balconyCount),
             isOneRoom,
+            oneRoomLoft: quoteContext?.oneRoomLoft,
+            memoText: quoteContext?.memoText,
             propertyType: propertyType || null,
             operatingCompanyId: operatingCompanyId || null,
           });
@@ -105,7 +109,7 @@ export function CrmPyeongResolveHint({
     return () => {
       cancelled = true;
     };
-  }, [candidateKey, roomCount, bathroomCount, balconyCount, propertyType, isOneRoom, operatingCompanyId]);
+  }, [candidateKey, roomCount, bathroomCount, balconyCount, propertyType, isOneRoom, operatingCompanyId, quoteContext?.oneRoomLoft, quoteContext?.memoText]);
 
   if (!result) return null;
   if (result.status === '확정') {

@@ -19,6 +19,8 @@ import {
 import { classifyAiQuote, structKeyOfClassified, structSpeech } from './telecrmAiQuoteClassify.js';
 import { resolveAiQuoteCore } from './telecrmAiQuoteBase.js';
 import { listCurveSentQuotes, listOffTableSentQuotes, listTelecrmAiQuoteBaseRows } from './telecrmAiQuoteBase.store.js';
+import { judgeTelecrmAiQuoteLoft, loftSurchargeForQuote } from './telecrmAiQuoteLoft.js';
+import { getTelecrmAiQuoteLoftAmount } from './telecrmAiQuoteLoft.store.js';
 
 const HALF_LIFE_DAYS = 90;
 const MAX_AGE_DAYS = 2 * 365;
@@ -390,6 +392,10 @@ export type TelecrmAiQuoteInput = {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+  /** 접수란 복층 체크. null 이면 메모에서 판단 */
+  oneRoomLoft?: boolean | null;
+  /** 통화 중 메모와 숨고 고객요청을 이어 붙인 글 */
+  memoText?: string | null;
 };
 
 /** 지금 배운 상태 — 설정 화면 「마지막 학습」 표시용 */
@@ -513,10 +519,19 @@ export async function predictTelecrmAiQuote(
     current += delta;
   }
 
-  const amountWon = Math.max(10000, Math.round(current / 10000) * 10000);
+  const baseWon = Math.max(10000, Math.round(current / 10000) * 10000);
+  const loftSetting = await getTelecrmAiQuoteLoftAmount(tenantId, brand).catch(() => 30000);
+  const loftAdd = loftSurchargeForQuote(
+    judgeTelecrmAiQuoteLoft({ oneRoomLoft: input.oneRoomLoft, text: input.memoText }),
+    loftSetting,
+  );
+  if (loftAdd.addWon > 0 && loftAdd.label) {
+    parts.push({ label: loftAdd.label, amountWon: loftAdd.addWon });
+  }
   return {
-    amountWon,
+    amountWon: baseWon + loftAdd.addWon,
     parts,
+    loft: loftAdd.loft,
     sampleCount: model?.sampleCount ?? 0,
     trainedAt: model?.trainedAt.toISOString() ?? new Date().toISOString(),
     scope: model?.scope ?? 'tenant',
