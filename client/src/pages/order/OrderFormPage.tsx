@@ -83,8 +83,10 @@ import { MoveInTimingFieldGroup } from '../../components/orderform/MoveInTimingF
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import {
+  cleaningKindOption,
   isOrderFormCleaningKind,
   shouldShowCustomerCleaningKindPicker,
+  type OrderFormCleaningKind,
 } from '@shared/orderFormCleaningKind';
 import { OrderFormCleaningKindPicker } from '../../components/orderform/OrderFormCleaningKindPicker';
 import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes, hasOrderFormBuildingTypeChoice } from '../../utils/orderFormOneRoom';
@@ -145,6 +147,14 @@ import { isOrderFormStaffView, notifyOrderFormStaffViewClose } from '../../utils
 import { scrollToOrderFormField } from '../../utils/preserveScrollAround';
 import { useOrderFormModel } from '../../hooks/useOrderFormModel';
 import { clearOrderFormCustomerDraft } from '../../hooks/useOrderFormCustomerDraft';
+import {
+  OrderFormIssueExtraWorksBox,
+  OrderFormPackageSummary,
+  extraWorksBreakdownText,
+  issueExtraWorkLines,
+  issueExtraWorkRowsError,
+  type IssueExtraWorkRow,
+} from '../../components/orderform/OrderFormExtraWorks';
 import { OrderFormCustomerWizard } from '../../components/orderform/customer-wizard/OrderFormCustomerWizard';
 import type { CustomerWizardShared } from '../../components/orderform/customer-wizard/customerStepTypes';
 import {
@@ -254,6 +264,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     balanceAmount: '',
     optionNote: '',
   });
+  /** 발급(create) 모드 추가 시공 줄 — 비어 있으면 지금까지와 똑같이 발급된다 */
+  const [issueExtraRows, setIssueExtraRows] = useState<IssueExtraWorkRow[]>([]);
+  const [issueExtraKind, setIssueExtraKind] = useState<OrderFormCleaningKind>('MOVE_IN');
   /** 예약금 없음 — 잔금 = 총액(현장 일시 수령) */
   const [noDeposit, setNoDeposit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -854,6 +867,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           depositAmount: data.depositAmount,
           balanceAmount: data.balanceAmount,
           optionNote: data.optionNote,
+          baseAmount: data.baseAmount ?? null,
+          extraWorks: data.extraWorks ?? null,
           preferredDate: data.preferredDate ?? null,
           preferredTime: data.preferredTime ?? null,
           preferredTimeDetail: data.preferredTimeDetail ?? null,
@@ -891,7 +906,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         const issuedPhone = (data.customerPhone ?? '').trim();
         setForm((f) => ({
           ...f,
-          cleaningKind: '',
+          cleaningKind: data.extraWorks?.length ? pfStr('cleaningKind') ?? '' : '',
           customerName: pfStr('customerName') ?? (p?.customerName || data.customerName),
           customerPhone: pfStr('customerPhone') ?? (issuedPhone || (p?.customerPhone ?? '').trim() || ''),
           customerPhoneSecondary: pfStr('customerPhone2') ?? p?.customerPhone2 ?? '',
@@ -1181,6 +1196,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       };
 
       if (
+        !order?.extraWorks?.length &&
         shouldShowCustomerCleaningKindPicker(order?.template, isEditor) &&
         !isOrderFormCleaningKind(form.cleaningKind)
       ) {
@@ -1589,7 +1605,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
     setPrefillSaving(true);
     try {
-      await saveOrderFormPrefill(editor.authToken, editor.orderFormId, buildPrefillPayload());
+      const keptKind = cleaningKindOption(order?.prefillAnswers?.cleaningKind)?.value;
+      await saveOrderFormPrefill(editor.authToken, editor.orderFormId, {
+        ...buildPrefillPayload(),
+        // 추가 시공이 있는 발주서는 수정 저장 때도 줄과 청소 종류를 그대로 지킨다
+        ...(order?.extraWorks?.length && order.baseAmount != null && keptKind
+          ? { extraWorks: order.extraWorks, baseAmount: order.baseAmount, cleaningKind: keptKind }
+          : {}),
+      });
       setPrefillSavedOpen(true);
     } catch (e) {
       showSubmitError(e instanceof Error ? e.message : '저장에 실패했습니다.');
@@ -1606,7 +1629,22 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       showSubmitError('고객명을 입력해주세요.', 'order-field-customerName');
       return;
     }
-    const total = parseIssueAmountWon(issueAmounts.totalAmount);
+    const extraRowsErr = issueExtraWorkRowsError(issueExtraRows);
+    if (extraRowsErr) {
+      showSubmitError(extraRowsErr);
+      return;
+    }
+    const extraLines = issueExtraWorkLines(issueExtraRows);
+    const hasExtraWorks = extraLines.length > 0;
+    const baseWon = parseIssueAmountWon(issueAmounts.totalAmount);
+    if (hasExtraWorks) {
+      const baseErr = validateIssueAmountWon(baseWon, '기본 청소 금액');
+      if (baseErr) {
+        showSubmitError(baseErr);
+        return;
+      }
+    }
+    const total = baseWon + extraLines.reduce((sum, line) => sum + line.amountWon, 0);
     const totalErr = validateIssueAmountWon(total, '총 금액');
     if (totalErr) {
       showSubmitError(totalErr);
@@ -1651,7 +1689,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       showSubmitError(depositErr);
       return;
     }
-    const balance = resolveIssueBalanceWon(total, deposit, issueAmounts.balanceAmount);
+    const balance = hasExtraWorks
+      ? total - deposit
+      : resolveIssueBalanceWon(total, deposit, issueAmounts.balanceAmount);
     const balanceErr = validateIssueAmountWon(balance, '잔금');
     if (balanceErr) {
       showSubmitError(balanceErr);
@@ -1692,8 +1732,17 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           ? { collaborationMarketerId: editor.create.collaborationMarketerId }
           : {}),
         extraWorkNotice: editor.create.extraWorkNotice === true,
+        ...(hasExtraWorks
+          ? { extraWorks: extraLines, baseAmount: baseWon, cleaningKind: issueExtraKind }
+          : {}),
       });
-      await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
+      // 선입력 저장이 청소 종류를 덮어쓰지 않도록 추가 시공을 같이 보낸다
+      await saveOrderFormPrefill(editor.authToken, order.id, {
+        ...buildPrefillPayload(),
+        ...(hasExtraWorks
+          ? { extraWorks: extraLines, baseAmount: baseWon, cleaningKind: issueExtraKind }
+          : {}),
+      });
       editor.create.onCreated(order);
     } catch (e) {
       showSubmitError(e instanceof Error ? e.message : '발급에 실패했습니다.');
@@ -2532,7 +2581,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <label className="mb-1 flex flex-wrap items-center gap-1.5 text-xs font-bold text-red-600">
-                  총 금액 (원) *
+                  {issueExtraRows.length > 0 ? '기본 청소 금액 (원) *' : '총 금액 (원) *'}
                   {isEditor ? <OrderFormIssueFillWhoBadge flags={ISSUE_AMOUNT_MARKETER_REQUIRED} /> : null}
                 </label>
                 <input
@@ -2592,6 +2641,17 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   </button>
                 </div>
               </div>
+              <div className="flex flex-col sm:col-span-2">
+                <OrderFormIssueExtraWorksBox
+                  rows={issueExtraRows}
+                  onRowsChange={setIssueExtraRows}
+                  cleaningKind={issueExtraKind}
+                  onCleaningKindChange={setIssueExtraKind}
+                  baseAmountWon={parseIssueAmountWon(issueAmounts.totalAmount)}
+                  depositWon={noDeposit ? 0 : resolveIssueDepositWon(issueAmounts.depositAmount)}
+                  inputCls={inputCls}
+                />
+              </div>
               <div>
                 <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <label className="inline-flex flex-wrap items-center gap-1.5 text-xs font-medium text-gray-700">
@@ -2649,9 +2709,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   type="text"
                   inputMode="numeric"
                   className={inputCls}
-                  placeholder={noDeposit ? '총액과 동일' : '비어 있으면 자동 계산'}
-                  value={issueAmounts.balanceAmount}
-                  disabled={noDeposit}
+                  placeholder={
+                    issueExtraRows.length > 0 ? '총 견적에서 자동 계산' : noDeposit ? '총액과 동일' : '비어 있으면 자동 계산'
+                  }
+                  value={issueExtraRows.length > 0 ? '' : issueAmounts.balanceAmount}
+                  disabled={noDeposit || issueExtraRows.length > 0}
                   onChange={(e) => setIssueAmounts((a) => ({ ...a, balanceAmount: e.target.value }))}
                 />
               </div>
@@ -2660,7 +2722,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 <input
                   type="text"
                   className={inputCls}
-                  placeholder="견적 포함 추가, 현장 선택 추가 등"
+                  placeholder={issueExtraRows.length > 0 ? '금액 없이 남길 말만 적어요' : '견적 포함 추가, 현장 선택 추가 등'}
                   value={issueAmounts.optionNote}
                   onChange={(e) => setIssueAmounts((a) => ({ ...a, optionNote: e.target.value }))}
                 />
@@ -2676,6 +2738,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 {orderFormConfigLine(order.formConfig?.priceLabel, ORDER_FORM_CONFIG_DEFAULTS.priceLabel)}
               </span>
             </p>
+            {order.extraWorks?.length ? (
+              <p className="mt-1 break-keep text-gray-700 tabular-nums">
+                {extraWorksBreakdownText(
+                  cleaningKindOption(order.prefillAnswers?.cleaningKind)?.label ?? '기본 청소',
+                  order.baseAmount,
+                  order.extraWorks,
+                )}
+              </p>
+            ) : null}
             {profSelectionSummary.sum > 0 ? (
               <p className="text-gray-700 mt-1 tabular-nums">
                 추가 시공 합계 {profSelectionSummary.sum.toLocaleString()}원
@@ -2733,7 +2804,21 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           onFocusCapture={isInline ? undefined : onFieldFocus}
           className={isEditor || isCreate ? 'space-y-4 pb-20' : 'space-y-4'}
         >
-          {shouldShowCustomerCleaningKindPicker(order?.template, isEditor) ? (
+          {!isEditor && order?.extraWorks?.length ? (
+            <div id="order-field-cleaningKind" className="space-y-2">
+              <p className="text-base font-bold text-gray-900">예약하신 청소를 확인해 주세요</p>
+              <OrderFormPackageSummary
+                brandName={publicBranding?.displayName}
+                baseLabel={cleaningKindOption(form.cleaningKind)?.label ?? '기본 청소'}
+                baseHint={cleaningKindOption(form.cleaningKind)?.hint}
+                baseAmountWon={order.baseAmount ?? null}
+                extraWorks={order.extraWorks}
+                totalAmountWon={order.totalAmount ?? 0}
+                depositAmountWon={order.depositAmount ?? 0}
+                balanceAmountWon={order.balanceAmount ?? 0}
+              />
+            </div>
+          ) : shouldShowCustomerCleaningKindPicker(order?.template, isEditor) ? (
           <div id="order-field-cleaningKind">
             <label className={`${reqLabelCls} flex flex-wrap items-center gap-1.5`}>
               청소 종류 *

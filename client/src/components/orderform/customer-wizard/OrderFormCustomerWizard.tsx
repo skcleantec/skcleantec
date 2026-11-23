@@ -311,6 +311,7 @@ export function OrderFormCustomerWizard({
                 lockKey={shared.lockKey}
                 choices={currentStep.choices}
                 lines={currentStep.lines}
+                order={shared.order}
               />
             ) : (
               <StepBody
@@ -356,7 +357,7 @@ export function OrderFormCustomerWizard({
               disabled={!browse && Boolean(stepInvalid)}
               onClick={tryNext}
             >
-              확인
+              {shared.order?.extraWorks?.length ? '맞아요, 계속할게요' : '확인'}
             </button>
           ) : showFooter || showChoiceNext ? (
             <div className="flex gap-2">

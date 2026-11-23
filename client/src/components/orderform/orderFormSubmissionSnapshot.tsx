@@ -245,7 +245,21 @@ export function OrderFormSubmissionSnapshotContent(props: {
       <section>
         <h3 className="mb-1 text-fluid-sm font-semibold text-gray-900">금액 안내</h3>
         <div className="rounded-lg border border-gray-200 bg-white px-3">
-          <OrderFormSnapshotRow label="기본 서비스 견적">
+          {snapshot.issuedSummary.extraWorks?.length ? (
+            <>
+              {snapshot.issuedSummary.baseAmount != null ? (
+                <OrderFormSnapshotRow label="기본 청소">
+                  {snapshot.issuedSummary.baseAmount.toLocaleString('ko-KR')}원
+                </OrderFormSnapshotRow>
+              ) : null}
+              {snapshot.issuedSummary.extraWorks.map((work, index) => (
+                <OrderFormSnapshotRow key={`${work.name}-${index}`} label={`추가 시공 · ${work.name}`}>
+                  {work.amountWon.toLocaleString('ko-KR')}원
+                </OrderFormSnapshotRow>
+              ))}
+            </>
+          ) : null}
+          <OrderFormSnapshotRow label={snapshot.issuedSummary.extraWorks?.length ? '서비스 견적 합계' : '기본 서비스 견적'}>
             {snapshot.issuedSummary.totalAmount.toLocaleString('ko-KR')}원
           </OrderFormSnapshotRow>
           {(snapshot.issuedSummary.profOptionsExtraSum ?? 0) > 0 ? (

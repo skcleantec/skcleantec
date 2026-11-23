@@ -1,6 +1,8 @@
 import { isOrderFormEmailFieldLocked, isStdFieldOn } from '../../../../pages/order/orderFormFieldVisibility';
 import { OrderFormEmailSplitField } from '../../OrderFormEmailSplitField';
 import { OrderFormCleaningKindPicker } from '../../OrderFormCleaningKindPicker';
+import { OrderFormPackageSummary } from '../../OrderFormExtraWorks';
+import { cleaningKindOption } from '@shared/orderFormCleaningKind';
 import { WIZARD_INPUT_CLS, WizardQuestion } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
 
@@ -13,6 +15,7 @@ export function WelcomeStep({
   lockKey,
   choices,
   lines,
+  order,
 }: {
   title: string;
   hint?: string;
@@ -22,7 +25,25 @@ export function WelcomeStep({
   lockKey: CustomerStepBodyProps['lockKey'];
   choices?: CustomerStepBodyProps['step']['choices'];
   lines?: CustomerStepBodyProps['step']['lines'];
+  order?: CustomerStepBodyProps['order'];
 }) {
+  if (order?.extraWorks?.length) {
+    const base = cleaningKindOption(form.cleaningKind || order.prefillAnswers?.cleaningKind);
+    return (
+      <WizardQuestion title={title}>
+        <OrderFormPackageSummary
+          brandName={brandName}
+          baseLabel={base?.label ?? '기본 청소'}
+          baseHint={base?.hint}
+          baseAmountWon={order.baseAmount ?? null}
+          extraWorks={order.extraWorks}
+          totalAmountWon={order.totalAmount ?? 0}
+          depositAmountWon={order.depositAmount ?? 0}
+          balanceAmountWon={order.balanceAmount ?? 0}
+        />
+      </WizardQuestion>
+    );
+  }
   return (
     <WizardQuestion title={title} hint={hint}>
       {brandName ? (

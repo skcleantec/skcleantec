@@ -1133,6 +1133,11 @@ export function AdminOrderFormPage() {
                               {o.optionNote.trim()}
                             </p>
                           ) : null}
+                          {o.extraWorks?.length ? (
+                            <p className="mt-1 line-clamp-2 text-fluid-2xs text-violet-800">
+                              추가 시공 · {o.extraWorks.map((w) => `${w.name} ${w.amountWon.toLocaleString('ko-KR')}원`).join(', ')}
+                            </p>
+                          ) : null}
                           <div className="mt-2 flex flex-wrap items-center gap-2.5 text-fluid-xs">
                             <span className="tabular-nums font-semibold text-slate-900">
                               {o.totalAmount.toLocaleString('ko-KR')}원
