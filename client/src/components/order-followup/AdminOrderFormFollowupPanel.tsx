@@ -61,6 +61,8 @@ import {
   FollowupCallNotesHistory,
   FollowupDetailTabBar,
 } from './FollowupCallNotesHistory';
+import { SafePhoneExpiryBadge } from './SafePhoneExpiryBadge';
+import { isSafePhoneCallBlocked } from '../../utils/safePhoneExpiry';
 import { FollowupIntakeExtrasFields } from './FollowupIntakeExtrasFields';
 import {
   buildFollowupIntakeExtrasPayload,
@@ -1181,7 +1183,14 @@ export function AdminOrderFormFollowupPanel({
                           <BrandTag mark={row.operatingCompanyId ? brandMarkById.get(row.operatingCompanyId) : null} />
                         </td>
                       ) : null}
-                      <td className="py-2.5 px-2 tabular-nums text-slate-800 font-medium">{displayPhone(row.customerPhone)}</td>
+                      <td className="py-2.5 px-2 tabular-nums text-slate-800 font-medium">
+                        <span className="block">{displayPhone(row.customerPhone)}</span>
+                        <SafePhoneExpiryBadge
+                          phones={[row.customerPhone, row.customerPhone2]}
+                          createdAt={row.createdAt}
+                          className="mt-0.5"
+                        />
+                      </td>
                       <td className="py-2.5 px-2">
                         <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                       </td>
@@ -1279,9 +1288,15 @@ export function AdminOrderFormFollowupPanel({
                         <span className="ml-1.5 text-[11px] font-normal tabular-nums text-slate-500">
                           {displayPhone(row.customerPhone)}
                         </span>
+                        <SafePhoneExpiryBadge
+                          phones={[row.customerPhone, row.customerPhone2]}
+                          createdAt={row.createdAt}
+                          className="ml-1.5 align-middle"
+                        />
                       </p>
                     </div>
-                    {(row.customerPhone ?? '').replace(/\D/g, '').length >= 8 ? (
+                    {(row.customerPhone ?? '').replace(/\D/g, '').length >= 8 &&
+                    !isSafePhoneCallBlocked(row.customerPhone, row.createdAt) ? (
                       <a
                         href={`tel:${(row.customerPhone ?? '').replace(/\D/g, '')}`}
                         onClick={(e) => e.stopPropagation()}

@@ -34,6 +34,8 @@ import { FollowupIntakeExtrasFields } from '../../order-followup/FollowupIntakeE
 import { runTelecrmCallWithSoomgoAuto } from '../../../utils/soomgoCallAutoSend';
 import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
+import { isSafePhoneCallBlocked } from '../../../utils/safePhoneExpiry';
+import { SafePhoneExpiryBadge } from '../../order-followup/SafePhoneExpiryBadge';
 import { shouldShowListBlockingLoading } from '../../../utils/listRefreshDisplay';
 
 type DetailDraft = {
@@ -282,6 +284,14 @@ export function FollowupInlinePanel({
       setError('통화할 연락처가 없습니다.');
       return;
     }
+    const storedPhones = [selected?.customerPhone, selected?.customerPhone2].map((p) => (p ?? '').replace(/\D/g, ''));
+    if (
+      storedPhones.includes(dial.replace(/\D/g, '')) &&
+      isSafePhoneCallBlocked(dial, selected?.createdAt)
+    ) {
+      setError('안심번호를 받은 지 48시간이 지났어요. 번호가 끊겼거나 다른 사람에게 넘어갔을 수 있어 전화를 걸지 않았어요.');
+      return;
+    }
     const { autoNotice, callNotice } = await runTelecrmCallWithSoomgoAuto({
       token,
       dialPhone: dial,
@@ -428,6 +438,11 @@ export function FollowupInlinePanel({
             >
               전화
             </button>
+            <SafePhoneExpiryBadge
+              phones={[selected.customerPhone, selected.customerPhone2]}
+              createdAt={selected.createdAt}
+              className="self-center"
+            />
             {selected.status !== 'FULFILLED' ? (
               <button
                 type="button"
