@@ -1810,9 +1810,23 @@ export function CrmPage() {
         const digits = outboundPhone.replace(/\D/g, '');
         if (digits.length >= 4 && activeOperatingCompanyId) {
           try {
+            const countOrNull = (raw: string | undefined) => {
+              const text = String(raw ?? '').trim();
+              if (!text) return null;
+              const n = Number(text);
+              return Number.isFinite(n) ? n : null;
+            };
             await recordTelecrmConsultationQuoteSent(
               t,
-              { phone: digits, payload: quotePayload },
+              {
+                phone: digits,
+                payload: quotePayload,
+                propertyType: intakeStructure.propertyType || null,
+                isOneRoom: intakeStructure.isOneRoom === true,
+                roomCount: countOrNull(intakeStructure.roomCount),
+                bathroomCount: countOrNull(intakeStructure.bathroomCount),
+                balconyCount: countOrNull(intakeStructure.balconyCount),
+              },
               activeOperatingCompanyId,
             );
             reloadQuotes();
@@ -1832,6 +1846,7 @@ export function CrmPage() {
     safePhone,
     quoteGrandTotal,
     quotePayload,
+    intakeStructure,
     outboundPhone,
     pyeong,
     reloadQuotes,

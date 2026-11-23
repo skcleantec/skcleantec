@@ -240,6 +240,70 @@ export async function deleteTelecrmAreaRule(token: string, id: string, password:
   return parseJson<{ ok: true }>(res);
 }
 
+export type TelecrmAiQuoteBaseRowDto = {
+  id: string;
+  sortOrder: number;
+  isActive: boolean;
+  label: string;
+  kind: 'fixed' | 'perPyeong';
+  amountWon: number;
+  condition: string;
+};
+
+export type TelecrmAiQuoteCorrectionItem = {
+  baseRowId: string;
+  label: string;
+  tableAmountWon: number;
+  sentAmountWon: number;
+  count: number;
+  lastAt: string;
+};
+
+export async function fetchTelecrmAiQuoteBaseRows(token: string) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/base-rows`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJson<{ items: TelecrmAiQuoteBaseRowDto[] }>(res);
+}
+
+export async function updateTelecrmAiQuoteBaseRow(
+  token: string,
+  id: string,
+  patch: { amountWon?: number; isActive?: boolean },
+) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/base-rows/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(patch),
+  });
+  return parseJson<{ ok: true }>(res);
+}
+
+export async function fetchTelecrmAiQuoteCorrections(token: string) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/corrections`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJson<{ items: TelecrmAiQuoteCorrectionItem[] }>(res);
+}
+
+export async function applyTelecrmAiQuoteCorrection(token: string, baseRowId: string, amountWon: number) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/corrections/${encodeURIComponent(baseRowId)}/apply`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ amountWon }),
+  });
+  return parseJson<{ ok: true }>(res);
+}
+
+export async function dismissTelecrmAiQuoteCorrection(token: string, baseRowId: string, sentAmountWon: number) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/corrections/${encodeURIComponent(baseRowId)}/dismiss`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ sentAmountWon }),
+  });
+  return parseJson<{ ok: true }>(res);
+}
+
 export async function chatTelecrmAiQuoteRule(
   token: string,
   messages: TelecrmAiQuoteChatMessage[],

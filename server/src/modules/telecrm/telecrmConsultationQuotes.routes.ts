@@ -82,7 +82,18 @@ router.post('/sent', requireStaffPermission('crm.view', 'crm.settings'), async (
   const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
   if (!operatingCompanyId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const { phone: phoneRaw, payload } = req.body as { phone?: string; payload?: unknown };
+  const body = req.body as {
+    phone?: string;
+    payload?: unknown;
+    propertyType?: unknown;
+    isOneRoom?: unknown;
+    roomCount?: unknown;
+    bathroomCount?: unknown;
+    balconyCount?: unknown;
+  };
+  const phoneRaw = body.phone;
+  const payload = body.payload;
+  const num = (v: unknown) => (v == null || v === '' ? null : Number.isFinite(Number(v)) ? Math.round(Number(v)) : null);
   const phone = normalizeTelecrmQuotePhone(typeof phoneRaw === 'string' ? phoneRaw : '');
   if (phone.length < 4) {
     res.status(400).json({ error: '전화번호(4자 이상)가 필요합니다.' });
@@ -100,6 +111,13 @@ router.post('/sent', requireStaffPermission('crm.view', 'crm.settings'), async (
       user.userId,
       phone,
       parsed,
+      {
+        propertyType: typeof body.propertyType === 'string' ? body.propertyType : null,
+        isOneRoom: body.isOneRoom === true,
+        roomCount: num(body.roomCount),
+        bathroomCount: num(body.bathroomCount),
+        balconyCount: num(body.balconyCount),
+      },
     );
     res.status(201).json({ quote });
   } catch (e) {

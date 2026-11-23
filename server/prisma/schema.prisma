@@ -369,6 +369,9 @@ model Tenant {
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
   telecrmAiQuoteRules TelecrmAiQuoteRule[]
+  telecrmAiQuoteBaseRows TelecrmAiQuoteBaseRow[]
+  telecrmAiQuoteCorrections TelecrmAiQuoteCorrection[]
+  telecrmAiQuoteCorrectionDismissals TelecrmAiQuoteCorrectionDismiss[]
   telecrmAreaRules TelecrmAreaRule[]
   telecrmAreaCases TelecrmAreaCase[]
   telecrmSoomgoConfig       TelecrmSoomgoConfig?
@@ -1785,6 +1788,7 @@ model OperatingCompany {
   orderFollowups             OrderFollowup[]
   crmQuickScheduleLeads      CrmQuickScheduleLead[]
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
+  telecrmAiQuoteCorrections  TelecrmAiQuoteCorrection[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSmsTemplates         TelecrmSmsTemplate[]
   telecrmResponseCards        TelecrmResponseCard[]
@@ -2269,6 +2273,7 @@ model User {
   telecrmCallNotes             TelecrmCallNote[]
   telecrmConsultationQuotesCreated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteCreatedBy")
   telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
+  telecrmAiQuoteCorrections TelecrmAiQuoteCorrection[]
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
   telecrmAiUsageLogs           TelecrmAiUsageLog[]
   telecrmAiSummaries           TelecrmAiSummary[]
@@ -5430,6 +5435,7 @@ model TelecrmConsultationQuote {
   updatedBy   User                           @relation("TelecrmConsultationQuoteUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
   createdAt   DateTime                       @default(now()) @map("created_at")
   updatedAt   DateTime                       @updatedAt @map("updated_at")
+  aiQuoteCorrection TelecrmAiQuoteCorrection?
 
   @@index([tenantId, phone, updatedAt(sort: Desc)])
   @@index([tenantId, operatingCompanyId, phone, updatedAt(sort: Desc)], map: "telecrm_quotes_tenant_oc_phone_updated_idx")
@@ -5460,6 +5466,82 @@ model TelecrmAiQuoteRule {
 
   @@index([tenantId, sortOrder])
   @@map("telecrm_ai_quote_rules")
+}
+
+/// 텔레CRM AI 견적 기준표. 위에서부터 처음 맞는 줄의 금액.
+model TelecrmAiQuoteBaseRow {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sortOrder     Int      @map("sort_order")
+  isActive      Boolean  @default(true) @map("is_active")
+  /// small | general. null 이면 유형을 가리지 않음
+  typeGroup     String?  @map("type_group") @db.VarChar(16)
+  oneRoomLike   Boolean? @map("one_room_like")
+  /// 구조 범위와 별도로 원룸 계열도 이 줄에 맞음
+  orOneRoom     Boolean  @default(false) @map("or_one_room")
+  roomsMin      Int?     @map("rooms_min")
+  roomsMax      Int?     @map("rooms_max")
+  bathsMin      Int?     @map("baths_min")
+  bathsMax      Int?     @map("baths_max")
+  balconiesMin  Int?     @map("balconies_min")
+  balconiesMax  Int?     @map("balconies_max")
+  pyeongMin     Int?     @map("pyeong_min")
+  pyeongMax     Int?     @map("pyeong_max")
+  /// fixed | perPyeong
+  kind          String   @db.VarChar(16)
+  amountWon     Int      @map("amount_won")
+  label         String   @db.VarChar(120)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  corrections   TelecrmAiQuoteCorrection[]
+  dismissals    TelecrmAiQuoteCorrectionDismiss[]
+
+  @@index([tenantId, sortOrder])
+  @@map("telecrm_ai_quote_base_rows")
+}
+
+/// 상담사가 견적보내기로 보낸 기본청소 금액. 고객 이름·전화번호는 두지 않는다.
+model TelecrmAiQuoteCorrection {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String   @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  quoteId            String   @unique @map("quote_id")
+  quote              TelecrmConsultationQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  userId             String   @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  typeGroup          String?  @map("type_group") @db.VarChar(16)
+  isOneRoomLike      Boolean  @map("is_one_room_like")
+  rooms              Int?
+  baths              Int?
+  balconies          Int?
+  pyeong             Int
+  aiAmountWon        Int      @map("ai_amount_won")
+  sentBaseAmountWon  Int      @map("sent_base_amount_won")
+  baseRowId          String?  @map("base_row_id")
+  baseRow            TelecrmAiQuoteBaseRow? @relation(fields: [baseRowId], references: [id], onDelete: SetNull)
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, operatingCompanyId, typeGroup, pyeong, createdAt])
+  @@index([tenantId, baseRowId, createdAt])
+  @@map("telecrm_ai_quote_corrections")
+}
+
+/// 기준표와 달랐던 금액을 30일 동안 다시 묻지 않음
+model TelecrmAiQuoteCorrectionDismiss {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  baseRowId     String   @map("base_row_id")
+  baseRow       TelecrmAiQuoteBaseRow @relation(fields: [baseRowId], references: [id], onDelete: Cascade)
+  sentAmountWon Int      @map("sent_amount_won")
+  until         DateTime
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, baseRowId, sentAmountWon])
+  @@map("telecrm_ai_quote_correction_dismissals")
 }
 
 /// 텔레CRM — 사장님이 가르친 면적 기준 (가격 규칙과 따로)

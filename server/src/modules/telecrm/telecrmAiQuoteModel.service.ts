@@ -1,13 +1,8 @@
 /**
- * 텔레CRM AI 견적 — 과거 예약으로 「우리 업체 표준 가격」을 배우고, 조건을 넣으면 1만원 단위 금액 하나로 답한다.
- *
- * 구조가 먼저, 평수는 그다음 (실제 가격이 그렇게 정해짐 — 예: 14평이라도 방3·화2면 25만원):
- *  1) 구조(방·화장실 수, 원룸) 묶음별로 평수에 따른 금액을 배움.
- *     같은 구조 예약끼리만 비교하고, 가까운 평수 예약은 금액 그대로 씀(구조가 같으면 평수가 조금 달라도 같은 가격대).
- *  2) 구조를 모르거나 그 구조 예약이 적으면 평수만으로 배운 금액을 씀.
- *  3) 건물 유형(빌라·오피스텔 등)은 구조 금액과의 차이가 20건 이상 일관되게 5천원 이상일 때만 더하고 뺌.
- *  평수별로 최근 예약 60건까지만 보고, 최근 예약일수록 크게 반영(3개월 지나면 절반). 평수가 클수록 금액이 줄지 않게 맞춤.
- *  6시간마다(또는 학습 데이터를 다시 모으면 바로) 새 예약까지 넣어 다시 배움. 같은 데이터면 늘 같은 결과.
+ * 텔레CRM AI 견적 — 유형·구조를 먼저 보고, 기준표가 있으면 그 금액, 없으면 같은 구조의 가운데 금액.
+ * 기준표에 없는 조합은 상담사가 보낸 기본청소 금액을 최근 것에 더 무게를 두어 쓴다.
+ * 말로 넣은 규칙(최소·최대·더하기·지정·평당)은 그 위에 그대로 얹는다.
+ * 평수 소수점은 버린다. 같은 구조 예약이 5건 미만일 때만 평수 곡선을 쓴다.
  */
 import { prisma } from '../../lib/prisma.js';
 import type {
@@ -21,6 +16,9 @@ import {
   loadTelecrmPropertyChoiceResolver,
   type TelecrmPropertyChoiceResolver,
 } from './telecrmPropertyChoices.service.js';
+import { classifyAiQuote, structKeyOfClassified, structSpeech } from './telecrmAiQuoteClassify.js';
+import { resolveAiQuoteCore } from './telecrmAiQuoteBase.js';
+import { listCurveSentQuotes, listOffTableSentQuotes, listTelecrmAiQuoteBaseRows } from './telecrmAiQuoteBase.store.js';
 
 const HALF_LIFE_DAYS = 90;
 const MAX_AGE_DAYS = 2 * 365;
@@ -29,6 +27,7 @@ const MIN_BASE_ROWS = 8;
 const MIN_GROUP_POINT_ROWS = 5;
 const MAX_WINDOW = 5;
 const MIN_GROUP_ROWS = 15;
+const MIN_STRUCT_MEDIAN_ROWS = 5;
 const MIN_ADJ_ROWS = 20;
 const MIN_TYPE_ADJ_WON = 5000;
 const OUTLIER_LOW = 0.7;
@@ -46,6 +45,7 @@ type TrainRow = {
   typeKey: string | null;
   typeLabel: string | null;
   structKey: string | null;
+  fromSent: boolean;
 };
 
 type Curve = { points: Map<number, number>; minP: number; maxP: number };
@@ -56,6 +56,7 @@ type Model = {
   scope: 'brand' | 'tenant';
   overall: Curve;
   groups: Map<string, Curve>;
+  groupMedians: Map<string, { count: number; median: number }>;
   typeAdj: Map<string, number>;
   typeLabels: Map<string, string>;
   resolver: TelecrmPropertyChoiceResolver;
@@ -77,19 +78,6 @@ function weightedMedian(values: { v: number; w: number }[]): number | null {
     if (acc >= total / 2) return x.v;
   }
   return list[list.length - 1].v;
-}
-
-/** 구조 묶음 이름 — 원룸은 따로, 아니면 방·화장실 수 둘 다 있어야 묶음 */
-function structKeyOf(isOneRoom: boolean, rooms: number | null | undefined, baths: number | null | undefined): string | null {
-  if (isOneRoom) return 'oneroom';
-  if (rooms == null || baths == null) return null;
-  return `${rooms}-${baths}`;
-}
-
-function structLabelOf(key: string): string {
-  if (key === 'oneroom') return '원룸';
-  const [r, b] = key.split('-');
-  return `방${r}·화${b}`;
 }
 
 /**
@@ -211,7 +199,7 @@ function choiceKey(resolver: TelecrmPropertyChoiceResolver, raw: string | null |
 
 async function trainModel(tenantId: string, operatingCompanyId: string | null): Promise<Model | null> {
   const since = new Date(Date.now() - MAX_AGE_DAYS * 86400000);
-  const [allRows, resolver] = await Promise.all([
+  const [allRows, resolver, sentRows] = await Promise.all([
     prisma.telecrmQuoteCrewLearningSnapshot.findMany({
       where: {
         tenantId,
@@ -230,6 +218,7 @@ async function trainModel(tenantId: string, operatingCompanyId: string | null): 
       },
     }),
     loadTelecrmPropertyChoiceResolver(tenantId),
+    listCurveSentQuotes(tenantId, since).catch(() => []),
   ]);
   const brandRows = operatingCompanyId ? allRows.filter((r) => r.inquiry?.operatingCompanyId === operatingCompanyId) : [];
   const scope: 'brand' | 'tenant' = brandRows.length >= BRAND_MIN_ROWS ? 'brand' : 'tenant';
@@ -239,18 +228,53 @@ async function trainModel(tenantId: string, operatingCompanyId: string | null): 
     .map((r) => {
       const ageDays = Math.max(0, (now - (r.inquiry?.createdAt?.getTime() ?? now)) / 86400000);
       const type = choiceKey(resolver, r.propertyType);
+      const classified = classifyAiQuote({
+        propertyTypeLabel: type?.label ?? null,
+        isOneRoom: r.isOneRoom,
+        roomCount: r.roomCount,
+        bathroomCount: r.bathroomCount,
+        areaPyeong: r.areaPyeong,
+      });
       return {
-        p: Math.round(Number(r.areaPyeong)),
+        p: classified.pyeong,
         amount: Number(r.serviceTotalAmount),
         w: Math.pow(0.5, ageDays / HALF_LIFE_DAYS),
         age: ageDays,
         typeKey: type?.key ?? null,
         typeLabel: type?.label ?? null,
-        structKey: structKeyOf(r.isOneRoom, r.roomCount, r.bathroomCount),
+        structKey: structKeyOfClassified(classified),
+        fromSent: false,
       };
     })
     .filter((r) => r.p >= MIN_P && r.p <= MAX_P && r.amount > 0);
   if (rows.length < MIN_BASE_ROWS) return null;
+  const sentSource = scope === 'brand' && operatingCompanyId
+    ? sentRows.filter((r) => r.operatingCompanyId === operatingCompanyId)
+    : sentRows;
+  const sentTrain: TrainRow[] = sentSource
+    .map((r) => {
+      const ageDays = Math.max(0, (now - r.createdAt.getTime()) / 86400000);
+      const classified = classifyAiQuote({
+        propertyTypeLabel: r.typeGroup === 'small' ? '오피스텔' : r.typeGroup === 'general' ? '아파트' : null,
+        isOneRoom: r.isOneRoomLike,
+        roomCount: r.isOneRoomLike ? 1 : r.rooms,
+        bathroomCount: r.baths,
+        balconyCount: r.balconies,
+        areaPyeong: r.pyeong,
+      });
+      return {
+        p: classified.pyeong,
+        amount: r.sentBaseAmountWon,
+        w: 3 * Math.pow(0.5, ageDays / HALF_LIFE_DAYS),
+        age: ageDays,
+        typeKey: r.typeGroup,
+        typeLabel: r.typeGroup === 'small' ? '소형' : r.typeGroup === 'general' ? '일반' : null,
+        structKey: structKeyOfClassified(classified),
+        fromSent: true,
+      };
+    })
+    .filter((r) => r.p >= MIN_P && r.p <= MAX_P && r.amount > 0);
+  rows = [...rows, ...sentTrain];
 
   // 1차 곡선 → 자기 구조(없으면 평수) 금액에서 너무 벗어난 예약(특수 작업 등)은 빼고 다시
   const overall0 = computeCurve(rows, true, MIN_BASE_ROWS);
@@ -264,6 +288,7 @@ async function trainModel(tenantId: string, operatingCompanyId: string | null): 
   const overall = computeCurve(rows, true, MIN_BASE_ROWS);
   if (!overall) return null;
   const groups = buildGroups(rows, overall);
+  const groupMedians = buildGroupMedians(rows.filter((r) => !r.fromSent));
 
   // 건물 유형 — 구조(또는 평수) 금액과의 차이. 가장 많은 유형을 기준(0원)으로
   const typeCounts = new Map<string, number>();
@@ -297,10 +322,29 @@ async function trainModel(tenantId: string, operatingCompanyId: string | null): 
     scope,
     overall,
     groups,
+    groupMedians,
     typeAdj,
     typeLabels,
     resolver,
   };
+}
+
+function buildGroupMedians(rows: TrainRow[]): Map<string, { count: number; median: number }> {
+  const byKey = new Map<string, TrainRow[]>();
+  for (const r of rows) {
+    if (!r.structKey) continue;
+    const list = byKey.get(r.structKey) ?? [];
+    list.push(r);
+    byKey.set(r.structKey, list);
+  }
+  const out = new Map<string, { count: number; median: number }>();
+  for (const [key, list] of byKey) {
+    if (list.length < MIN_STRUCT_MEDIAN_ROWS) continue;
+    const med = weightedMedian(list.map((r) => ({ v: r.amount, w: r.w })));
+    if (med == null) continue;
+    out.set(key, { count: list.length, median: Math.round(med / 10000) * 10000 });
+  }
+  return out;
 }
 
 function buildGroups(rows: TrainRow[], overall: Curve): Map<string, Curve> {
@@ -405,42 +449,62 @@ export async function predictTelecrmAiQuote(
     rulesOverride?: TelecrmAiQuoteRuleSpec[];
   },
 ): Promise<TelecrmAiQuote | null> {
-  const model = await getModel(tenantId, input.operatingCompanyId?.trim() || null);
-  if (!model) return null;
-  const p = Math.max(1, Math.round(input.areaPyeong));
-  const byPyeong = overallAt(model.overall, p);
-  if (byPyeong == null) return null;
+  const brand = input.operatingCompanyId?.trim() || null;
+  const model = await getModel(tenantId, brand);
+  const resolver = model?.resolver ?? (await loadTelecrmPropertyChoiceResolver(tenantId));
+  const type = choiceKey(resolver, input.propertyType);
+  const classified = classifyAiQuote({
+    propertyTypeLabel: type?.label ?? null,
+    isOneRoom: input.isOneRoom,
+    roomCount: input.roomCount,
+    bathroomCount: input.bathroomCount,
+    balconyCount: input.balconyCount,
+    areaPyeong: input.areaPyeong,
+  });
+  if (classified.pyeong < 1) return null;
 
-  const parts: TelecrmAiQuotePart[] = [];
-  const structKey = structKeyOf(Boolean(input.isOneRoom), input.roomCount, input.bathroomCount);
-  const group = structKey ? model.groups.get(structKey) : undefined;
-  const byStruct = group ? groupAt(group, model.overall, p) : null;
-  const structLabel = structKey ? structLabelOf(structKey) : null;
+  let baseRows: Awaited<ReturnType<typeof listTelecrmAiQuoteBaseRows>> = [];
+  try {
+    baseRows = await listTelecrmAiQuoteBaseRows(tenantId);
+  } catch (e) {
+    console.error('[telecrm-ai-quote] base rows failed', e instanceof Error ? e.message : e);
+  }
 
-  if (byStruct != null && structLabel) {
-    const diff = byStruct - byPyeong;
-    if (diff === 0) {
-      parts.push({ label: `${p}평 ${structLabel} 기본`, amountWon: byStruct });
-    } else {
-      // 평수로만 보면 얼마인데, 구조 때문에 얼마가 더해지거나 빠지는지 그대로 보여 줌
-      parts.push({ label: `${p}평 기본`, amountWon: byPyeong });
-      parts.push({ label: `${structLabel} 구조`, amountWon: diff });
+  const structKey = structKeyOfClassified(classified);
+  let corrections: { amountWon: number; at: number }[] = [];
+  if (structKey) {
+    try {
+      corrections = await listOffTableSentQuotes({
+        tenantId,
+        operatingCompanyId: brand,
+        typeGroup: classified.typeGroup,
+        isOneRoomLike: classified.isOneRoomLike,
+        rooms: classified.rooms,
+        baths: classified.baths,
+        pyeong: classified.pyeong,
+      });
+    } catch (e) {
+      console.error('[telecrm-ai-quote] sent quotes failed', e instanceof Error ? e.message : e);
     }
-  } else {
-    parts.push({ label: `${p}평 기본`, amountWon: byPyeong });
   }
 
-  const type = choiceKey(model.resolver, input.propertyType);
-  const typeAdj = type ? model.typeAdj.get(type.key) ?? 0 : 0;
-  if (type && typeAdj !== 0) {
-    parts.push({ label: model.typeLabels.get(type.key) ?? type.label, amountWon: typeAdj });
-  } else if (type && parts.length === 1) {
-    parts[0] = { ...parts[0], label: `${parts[0].label.replace(/ 기본$/, '')} ${type.label} 기본` };
-  }
+  const groupStat = structKey ? model?.groupMedians.get(structKey) : undefined;
+  const byPyeong = model ? overallAt(model.overall, classified.pyeong) : null;
+  const core = resolveAiQuoteCore({
+    classified,
+    propertyLabel: type?.label ?? null,
+    baseRows,
+    corrections,
+    group: groupStat ?? null,
+    groupLabel: structKey ? structSpeech(structKey) : null,
+    pyeongCurveWon: byPyeong,
+  });
+  if (!core) return null;
 
-  // 말로 넣은 규칙 — 위에서부터 차례로 얹음
+  const parts: TelecrmAiQuotePart[] = [{ label: core.label, amountWon: core.amountWon }];
+  const p = classified.pyeong;
   const rules = opts?.rulesOverride ?? (await loadActiveTelecrmAiQuoteRuleSpecs(tenantId));
-  let current = parts.reduce((s, x) => s + x.amountWon, 0);
+  let current = core.amountWon;
   for (const spec of rules) {
     if (!ruleMatches(spec, input, p, type?.label ?? null)) continue;
     const delta = ruleDelta(spec, current, p);
@@ -453,8 +517,8 @@ export async function predictTelecrmAiQuote(
   return {
     amountWon,
     parts,
-    sampleCount: model.sampleCount,
-    trainedAt: model.trainedAt.toISOString(),
-    scope: model.scope,
+    sampleCount: model?.sampleCount ?? 0,
+    trainedAt: model?.trainedAt.toISOString() ?? new Date().toISOString(),
+    scope: model?.scope ?? 'tenant',
   };
 }
