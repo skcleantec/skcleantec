@@ -215,6 +215,8 @@ export function CrmPage() {
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
   const [areaImport, setAreaImport] = useState<{ raw: string; key: number } | null>(null);
+  /** 숨고 「방 개수」 답 원문. 평수 판정에만 넘긴다. */
+  const [areaRoomText, setAreaRoomText] = useState('');
   /** 숨고 고객 요청에 적힌 면적 원문 — AI 견적 근거로 보여 준다 */
   const [areaSource, setAreaSource] = useState<{ question: string; answer: string; buildingType: string } | null>(null);
   const [areaResult, setAreaResult] = useState<TelecrmAreaResolveResult | null>(null);
@@ -661,11 +663,22 @@ export function CrmPage() {
     const token = getToken();
     if (!token) return;
     const timer = window.setTimeout(() => {
+      const countOrNull = (raw: string | undefined) => {
+        const text = (raw ?? '').trim();
+        if (!text) return null;
+        const n = Number(text);
+        return Number.isFinite(n) ? n : null;
+      };
       void resolveTelecrmArea(token, {
         raw: areaImport.raw,
         buildingType: intakeStructure.buildingType,
+        propertyType: intakeStructure.propertyType,
         address: intakeIdentity.address,
         operatingCompanyId: activeOperatingCompanyId,
+        roomCount: countOrNull(intakeStructure.roomCount),
+        bathroomCount: countOrNull(intakeStructure.bathroomCount),
+        isOneRoom: intakeStructure.isOneRoom === true,
+        roomText: areaRoomText,
       })
         .then((res) => {
           if (areaLockedRef.current) return;
@@ -676,7 +689,18 @@ export function CrmPage() {
         .catch(() => undefined);
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [areaImport, areaLocked, intakeStructure.buildingType, intakeIdentity.address, activeOperatingCompanyId]);
+  }, [
+    areaImport,
+    areaLocked,
+    areaRoomText,
+    intakeStructure.buildingType,
+    intakeStructure.propertyType,
+    intakeStructure.roomCount,
+    intakeStructure.bathroomCount,
+    intakeStructure.isOneRoom,
+    intakeIdentity.address,
+    activeOperatingCompanyId,
+  ]);
 
   const pyeongNote = (
     <CrmPyeongResolveHint
@@ -1027,6 +1051,7 @@ export function CrmPage() {
       setCustomerName('');
       setPyeong('');
       setAreaImport(null);
+      setAreaRoomText('');
       setAreaSource(null);
       setAreaResult(null);
       areaLockedRef.current = true;
@@ -1200,6 +1225,8 @@ export function CrmPage() {
       setCustomerName(name);
       // 숨고 질문이 「공급면적(평수)」이면 고객 답을 공급으로 본다 — 답에 공급·전용을 직접 적었으면 그대로 둔다
       const areaPair = (data.requestPairs ?? []).find((pair) => /공급면적|전용면적|평수|평형|면적/.test(pair.question));
+      const roomPair = (data.requestPairs ?? []).find((pair) => /방\s*개수/.test(pair.question ?? ''));
+      setAreaRoomText((roomPair?.answer ?? '').trim());
       const areaAnswer = (areaPair?.answer || data.pyeong || '').trim();
       // ㎡로 적은 답만 질문 표시를 따른다. 평으로 적은 답(25평 등)과 59·84처럼 전용 대표 크기는 기존 확인 규칙에 맡긴다
       const areaSqm = areaAnswer.match(/(\d{1,4}(?:[.,]\d+)?)\s*(?:㎡|m2|m²|제곱미터|평방미터)/i);

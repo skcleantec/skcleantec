@@ -178,7 +178,17 @@ export async function previewTelecrmAiQuote(
 
 export async function resolveTelecrmArea(
   token: string,
-  input: { raw: string; buildingType?: string; address?: string; operatingCompanyId?: string | null },
+  input: {
+    raw: string;
+    buildingType?: string;
+    propertyType?: string;
+    address?: string;
+    operatingCompanyId?: string | null;
+    roomCount?: number | null;
+    bathroomCount?: number | null;
+    isOneRoom?: boolean | null;
+    roomText?: string | null;
+  },
 ) {
   const res = await fetch(`${API}/quote-learning/area/resolve`, {
     method: 'POST',

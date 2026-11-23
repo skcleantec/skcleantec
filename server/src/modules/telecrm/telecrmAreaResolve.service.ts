@@ -126,7 +126,12 @@ export async function resolveTelecrmAreaForTenant(input: {
   operatingCompanyId: string | null;
   raw: string;
   buildingType?: string | null;
+  propertyType?: string | null;
   address?: string | null;
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  isOneRoom?: boolean | null;
+  roomText?: string | null;
 }): Promise<TelecrmAreaResolveResult> {
   const address = (input.address ?? '').trim();
   const [rules, cases, ledger] = await Promise.all([
@@ -146,7 +151,12 @@ export async function resolveTelecrmAreaForTenant(input: {
   return resolveTelecrmArea({
     raw: input.raw,
     buildingType: input.buildingType,
+    propertyType: input.propertyType,
     address,
+    roomCount: input.roomCount,
+    bathroomCount: input.bathroomCount,
+    isOneRoom: input.isOneRoom,
+    roomText: input.roomText,
     ledger,
     rules: rules.map((row) => normalizeAreaRuleSpec(row.spec)).filter((row): row is TelecrmAreaRuleSpec => row != null),
     cases: cases.map((row) => ({

@@ -15,6 +15,10 @@ export type TelecrmAreaResolveResult = {
   customerValue: number | null;
   /** 공급·전용·분양. 없으면 표시가 없던 숫자. */
   customerMark: string | null;
+  /** 단위 없는 숫자를 ㎡로 다시 읽었으면 sqm. */
+  reinterpreted?: 'sqm' | null;
+  /** 평으로 읽었을 때의 값. 되돌릴 때 쓴다. */
+  literalPyeong?: number | null;
 };
 
 export type TelecrmAreaRuleKind = 'assume' | 'confirmBand' | 'complex' | 'ratio' | 'basis';
