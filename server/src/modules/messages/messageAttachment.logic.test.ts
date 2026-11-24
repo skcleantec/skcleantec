@@ -9,6 +9,7 @@ import {
   linksForTarget,
   messageBodyError,
   messageListPreview,
+  safeFileName,
   missingAttachmentIds,
   noticeIsRead,
   pdfPageCount,
@@ -36,6 +37,34 @@ describe('메시지 첨부', () => {
       /5개/,
     );
     assert.equal(validateUploadBatch([file('a.heic', 100, 'image/heic'), file('b.pdf', 100, 'application/pdf')]), null);
+  });
+
+  it('파일 이름을 UTF-8 로 읽고, 긴 이름은 확장자를 남긴다', () => {
+    const korean = '시험안내서.pdf';
+    const mojibake = Buffer.from(korean, 'utf8').toString('latin1');
+    assert.notEqual(mojibake, korean);
+    assert.equal(safeFileName(mojibake), korean);
+    assert.equal(safeFileName(korean), korean);
+    assert.equal(safeFileName(safeFileName(mojibake)), korean);
+
+    assert.equal(safeFileName('guide.pdf'), 'guide.pdf');
+    assert.equal(safeFileName('Meeting notes (final).pdf'), 'Meeting notes (final).pdf');
+    const spaced = '시험 안내 (최종).pdf';
+    assert.equal(safeFileName(spaced), spaced);
+    assert.equal(safeFileName(Buffer.from(spaced, 'utf8').toString('latin1')), spaced);
+
+    assert.equal(safeFileName('folder/시험안내서.pdf'), korean);
+    assert.equal(safeFileName('C:\\docs\\guide.pdf'), 'guide.pdf');
+
+    const longStem = '가'.repeat(300);
+    const longName = safeFileName(`${longStem}.pdf`);
+    assert.equal(longName.endsWith('.pdf'), true);
+    assert.ok(longName.length <= 255);
+    assert.equal(longName.startsWith('가'), true);
+
+    const longEnglish = safeFileName(`${'a'.repeat(300)}.jpg`);
+    assert.equal(longEnglish.endsWith('.jpg'), true);
+    assert.equal(longEnglish.length, 255);
   });
 
   it('글이 없어도 첨부가 있으면 보낼 수 있다', () => {
