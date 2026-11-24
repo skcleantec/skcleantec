@@ -1,10 +1,22 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { accountMasksMatch, parseBankDeposit } from './bankDepositParse.js';
 import { consumeDeviceRate, deviceCanIngest } from './bankDepositGuard.js';
 import { matchStoredDeposit } from './bankDepositMatch.service.js';
 import { notifyBankDeposit } from './bankDepositNotify.js';
 import type { DepositKind } from './bankDepositMatch.js';
+import {
+  addressShort,
+  attachLinkedSummaries,
+  displayWon,
+  firstPhoneTail,
+  followupCard,
+  groupDepositsByInquiry,
+  preferredDateYmd,
+  rowMatchesSearch,
+  searchParts,
+} from './bankDepositView.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -55,6 +67,9 @@ export async function registerBankDevice(
     orderBy: { createdAt: 'desc' },
   });
   if (!link) return { error: '연결 코드가 맞지 않거나 만료됐어요.' as const };
+  if (!(await isFeatureEnabled(link.tenantId, 'mod_bank_deposit'))) {
+    return { error: 'disabled' as const };
+  }
   const token = newDeviceToken();
   const device = await db.bankDepositDevice.create({
     data: {
@@ -99,6 +114,7 @@ async function deviceByToken(db: Db, token: string) {
 export async function touchBankDevice(db: Db, token: string, now = new Date()) {
   const device = await deviceByToken(db, token);
   if (!device) return null;
+  if (!(await isFeatureEnabled(device.tenantId, 'mod_bank_deposit'))) return { error: 'disabled' as const };
   await db.bankDepositDevice.updateMany({
     where: { id: device.id, tenantId: device.tenantId },
     data: { lastSeenAt: now },
@@ -124,6 +140,7 @@ export async function ingestBankDeposits(
 ) {
   const device = await deviceByToken(db, token);
   if (!device) return { error: 'unauthorized' as const };
+  if (!(await isFeatureEnabled(device.tenantId, 'mod_bank_deposit'))) return { error: 'disabled' as const };
   if (!consumeDeviceRate(device.id, items.length, now.getTime())) return { error: 'rate' as const };
   await db.bankDepositDevice.updateMany({
     where: { id: device.id, tenantId: device.tenantId },
@@ -192,6 +209,7 @@ export async function ingestBankDeposits(
       results.push({ dedupeKey, result: 'stored', status });
       notifyBankDeposit({
         tenantId: device.tenantId,
+        event: 'new',
         id: created.id,
         status,
         amountWon: parsed.amountWon,
@@ -227,6 +245,7 @@ const DEPOSIT_LIST_SELECT = {
   linkedAt: true,
   note: true,
   rawText: true,
+  linkedByUserId: true,
 } satisfies Prisma.BankDepositSelect;
 
 export async function listBankDeposits(
@@ -272,7 +291,68 @@ export async function listBankDeposits(
     if (group.status === 'NEEDS_REVIEW') counts.needsReview += n;
     if (group.status === 'IGNORED') counts.ignored += n;
   }
-  return { items, counts };
+  return { items: await withLinkedSummaries(db, params.tenantId, items), counts };
+}
+
+async function withLinkedSummaries<
+  T extends { linkedInquiryId: string | null; linkedFollowupId: string | null; linkedByUserId: string | null },
+>(db: Db, tenantId: string, items: T[]) {
+  const inquiryIds = [...new Set(items.map((row) => row.linkedInquiryId).filter((id): id is string => Boolean(id)))];
+  const followupIds = [...new Set(items.map((row) => row.linkedFollowupId).filter((id): id is string => Boolean(id)))];
+  const userIds = [...new Set(items.map((row) => row.linkedByUserId).filter((id): id is string => Boolean(id)))];
+  const [inquiries, followups, users] = await Promise.all([
+    inquiryIds.length
+      ? db.inquiry.findMany({
+          where: { tenantId, id: { in: inquiryIds } },
+          select: { id: true, customerName: true, nickname: true, preferredDate: true, status: true, inquiryNumber: true },
+        })
+      : [],
+    followupIds.length
+      ? db.orderFollowup.findMany({
+          where: { tenantId, id: { in: followupIds } },
+          select: {
+            id: true,
+            customerName: true,
+            nickname: true,
+            preferredMoveInCleaningDate: true,
+            status: true,
+            inquiry: { select: { inquiryNumber: true } },
+          },
+        })
+      : [],
+    userIds.length
+      ? db.user.findMany({ where: { tenantId, id: { in: userIds } }, select: { id: true, name: true } })
+      : [],
+  ]);
+  return attachLinkedSummaries(items, {
+    inquiries: new Map(
+      inquiries.map((row) => [
+        row.id,
+        {
+          id: row.id,
+          customerName: row.customerName,
+          nickname: row.nickname,
+          preferredDate: preferredDateYmd(row.preferredDate),
+          status: row.status,
+          inquiryNumber: row.inquiryNumber,
+        },
+      ]),
+    ),
+    followups: new Map(
+      followups.map((row) => [
+        row.id,
+        {
+          id: row.id,
+          customerName: row.customerName,
+          nickname: row.nickname,
+          preferredDate: preferredDateYmd(row.preferredMoveInCleaningDate),
+          status: row.status,
+          inquiryNumber: row.inquiry?.inquiryNumber ?? null,
+        },
+      ]),
+    ),
+    users: new Map(users.map((row) => [row.id, row.name])),
+  });
 }
 
 export async function depositCandidates(db: Db, tenantId: string, id: string) {
@@ -345,6 +425,7 @@ export async function linkBankDeposit(
   });
   notifyBankDeposit({
     tenantId: params.tenantId,
+    event: 'changed',
     id: row.id,
     status: 'LINKED',
     amountWon: row.amountWon,
@@ -372,6 +453,7 @@ export async function unlinkBankDeposit(db: Db, tenantId: string, id: string) {
   });
   notifyBankDeposit({
     tenantId,
+    event: 'changed',
     id: row.id,
     status: 'NEEDS_REVIEW',
     amountWon: row.amountWon,
@@ -400,6 +482,7 @@ export async function ignoreBankDeposit(db: Db, tenantId: string, id: string, no
   });
   notifyBankDeposit({
     tenantId,
+    event: 'changed',
     id: row.id,
     status: 'IGNORED',
     amountWon: row.amountWon,
@@ -412,7 +495,7 @@ export async function ignoreBankDeposit(db: Db, tenantId: string, id: string, no
 }
 
 export async function depositsForInquiry(db: Db, tenantId: string, inquiryId: string) {
-  return db.bankDeposit.findMany({
+  const items = await db.bankDeposit.findMany({
     where: {
       tenantId,
       linkedInquiryId: inquiryId,
@@ -421,6 +504,187 @@ export async function depositsForInquiry(db: Db, tenantId: string, inquiryId: st
     orderBy: { depositedAt: 'desc' },
     select: DEPOSIT_LIST_SELECT,
   });
+  return withLinkedSummaries(db, tenantId, items);
+}
+
+const OPEN_FOLLOWUP = ['REQUESTED', 'ABSENT', 'ON_HOLD', 'DEPOSIT_PENDING', 'RESERVED'] as const;
+
+export async function searchDepositTargets(db: Db, tenantId: string, id: string, q: string) {
+  const deposit = await db.bankDeposit.findFirst({
+    where: { id, tenantId },
+    select: { id: true, operatingCompanyId: true },
+  });
+  if (!deposit) return null;
+  const parts = searchParts(q);
+  if (!parts.text) return { candidates: [] };
+  const brand = deposit.operatingCompanyId ? { operatingCompanyId: deposit.operatingCompanyId } : {};
+  const nameOr = [
+    { customerName: { contains: parts.text, mode: 'insensitive' as const } },
+    { nickname: { contains: parts.text, mode: 'insensitive' as const } },
+  ];
+  const phoneOr = parts.phoneDigits
+    ? [{ customerPhone: { contains: parts.phoneDigits } }, { customerPhone2: { contains: parts.phoneDigits } }]
+    : [];
+  const [inquiries, followups] = await Promise.all([
+    db.inquiry.findMany({
+      where: { tenantId, deletedAt: null, ...brand, OR: [...nameOr, ...phoneOr] },
+      orderBy: { updatedAt: 'desc' },
+      take: 30,
+      select: {
+        id: true,
+        operatingCompanyId: true,
+        customerName: true,
+        nickname: true,
+        customerPhone: true,
+        customerPhone2: true,
+        preferredDate: true,
+        address: true,
+        status: true,
+        inquiryNumber: true,
+        serviceDepositAmount: true,
+        serviceBalanceAmount: true,
+        serviceTotalAmount: true,
+        orderForm: { select: { depositAmount: true, balanceAmount: true, totalAmount: true } },
+      },
+    }),
+    db.orderFollowup.findMany({
+      where: { tenantId, status: { in: [...OPEN_FOLLOWUP] }, ...brand, OR: [...nameOr, ...phoneOr] },
+      orderBy: { updatedAt: 'desc' },
+      take: 30,
+      select: {
+        id: true,
+        operatingCompanyId: true,
+        customerName: true,
+        nickname: true,
+        customerPhone: true,
+        customerPhone2: true,
+        preferredMoveInCleaningDate: true,
+        address: true,
+        status: true,
+        inquiry: { select: { inquiryNumber: true } },
+      },
+    }),
+  ]);
+  const inquiryHits = inquiries.filter((row) =>
+    rowMatchesSearch(
+      { customerName: row.customerName, nickname: row.nickname, phones: [row.customerPhone, row.customerPhone2], operatingCompanyId: row.operatingCompanyId },
+      parts,
+      deposit.operatingCompanyId,
+    ),
+  );
+  const followupHits = followups.filter((row) =>
+    rowMatchesSearch(
+      { customerName: row.customerName, nickname: row.nickname, phones: [row.customerPhone, row.customerPhone2], operatingCompanyId: row.operatingCompanyId },
+      parts,
+      deposit.operatingCompanyId,
+    ),
+  );
+  const pickedInquiries = inquiryHits.slice(0, 10);
+  const room = Math.max(0, 10 - pickedInquiries.length);
+  const pickedFollowups = followupHits.slice(0, room);
+  const [inquiryLinks, followupLinks] = await Promise.all([
+    pickedInquiries.length
+      ? db.bankDeposit.findMany({
+          where: {
+            tenantId,
+            status: { in: ['AUTO_LINKED', 'LINKED'] },
+            linkedInquiryId: { in: pickedInquiries.map((row) => row.id) },
+          },
+          select: { linkedInquiryId: true, linkedKind: true },
+        })
+      : [],
+    pickedFollowups.length
+      ? db.bankDeposit.findMany({
+          where: {
+            tenantId,
+            status: { in: ['AUTO_LINKED', 'LINKED'] },
+            linkedFollowupId: { in: pickedFollowups.map((row) => row.id) },
+          },
+          select: { linkedFollowupId: true, linkedKind: true },
+        })
+      : [],
+  ]);
+  const inquiryKinds = new Map<string, DepositKind[]>();
+  for (const row of inquiryLinks) {
+    if (!row.linkedInquiryId || !row.linkedKind) continue;
+    const list = inquiryKinds.get(row.linkedInquiryId) ?? [];
+    list.push(row.linkedKind as DepositKind);
+    inquiryKinds.set(row.linkedInquiryId, list);
+  }
+  const followupKinds = new Map<string, DepositKind[]>();
+  for (const row of followupLinks) {
+    if (!row.linkedFollowupId || !row.linkedKind) continue;
+    const list = followupKinds.get(row.linkedFollowupId) ?? [];
+    list.push(row.linkedKind as DepositKind);
+    followupKinds.set(row.linkedFollowupId, list);
+  }
+  const candidates = [
+    ...pickedInquiries.map((row) => ({
+      target: 'inquiry' as const,
+      id: row.id,
+      score: 0,
+      kind: null,
+      reasons: ['직접 찾음'],
+      customerName: row.customerName,
+      nickname: row.nickname,
+      phoneTail: firstPhoneTail([row.customerPhone, row.customerPhone2]),
+      preferredDate: preferredDateYmd(row.preferredDate),
+      addressShort: addressShort(row.address),
+      status: row.status,
+      inquiryNumber: row.inquiryNumber,
+      depositWon: displayWon(row.serviceDepositAmount, row.orderForm?.depositAmount ?? null),
+      balanceWon: displayWon(row.serviceBalanceAmount, row.orderForm?.balanceAmount ?? null),
+      totalWon: displayWon(row.serviceTotalAmount, row.orderForm?.totalAmount ?? null),
+      linkedKinds: inquiryKinds.get(row.id) ?? [],
+    })),
+    ...pickedFollowups.map((row) => ({
+      target: 'followup' as const,
+      id: row.id,
+      score: 0,
+      kind: null,
+      reasons: ['직접 찾음'],
+      ...followupCard({
+        customerName: row.customerName,
+        nickname: row.nickname,
+        phones: [row.customerPhone, row.customerPhone2],
+        preferredDate: row.preferredMoveInCleaningDate,
+        address: row.address,
+        status: row.status,
+        inquiryNumber: row.inquiry?.inquiryNumber ?? null,
+        linkedKinds: followupKinds.get(row.id) ?? [],
+      }),
+    })),
+  ];
+  return { candidates };
+}
+
+export async function bankDepositSummary(db: Db, tenantId: string, now = new Date()) {
+  const since = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const [needsReviewCount, devices] = await Promise.all([
+    db.bankDeposit.count({ where: { tenantId, status: 'NEEDS_REVIEW', receivedAt: { gte: since } } }),
+    db.bankDepositDevice.findMany({
+      where: { tenantId, isActive: true, revokedAt: null },
+      select: { lastSeenAt: true },
+    }),
+  ]);
+  let lastSeenAt: string | null = null;
+  for (const device of devices) {
+    if (!device.lastSeenAt) continue;
+    const iso = device.lastSeenAt.toISOString();
+    if (!lastSeenAt || iso > lastSeenAt) lastSeenAt = iso;
+  }
+  return { needsReviewCount, devices: { total: devices.length, lastSeenAt } };
+}
+
+export async function depositsForInquiries(db: Db, tenantId: string, rawIds: string[]) {
+  const ids = [...new Set(rawIds.map((id) => id.trim()).filter(Boolean))].slice(0, 100);
+  if (ids.length === 0) return { byInquiry: {} };
+  const rows = await db.bankDeposit.findMany({
+    where: { tenantId, linkedInquiryId: { in: ids }, status: { in: ['AUTO_LINKED', 'LINKED'] } },
+    orderBy: { depositedAt: 'desc' },
+    select: { id: true, linkedInquiryId: true, linkedKind: true, amountWon: true, depositedAt: true, depositorName: true },
+  });
+  return groupDepositsByInquiry(rows);
 }
 
 export async function listBankAccounts(db: Db, tenantId: string) {

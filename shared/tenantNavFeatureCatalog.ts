@@ -36,7 +36,7 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
     rows: [
       { label: '접수목록', path: '/admin/inquiries', moduleId: 'core_inquiries' },
       { label: '부재·보류', path: '/admin/inquiries/followup', moduleId: 'core_inquiries' },
-      { label: '입금 확인', path: '/admin/inquiries/deposits', moduleId: 'core_inquiries' },
+      { label: '입금 확인', path: '/admin/inquiries/deposits', moduleId: 'mod_bank_deposit' },
       { label: '페이백/리뷰', path: '/admin/inquiries/review-payback', moduleId: 'core_inquiries' },
       { label: '발주서 목록', path: '/admin/inquiries/order-forms', moduleId: 'core_inquiries', group: '발주서' },
       { label: '발주서 발급', path: '/admin/inquiries/order-issue', moduleId: 'core_inquiries', group: '발주서' },

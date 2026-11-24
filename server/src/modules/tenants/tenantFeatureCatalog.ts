@@ -25,6 +25,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_card_payment: { label: '카드결재', tier: 'standard' as const, defaultOn: true },
   mod_cashbill: { label: '현금영수증', tier: 'premium' as const, defaultOn: false },
   mod_ai_dispatch: { label: 'AI 미리 배정', tier: 'premium' as const, defaultOn: false },
+  mod_bank_deposit: { label: '입금 확인', tier: 'standard' as const, defaultOn: false },
 } as const;
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;

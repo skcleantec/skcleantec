@@ -4,14 +4,18 @@ import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import { kstDayRangeYmd, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { DEPOSIT_KINDS, type DepositKind } from './bankDepositMatch.js';
 import {
   createBankAccount,
+  bankDepositSummary,
   createDeviceLinkCode,
   deleteBankAccount,
   depositCandidates,
+  depositsForInquiries,
   depositsForInquiry,
+  searchDepositTargets,
   ignoreBankDeposit,
   ingestBankDeposits,
   linkBankDeposit,
@@ -33,6 +37,10 @@ function userOf(req: Request): AuthPayload | undefined {
 
 function clip(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+function featureOff(res: { status: (code: number) => { json: (body: object) => void } }): void {
+  res.status(403).json({ error: '이 업체에서 사용하지 않는 기능입니다.', code: 'feature_disabled', moduleId: 'mod_bank_deposit' });
 }
 
 function bearer(req: Request): string {
@@ -71,6 +79,10 @@ bankDepositDeviceRouter.post('/devices/register', async (req, res) => {
     appVersion: clip(body.appVersion, 40) || null,
   });
   if ('error' in created) {
+    if (created.error === 'disabled') {
+      featureOff(res);
+      return;
+    }
     res.status(400).json({ error: created.error });
     return;
   }
@@ -98,6 +110,10 @@ bankDepositDeviceRouter.post('/ingest', async (req, res) => {
   });
   const outcome = await ingestBankDeposits(prisma, token, items);
   if ('error' in outcome) {
+    if (outcome.error === 'disabled') {
+      featureOff(res);
+      return;
+    }
     res.status(outcome.error === 'rate' ? 429 : 401).json({
       error: outcome.error === 'rate' ? '잠시 뒤 다시 보내 주세요.' : '기기 연결이 끊어졌어요.',
     });
@@ -109,6 +125,10 @@ bankDepositDeviceRouter.post('/ingest', async (req, res) => {
 bankDepositDeviceRouter.post('/heartbeat', async (req, res) => {
   const token = bearer(req);
   const touched = token ? await touchBankDevice(prisma, token) : null;
+  if (touched && 'error' in touched) {
+    featureOff(res);
+    return;
+  }
   if (!touched) {
     res.status(401).json({ error: '기기 연결이 끊어졌어요.' });
     return;
@@ -118,6 +138,15 @@ bankDepositDeviceRouter.post('/heartbeat', async (req, res) => {
 
 export const bankDepositRouter = Router();
 bankDepositRouter.use(authMiddleware);
+bankDepositRouter.use(async (req, res, next) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  if (!(await isFeatureEnabled(tenantId, 'mod_bank_deposit'))) {
+    featureOff(res);
+    return;
+  }
+  next();
+});
 
 bankDepositRouter.post('/devices/link-code', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, userOf(req));
@@ -260,11 +289,36 @@ bankDepositRouter.get('/', requireStaffPermission('inquiry.view'), async (req, r
   res.json(page);
 });
 
+bankDepositRouter.get('/summary', requireStaffPermission('inquiry.view'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  res.json(await bankDepositSummary(prisma, tenantId));
+});
+
+bankDepositRouter.get('/by-inquiries', requireStaffPermission('inquiry.view'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const raw = typeof req.query.ids === 'string' ? req.query.ids.split(',') : [];
+  res.json(await depositsForInquiries(prisma, tenantId, raw));
+});
+
 bankDepositRouter.get('/by-inquiry/:inquiryId', requireStaffPermission('inquiry.view'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, userOf(req));
   if (!tenantId) return;
   const items = await depositsForInquiry(prisma, tenantId, req.params.inquiryId);
   res.json({ items });
+});
+
+bankDepositRouter.get('/:id/search', requireStaffPermission('inquiry.view'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  const found = await searchDepositTargets(prisma, tenantId, req.params.id, q);
+  if (!found) {
+    res.status(404).json({ error: '입금을 찾지 못했어요.' });
+    return;
+  }
+  res.json(found);
 });
 
 bankDepositRouter.get('/:id/candidates', requireStaffPermission('inquiry.view'), async (req, res) => {

@@ -3,6 +3,7 @@ import { broadcastJsonToStaff } from '../realtime/realtimeHub.js';
 /** 화면 갱신용. 문자 원문과 계좌는 넣지 않는다. */
 export function notifyBankDeposit(row: {
   tenantId: string;
+  event: 'new' | 'changed';
   id: string;
   status: string;
   amountWon: number;
@@ -15,6 +16,7 @@ export function notifyBankDeposit(row: {
     {
       type: 'bank_deposit',
       v: 1,
+      event: row.event,
       id: row.id,
       status: row.status,
       amountWon: row.amountWon,
