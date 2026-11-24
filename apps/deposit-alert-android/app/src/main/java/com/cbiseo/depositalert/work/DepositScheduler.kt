@@ -14,6 +14,14 @@ import java.util.concurrent.TimeUnit
 object DepositScheduler {
     private const val UPLOAD = "deposit-upload"
     private const val HEARTBEAT = "deposit-heartbeat"
+    private const val MMS_SCAN = "deposit-mms-scan"
+
+    fun enqueueMmsScan(context: Context) {
+        val request = OneTimeWorkRequestBuilder<MmsScanWorker>()
+            .setInitialDelay(12, TimeUnit.SECONDS)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(MMS_SCAN, ExistingWorkPolicy.REPLACE, request)
+    }
 
     fun enqueueUpload(context: Context) {
         val request = OneTimeWorkRequestBuilder<UploadWorker>()
@@ -37,6 +45,7 @@ object DepositScheduler {
     fun stop(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(UPLOAD)
         WorkManager.getInstance(context).cancelUniqueWork(HEARTBEAT)
+        WorkManager.getInstance(context).cancelUniqueWork(MMS_SCAN)
     }
 
     private fun network() = Constraints.Builder()

@@ -44,4 +44,17 @@ class ScanPlanTest {
         assertEquals(1, choice.drops[DropReason.NoDeposit])
         assertEquals(1, choice.drops[DropReason.BalanceLeft])
     }
+
+    @Test
+    fun mmsUsesBodyWhenTitleIsOnlyAlert() {
+        assertEquals(SAMPLE_NH_SMS, mmsScanText("알림", listOf(SAMPLE_NH_SMS)))
+        assertEquals(SAMPLE_NH_SMS, mmsScanText(SAMPLE_NH_SMS, emptyList()))
+        assertEquals("일반 안내", mmsScanText("알림", listOf("일반 안내")))
+    }
+
+    @Test
+    fun mmsDateAcceptsSecondsOrMillis() {
+        assertEquals(1_763_900_000_000L, mmsDateMillis(1_763_900_000L))
+        assertEquals(1_763_900_000_000L, mmsDateMillis(1_763_900_000_000L))
+    }
 }
