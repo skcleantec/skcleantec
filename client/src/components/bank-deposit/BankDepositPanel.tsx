@@ -31,6 +31,7 @@ import {
   DEPOSIT_STATUS_LABEL,
   DEPOSIT_STATUS_TONE,
   deviceSeen,
+  phoneAlertText,
   kstDayLabel,
   kstTime,
   targetStatusLabel,
@@ -441,6 +442,9 @@ export function BankDepositPanel({ token }: { token: string }) {
   const today = kstTodayYmd();
   const device = summary?.devices ?? null;
   const seen = device && device.total > 0 ? deviceSeen(device.lastSeenAt, now) : null;
+  const phoneAlert = seen?.ok ? (summary?.phoneAlert ?? null) : null;
+  const phoneAlertCopy = phoneAlert ? phoneAlertText(phoneAlert.code) : null;
+  const phoneBad = Boolean(phoneAlert && phoneAlertCopy && phoneAlert.level === 'error');
   const sum = shown.reduce((acc, row) => acc + (row.status === 'IGNORED' || row.status === 'CANCELLED' ? 0 : row.amountWon), 0);
   const brandName = (id: string | null) => (id ? brandOptions.find((b) => b.id === id)?.name ?? '' : '');
   const showBrand = brandOptions.length > 1;
@@ -468,12 +472,12 @@ export function BankDepositPanel({ token }: { token: string }) {
           {seen ? (
             <span
               className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-fluid-2xs font-semibold ${
-                seen.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'
+                seen.ok && !phoneBad ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'
               }`}
               title="입금 문자를 받는 폰이 마지막으로 서버와 연결된 때"
             >
-              <span className={`size-1.5 rounded-full ${seen.ok ? 'bg-emerald-500' : 'bg-rose-500'}`} aria-hidden />
-              폰 {seen.ok ? '연결됨' : '연결 끊김'} · {seen.text}
+              <span className={`size-1.5 rounded-full ${seen.ok && !phoneBad ? 'bg-emerald-500' : 'bg-rose-500'}`} aria-hidden />
+              {phoneBad && phoneAlertCopy ? phoneAlertCopy.short : `폰 ${seen.ok ? '연결됨' : '연결 끊김'} · ${seen.text}`}
             </span>
           ) : null}
           <Button size="sm" onClick={() => setManualOpen(true)} title="문자로 들어오지 않은 입금을 직접 넣습니다">
@@ -491,6 +495,22 @@ export function BankDepositPanel({ token }: { token: string }) {
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs leading-relaxed text-rose-900">
           입금 문자를 받는 폰이 {seen.text}부터 연결되지 않았어요. 그동안 들어온 입금은 여기에 안 보일 수 있습니다. 폰이 켜져 있는지, 앱이 실행 중인지 확인해 주세요.
         </p>
+      ) : null}
+
+      {phoneAlert && phoneAlertCopy ? (
+        <div
+          role={phoneAlert.level === 'error' ? 'alert' : 'status'}
+          className={`rounded-xl border px-3 py-2 text-fluid-xs leading-relaxed ${
+            phoneAlert.level === 'error'
+              ? 'border-rose-200 bg-rose-50 text-rose-900'
+              : 'border-amber-200 bg-amber-50 text-amber-900'
+          }`}
+        >
+          <b className="font-bold">{phoneAlertCopy.title}</b>
+          {phoneAlert.since ? ` (${deviceSeen(phoneAlert.since, now).text}부터)` : ''}
+          <br />
+          {phoneAlertCopy.body}
+        </div>
       ) : null}
 
       {device && device.total === 0 ? (

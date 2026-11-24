@@ -179,6 +179,24 @@ export function BankDepositSetupDialog({
                               : '문자함 점검 기록 없음'}
                             {rescanAsked[d.id] ? ' · 다시 확인을 요청했어요(다음 연결 때 실행)' : ''}
                           </span>
+                          <span className="block text-fluid-2xs text-slate-500">
+                            {d.statusAt ? (
+                              <>
+                                앱 {d.appVersion ?? '?'} ·{' '}
+                                <span className={d.listenerConnected === false || d.noticeAccessEnabled === false ? 'font-semibold text-rose-700' : ''}>
+                                  {d.noticeAccessEnabled === false
+                                    ? '알림 권한 꺼짐'
+                                    : d.listenerConnected === false
+                                      ? '알림 못 듣는 중'
+                                      : '알림 듣는 중'}
+                                </span>
+                                {d.lastNoticeAt ? ` · 마지막 문자 알림 ${deviceSeen(d.lastNoticeAt, now).text}` : ''}
+                                {d.batteryUnrestricted === false ? ' · 배터리 제한 있음' : ''}
+                              </>
+                            ) : (
+                              `앱 ${d.appVersion ?? '?'} · 예전 버전이라 알림을 듣는지 알 수 없어요`
+                            )}
+                          </span>
                         </span>
                         {armedDeviceId === d.id ? (
                           <span className="flex shrink-0 gap-1">
