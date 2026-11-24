@@ -22,7 +22,28 @@ object DepositIntake {
         summary: Boolean = false,
         countDup: Boolean = true,
     ): IntakeOutcome {
-        val outcome = enqueue(context, sender, rawText, receivedAtMillis, source, summary, countDup)
+        val parts = splitBankBlob(rawText)
+        val outcome = if (parts.size <= 1) {
+            enqueue(context, sender, rawText, receivedAtMillis, source, summary, countDup)
+        } else {
+            var queued = false
+            var duplicate = false
+            var other = false
+            for (part in parts) {
+                when (enqueue(context, sender, part, receivedAtMillis, source, summary, countDup)) {
+                    IntakeOutcome.Queued -> queued = true
+                    IntakeOutcome.Duplicate -> duplicate = true
+                    IntakeOutcome.OtherPath -> other = true
+                    IntakeOutcome.NotDeposit -> Unit
+                }
+            }
+            when {
+                queued -> IntakeOutcome.Queued
+                duplicate -> IntakeOutcome.Duplicate
+                other -> IntakeOutcome.OtherPath
+                else -> IntakeOutcome.NotDeposit
+            }
+        }
         if (source == IntakeSource.Sms) InboxScan.run(context)
         return outcome
     }
@@ -55,10 +76,10 @@ object DepositIntake {
             val fate = fateOfRemovedNotice(isDeposit = true, hashAlreadySent = already, otherPathAlready = !admitted)
             if (fate != NoticeFate.Send) {
                 if (already && countDup) settings.noteNoticeDup()
-                return IntakeOutcome.Duplicate
+                return if (already) IntakeOutcome.Duplicate else IntakeOutcome.OtherPath
             }
         } else if (!admitted) {
-            return IntakeOutcome.Duplicate
+            return IntakeOutcome.OtherPath
         } else if (already) {
             if (source != IntakeSource.Scan) settings.noteMessage(true)
             return IntakeOutcome.Duplicate

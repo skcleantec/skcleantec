@@ -66,7 +66,20 @@ class KeepAlivePlanTest {
             NoticeRecordResult.Unread,
             classifyNoticeRecord(0, emptyList(), missedBank = true),
         )
-        val kept = trimNoticeLog(List(21) { NoticeRecord(it.toLong() + 1, 1, NoticeRecordResult.Sent) })
+        val kept = trimNoticeLog(
+            List(21) {
+                NoticeRecord(
+                    atMillis = it.toLong() + 1,
+                    methods = "a",
+                    pieces = 1,
+                    nhPieces = 1,
+                    depositShape = 1,
+                    tally = NoticeTally(sent = 1),
+                    locked = false,
+                    summary = false,
+                )
+            },
+        )
         assertEquals(20, kept.size)
         assertEquals(2L, kept.first().atMillis)
     }
@@ -103,6 +116,13 @@ class KeepAlivePlanTest {
         assertEquals(8, counters.getInt("missed"))
         assertEquals(3, counters.getInt("rebinds"))
         assertEquals(19, counters.getInt("sent"))
+        assertEquals(0, counters.getInt("alreadySent"))
+        assertEquals(0, counters.getInt("otherPath"))
+        assertEquals(0, counters.getInt("withdrawal"))
+        assertEquals(0, counters.getInt("noAmount"))
+        assertEquals(0, counters.getInt("notNh"))
+        assertEquals(0, counters.getInt("noText"))
+        assertEquals(0, counters.getInt("balance"))
         assertFalse(body.contains("token"))
         assertFalse(body.contains("잔액"))
     }

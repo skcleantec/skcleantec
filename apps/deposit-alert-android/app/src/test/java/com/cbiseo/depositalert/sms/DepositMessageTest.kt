@@ -18,7 +18,7 @@ class DepositMessageTest {
         assertTrue(shouldForwardDeposit(SAMPLE_NH_SMS))
         assertFalse(shouldForwardDeposit("-농협 출금20,000원\n11/24 09:04 김명희"))
         assertFalse(shouldForwardDeposit("-농협 결제20,000원 입금안내"))
-        assertFalse(shouldForwardDeposit("-농협 입금20,000원 광고"))
+        assertTrue(shouldForwardDeposit("-농협 입금20,000원\n11/24 09:04 김광고"))
         assertFalse(shouldForwardDeposit("국민 입금20,000원"))
         assertFalse(shouldForwardDeposit("-농협 안내"))
     }

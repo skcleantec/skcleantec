@@ -26,14 +26,16 @@ fun chooseScan(
         val age = nowMillis - line.receivedAtMillis
         if (age < 0L || age > windowMs) continue
         scanned++
-        val reason = dropReason(line.body)
-        if (reason != null) {
-            drops[reason] = (drops[reason] ?: 0) + 1
-            continue
+        for (slice in splitBankBlob(line.body)) {
+            val reason = dropReason(slice)
+            if (reason != null) {
+                drops[reason] = (drops[reason] ?: 0) + 1
+                continue
+            }
+            val hash = contentHash(line.sender, slice)
+            if (!seen.add(hash)) continue
+            picks.add(InboxLine(line.sender, slice, line.receivedAtMillis))
         }
-        val hash = contentHash(line.sender, line.body)
-        if (!seen.add(hash)) continue
-        picks.add(line)
     }
     return ScanChoice(scanned, picks, drops)
 }
@@ -41,10 +43,11 @@ fun chooseScan(
 /** 본문이 입금이면 본문만 쓴다. 제목에만 내용이 있을 때만 제목을 쓴다. */
 fun mmsScanText(subject: String, parts: List<String>): String {
     val body = parts.map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
-    if (body.isNotEmpty() && dropReason(body) == null) return body
+    val fromBody = depositSlices(body)
+    if (fromBody.isNotEmpty()) return fromBody.joinToString("\n")
     val title = subject.trim()
-    val joined = listOf(title, body).filter { it.isNotEmpty() }.joinToString("\n")
-    if (joined.isNotEmpty() && dropReason(joined) == null) return joined
+    val fromJoined = depositSlices(listOf(title, body).filter { it.isNotEmpty() }.joinToString("\n"))
+    if (fromJoined.isNotEmpty()) return fromJoined.joinToString("\n")
     return body.ifEmpty { title }
 }
 

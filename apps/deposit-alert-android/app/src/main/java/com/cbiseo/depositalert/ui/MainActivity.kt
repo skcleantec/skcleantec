@@ -262,7 +262,7 @@ class MainActivity : AppCompatActivity() {
         binding.statusArrivals.text =
             "받은 문자 ${settings.receivedCount()}건 · 그중 입금 ${settings.depositCount()}건 · 오늘 뒤늦게 찾은 ${settings.lateFoundToday()}건"
         binding.statusDrops.text =
-            "탈락 · 농협 없음 ${settings.dropCount(DropReason.NoBank)} · 입금 없음 ${settings.dropCount(DropReason.NoDeposit)} · 출금·결제·광고 ${settings.dropCount(DropReason.Blocked)} · 잔액 못 지움 ${settings.dropCount(DropReason.BalanceLeft)}"
+            "탈락 · 농협 아님 ${settings.dropCount(DropReason.NoBank)} · 금액 꼴 없음 ${settings.dropCount(DropReason.NoDeposit)} · 출금 ${settings.dropCount(DropReason.Blocked)} · 잔액 못 지움 ${settings.dropCount(DropReason.BalanceLeft)}"
         binding.statusScan.text = if (settings.lastScanAt() <= 0L) {
             "마지막 점검: 없음"
         } else {
