@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { fetchBankDepositSettings, saveBankDepositSettings, type BankDepositSettings } from '../../api/bankDeposits';
+import {
+  fetchBankDepositSettings,
+  saveBankDepositSettings,
+  sendBankDepositPushTest,
+  type BankDepositSettings,
+} from '../../api/bankDeposits';
 import { Button } from '../ui/Button';
 import { OnOffSwitch } from '../ui/OnOffSwitch';
 
@@ -32,6 +37,8 @@ export function BankDepositAlertSettings({ token, onSaved }: { token: string; on
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [testState, setTestState] = useState<'idle' | 'busy' | 'sent'>('idle');
+  const [testError, setTestError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,6 +242,28 @@ export function BankDepositAlertSettings({ token, onSaved }: { token: string; on
         </a>
         에서 켜고 끕니다. 각자 받을지는 본인 알림 설정에서 정해요.
       </p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          disabled={testState === 'busy'}
+          onClick={() => {
+            setTestState('busy');
+            setTestError(null);
+            void sendBankDepositPushTest(token)
+              .then(() => setTestState('sent'))
+              .catch((e) => {
+                setTestState('idle');
+                setTestError(e instanceof Error ? e.message : '보내지 못했어요.');
+              });
+          }}
+        >
+          {testState === 'busy' ? '보내는 중' : '내 폰으로 시험 알림 보내기'}
+        </Button>
+        {testState === 'sent' ? (
+          <span className="text-fluid-2xs text-emerald-700">보냈어요. 청소비서 앱이 깔린 내 폰에 「입금 10원 · 시험」이 오는지 봐 주세요.</span>
+        ) : null}
+        {testError ? <span className="text-fluid-2xs text-rose-700">{testError}</span> : null}
+      </div>
       {hoursBad ? <p className="mt-1.5 text-fluid-2xs text-rose-700">알림 끝 시각이 시작 시각보다 늦어야 해요.</p> : null}
       {depositsBad ? <p className="mt-1.5 text-fluid-2xs text-rose-700">계약금 금액을 하나 이상 적어 주세요.</p> : null}
       {error ? <p className="mt-1.5 text-fluid-2xs text-rose-700">{error}</p> : null}
