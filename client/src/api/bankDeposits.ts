@@ -41,6 +41,10 @@ export type BankDepositLinkedSummary = {
   preferredDate?: string | null;
   status?: string | null;
   inquiryNumber?: string | null;
+  /** 담당 마케터(접수자) 이름 */
+  marketerName?: string | null;
+  /** 배정된 팀장 이름들 */
+  teamLeaderNames?: string[];
 };
 
 export type BankDepositCounts = { today: number; autoLinked: number; needsReview: number; ignored: number };
@@ -61,6 +65,8 @@ export type BankDepositCandidate = {
   depositWon?: number | null;
   balanceWon?: number | null;
   totalWon?: number | null;
+  marketerName?: string | null;
+  teamLeaderNames?: string[];
   /** 이미 다른 입금이 연결된 금액 종류 */
   linkedKinds?: BankDepositKind[];
 };

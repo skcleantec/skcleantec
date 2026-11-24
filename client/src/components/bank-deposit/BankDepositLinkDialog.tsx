@@ -74,6 +74,13 @@ function CandidateRow({
             {[c.preferredDate ? `청소 ${kstDayLabel(c.preferredDate)}` : '', c.addressShort ?? ''].filter(Boolean).join(' · ')}
           </span>
         ) : null}
+        {c.marketerName || (c.teamLeaderNames && c.teamLeaderNames.length > 0) ? (
+          <span className="mt-0.5 block truncate text-fluid-2xs text-slate-500">
+            {[c.marketerName ? `담당 ${c.marketerName}` : '', c.teamLeaderNames?.length ? `팀장 ${c.teamLeaderNames.join(', ')}` : '']
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        ) : null}
         {hasAmounts ? (
           <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-fluid-2xs tabular-nums text-slate-600">
             {amounts.map((a) =>

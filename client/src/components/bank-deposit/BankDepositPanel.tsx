@@ -60,6 +60,27 @@ function LinkedCell({ row }: { row: BankDepositItem }) {
   );
 }
 
+/** 담당 마케터와 배정된 팀장. 연결된 입금에만 나온다. */
+function StaffCell({ row, inline = false }: { row: BankDepositItem; inline?: boolean }) {
+  if (!isLinked(row) || !row.linked) return inline ? null : <span className="text-fluid-2xs text-slate-300">—</span>;
+  const marketer = row.linked.marketerName?.trim() || '';
+  const leaders = (row.linked.teamLeaderNames ?? []).map((x) => x.trim()).filter(Boolean);
+  if (!marketer && leaders.length === 0) return inline ? null : <span className="text-fluid-2xs text-slate-300">—</span>;
+  if (inline) {
+    return (
+      <span className="block truncate text-fluid-2xs text-slate-500">
+        {[marketer ? `담당 ${marketer}` : '', leaders.length ? `팀장 ${leaders.join(', ')}` : ''].filter(Boolean).join(' · ')}
+      </span>
+    );
+  }
+  return (
+    <span className="block min-w-0">
+      <span className="block truncate text-fluid-xs text-slate-800">{marketer || '—'}</span>
+      <span className="block truncate text-fluid-2xs text-slate-500">{leaders.length ? `팀장 ${leaders.join(', ')}` : '팀장 미배정'}</span>
+    </span>
+  );
+}
+
 function RowButtons({
   row,
   busy,
@@ -244,6 +265,7 @@ export function BankDepositPanel({ token }: { token: string }) {
       return (
         row.depositorName.toLowerCase().includes(q) ||
         (row.linked?.customerName ?? '').toLowerCase().includes(q) ||
+        (row.linked?.marketerName ?? '').toLowerCase().includes(q) ||
         String(row.amountWon).includes(q.replace(/[^\d]/g, '') || '\u0000')
       );
     });
@@ -367,7 +389,7 @@ export function BankDepositPanel({ token }: { token: string }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="입금자·고객 이름, 금액"
+            placeholder="입금자·고객·담당 이름, 금액"
             aria-label="목록에서 찾기"
             className="ml-auto h-7 w-full rounded-[7px] border border-slate-300 px-2.5 text-fluid-xs text-slate-900 placeholder:text-slate-400 sm:w-48"
           />
@@ -397,6 +419,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                     <th className="w-[220px] px-4 py-2">입금자</th>
                     <th className="w-[104px] px-2 py-2">상태</th>
                     <th className="px-2 py-2">연결된 고객</th>
+                    <th className="w-[150px] px-2 py-2">담당 · 팀장</th>
                     <th className="w-[190px] px-4 py-2" />
                   </tr>
                 </thead>
@@ -427,6 +450,9 @@ export function BankDepositPanel({ token }: { token: string }) {
                       </td>
                       <td className="px-2 py-2.5">
                         <LinkedCell row={row} />
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <StaffCell row={row} />
                       </td>
                       <td className="px-4 py-2.5">
                         <RowButtons
@@ -459,6 +485,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                     <StatusChip tone={DEPOSIT_STATUS_TONE[row.status]}>{DEPOSIT_STATUS_LABEL[row.status]}</StatusChip>
                     <span className="min-w-0 flex-1">
                       <LinkedCell row={row} />
+                      <StaffCell row={row} inline />
                     </span>
                   </div>
                   <div className="mt-2">
