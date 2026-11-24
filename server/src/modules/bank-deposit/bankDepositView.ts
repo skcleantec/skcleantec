@@ -14,6 +14,8 @@ export type CandidateCard = {
   balanceWon: number | null;
   totalWon: number | null;
   linkedKinds: DepositKind[];
+  marketerName: string | null;
+  teamLeaderNames: string[];
 };
 
 export type LinkedSummary = {
@@ -24,7 +26,40 @@ export type LinkedSummary = {
   preferredDate: string | null;
   status: string;
   inquiryNumber: string | null;
+  marketerName: string | null;
+  teamLeaderNames: string[];
 };
+
+/** 접수 목록 「접수자」칸: 접수를 만든 사람, 없으면 발주서를 만든 사람. */
+export function inquiryMarketerName(
+  createdByName: string | null | undefined,
+  orderFormCreatorName: string | null | undefined,
+): string | null {
+  const created = createdByName?.trim();
+  if (created) return created;
+  const fromOrder = orderFormCreatorName?.trim();
+  return fromOrder || null;
+}
+
+/** 부재·보류 「담당」칸: 맡은 사람, 없으면 등록한 사람. */
+export function followupMarketerName(
+  handledByName: string | null | undefined,
+  createdByName: string | null | undefined,
+): string | null {
+  const handled = handledByName?.trim();
+  if (handled) return handled;
+  const created = createdByName?.trim();
+  return created || null;
+}
+
+export function teamLeaderNameList(names: Array<string | null | undefined>): string[] {
+  const out: string[] = [];
+  for (const name of names) {
+    const text = name?.trim();
+    if (text && !out.includes(text)) out.push(text);
+  }
+  return out;
+}
 
 export function phoneTail(phone: string | null | undefined): string | null {
   const digits = (phone ?? '').replace(/\D/g, '');
@@ -76,6 +111,7 @@ export function followupCard(input: {
   status: string;
   inquiryNumber: string | null;
   linkedKinds: DepositKind[];
+  marketerName?: string | null;
 }): CandidateCard {
   return {
     customerName: input.customerName,
@@ -89,6 +125,8 @@ export function followupCard(input: {
     balanceWon: null,
     totalWon: null,
     linkedKinds: input.linkedKinds,
+    marketerName: input.marketerName?.trim() || null,
+    teamLeaderNames: [],
   };
 }
 

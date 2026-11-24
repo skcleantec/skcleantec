@@ -9,6 +9,9 @@ export function notifyBankDeposit(row: {
   amountWon: number;
   depositorName: string;
   operatingCompanyId: string | null;
+  operatingCompanyName: string | null;
+  customerName: string | null;
+  marketerName: string | null;
   linkedInquiryId: string | null;
   linkedKind: string | null;
 }): void {
@@ -22,6 +25,9 @@ export function notifyBankDeposit(row: {
       amountWon: row.amountWon,
       depositorName: row.depositorName,
       operatingCompanyId: row.operatingCompanyId,
+      operatingCompanyName: row.operatingCompanyName,
+      customerName: row.customerName,
+      marketerName: row.marketerName,
       linkedInquiryId: row.linkedInquiryId,
       linkedKind: row.linkedKind,
     },

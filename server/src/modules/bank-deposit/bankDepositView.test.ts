@@ -6,13 +6,17 @@ import {
   bankDepositFeatureStatus,
   displayWon,
   followupCard,
+  followupMarketerName,
   groupDepositsByInquiry,
+  inquiryMarketerName,
+  teamLeaderNameList,
   phoneTail,
   preferredDateYmd,
   rowMatchesSearch,
   searchParts,
 } from './bankDepositView.js';
 import { sameTenant } from './bankDepositGuard.js';
+import { isStaffBroadcastRole } from '../realtime/realtimeHub.js';
 
 describe('후보 표시', () => {
   it('전화는 끝 4자리, 주소는 30자, 날짜는 KST 하루다', () => {
@@ -40,6 +44,31 @@ describe('후보 표시', () => {
     assert.equal(card.totalWon, null);
     assert.equal(card.phoneTail, '1111');
     assert.equal(card.status, 'DEPOSIT_PENDING');
+    assert.equal(card.marketerName, null);
+    assert.deepEqual(card.teamLeaderNames, []);
+  });
+
+  it('담당 마케터와 팀장 이름이 있거나 비어 있다', () => {
+    assert.equal(inquiryMarketerName('접수자', '발주서작성자'), '접수자');
+    assert.equal(inquiryMarketerName('  ', '발주서작성자'), '발주서작성자');
+    assert.equal(inquiryMarketerName(null, null), null);
+    assert.equal(followupMarketerName('담당자', '등록자'), '담당자');
+    assert.equal(followupMarketerName(null, '등록자'), '등록자');
+    assert.equal(followupMarketerName(null, ' '), null);
+    assert.deepEqual(teamLeaderNameList(['팀장', ' ', '팀장', '다른팀장']), ['팀장', '다른팀장']);
+    const named = followupCard({
+      customerName: '고객',
+      nickname: null,
+      phones: [],
+      preferredDate: null,
+      address: null,
+      status: 'ON_HOLD',
+      inquiryNumber: null,
+      linkedKinds: [],
+      marketerName: '담당자',
+    });
+    assert.equal(named.marketerName, '담당자');
+    assert.deepEqual(named.teamLeaderNames, []);
   });
 });
 
@@ -49,7 +78,7 @@ describe('목록 연결과 검색', () => {
       [{ id: 'd1', linkedInquiryId: 'inq-1', linkedFollowupId: null, linkedByUserId: 'user-1' }],
       {
         inquiries: new Map([
-          ['inq-1', { id: 'inq-1', customerName: '고객', nickname: null, preferredDate: '2026-11-24', status: 'DEPOSIT_PENDING', inquiryNumber: 'A-1' }],
+          ['inq-1', { id: 'inq-1', customerName: '고객', nickname: null, preferredDate: '2026-11-24', status: 'DEPOSIT_PENDING', inquiryNumber: 'A-1', marketerName: '접수자', teamLeaderNames: ['팀장'] }],
         ]),
         followups: new Map(),
         users: new Map([['user-1', '직원']]),
@@ -57,6 +86,8 @@ describe('목록 연결과 검색', () => {
     );
     assert.equal(item.linked?.target, 'inquiry');
     assert.equal(item.linked?.inquiryNumber, 'A-1');
+    assert.equal(item.linked?.marketerName, '접수자');
+    assert.deepEqual(item.linked?.teamLeaderNames, ['팀장']);
     assert.equal(item.linkedByName, '직원');
     assert.equal('linkedByUserId' in item, false);
   });
@@ -85,5 +116,12 @@ describe('기능 켜짐', () => {
   it('꺼진 업체는 403이다', () => {
     assert.equal(bankDepositFeatureStatus(false), 403);
     assert.equal(bankDepositFeatureStatus(true), null);
+  });
+
+  it('입금 알림은 같은 업체의 관리자와 마케터에게만 간다', () => {
+    assert.equal(isStaffBroadcastRole('ADMIN'), true);
+    assert.equal(isStaffBroadcastRole('MARKETER'), true);
+    assert.equal(isStaffBroadcastRole('TEAM_LEADER'), false);
+    assert.equal(isStaffBroadcastRole('CREW'), false);
   });
 });
