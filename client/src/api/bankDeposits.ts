@@ -45,6 +45,8 @@ export type BankDepositItem = {
   noOwner?: boolean;
   /** 이 접수에 회사 입금 대기가 있으면 */
   expectation?: BankDepositExpectationSummary | null;
+  /** 이 입금을 팀장에게 묻고 있는지 */
+  teamAsked?: boolean;
 };
 
 export type BankDepositExpectationSummary = {
@@ -376,7 +378,7 @@ export async function fetchBankDepositsByInquiries(
 export type BankDepositStaffNotice = {
   type: 'bank_deposit';
   v: 1;
-  event: 'new' | 'changed';
+  event: 'new' | 'changed' | 'deleted';
   noOwner?: boolean;
   claimedByTeamLeaderName?: string | null;
   source?: BankDepositSource;

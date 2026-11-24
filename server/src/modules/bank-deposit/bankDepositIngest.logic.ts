@@ -23,7 +23,7 @@ export function normalizeDepositSource(value: unknown): DepositSource {
   return value === 'scan' || value === 'notification' ? value : 'sms';
 }
 
-function kstMinuteKey(date: Date): string {
+export function kstMinuteKey(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
@@ -46,6 +46,29 @@ export function depositFingerprint(input: {
   depositedAt: Date;
 }): string {
   return `${input.accountMask}|${input.amountWon}|${input.depositorName.trim()}|${kstMinuteKey(input.depositedAt)}`;
+}
+
+export function compactDepositorName(name: string): string {
+  return name.replace(/\s/g, '');
+}
+
+/** 그 입금 시각이 속한 한국 시간 1분. */
+export function kstMinuteWindow(date: Date): { gte: Date; lt: Date } | null {
+  const key = kstMinuteKey(date);
+  const start = new Date(`${key.replace(' ', 'T')}:00+09:00`);
+  if (Number.isNaN(start.getTime())) return null;
+  return { gte: start, lt: new Date(start.getTime() + 60_000) };
+}
+
+/** 직접 넣은 줄과 나중에 온 문자가 같은 입금이면 그 줄에 해시를 채운다. */
+export function mergeIntoManualRow(
+  manuals: Array<{ id: string; contentHash: string | null; depositorName: string }>,
+  incoming: { contentHash: string | null; depositorName: string },
+): { fillId: string } | null {
+  const name = compactDepositorName(incoming.depositorName);
+  const same = manuals.filter((row) => compactDepositorName(row.depositorName) === name);
+  const open = same.find((row) => row.contentHash == null || row.contentHash === incoming.contentHash);
+  return open ? { fillId: open.id } : null;
 }
 
 /**

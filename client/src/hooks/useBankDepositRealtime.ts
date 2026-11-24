@@ -18,14 +18,26 @@ export type BankDepositRtPayload = {
   noOwner?: boolean;
   /** 팀장이 자기 고객 입금으로 확인했으면 그 이름 */
   claimedByTeamLeaderName?: string | null;
-  /** 새 입금인지, 연결 상태만 바뀐 것인지. 서버가 안 주면 undefined */
-  event?: 'new' | 'changed';
+  /** 새 입금인지, 연결이 바뀐 것인지, 지워진 것인지. 서버가 안 주면 undefined */
+  event?: 'new' | 'changed' | 'deleted';
 };
 
 function parse(detail: unknown): BankDepositRtPayload | null {
   if (!detail || typeof detail !== 'object') return null;
   const o = detail as Record<string, unknown>;
   if (o.type !== 'bank_deposit' || typeof o.id !== 'string') return null;
+  if (o.event === 'deleted') {
+    return {
+      id: o.id,
+      status: 'IGNORED',
+      amountWon: 0,
+      depositorName: '',
+      operatingCompanyId: null,
+      linkedInquiryId: null,
+      linkedKind: null,
+      event: 'deleted',
+    };
+  }
   const amountWon = Number(o.amountWon);
   if (!Number.isFinite(amountWon)) return null;
   return {
@@ -43,7 +55,7 @@ function parse(detail: unknown): BankDepositRtPayload | null {
     ...(o.noOwner === true ? { noOwner: true } : {}),
     claimedByTeamLeaderName:
       typeof o.claimedByTeamLeaderName === 'string' && o.claimedByTeamLeaderName.trim() ? o.claimedByTeamLeaderName.trim() : null,
-    ...(o.event === 'new' || o.event === 'changed' ? { event: o.event } : {}),
+    ...(o.event === 'new' || o.event === 'changed' || o.event === 'deleted' ? { event: o.event } : {}),
   };
 }
 

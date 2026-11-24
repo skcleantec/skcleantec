@@ -4,7 +4,10 @@ import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { accountMasksMatch, parseBankDeposit } from './bankDepositParse.js';
 import { consumeDeviceRate, deviceCanIngest } from './bankDepositGuard.js';
 import {
+  compactDepositorName,
   depositFingerprint,
+  kstMinuteWindow,
+  mergeIntoManualRow,
   normalizeContentHash,
   normalizeDepositSource,
   pickDuplicate,
@@ -13,17 +16,20 @@ import {
   unparsedListSince,
   unparsedRecord,
 } from './bankDepositIngest.logic.js';
+import { manualDepositProblems, tombstoneBlocks } from './bankDepositSettings.logic.js';
 import { matchStoredDeposit } from './bankDepositMatch.service.js';
 import { publishBankDeposit } from './bankDepositPublish.js';
 import {
   decorateStaffDeposits,
   expectationForCandidates,
   noteOpenIfNeeded,
+  notifyOpenResolved,
   onDepositIgnored,
   onDepositLinked,
   onDepositUnlinked,
   tryLinkWaitingExpectation,
 } from './bankDepositTeam.service.js';
+import { broadcastJsonToStaff } from '../realtime/realtimeHub.js';
 import type { DepositKind } from './bankDepositMatch.js';
 import {
   addressShort,
@@ -223,6 +229,100 @@ async function keepUnparsed(
   }
 }
 
+async function arriveDeposit(
+  db: Db,
+  input: {
+    tenantId: string;
+    depositId: string;
+    operatingCompanyId: string | null;
+    amountWon: number;
+    depositorName: string;
+    depositedAt: Date;
+  },
+  now: Date,
+) {
+  let status = 'NEEDS_REVIEW';
+  let linkedInquiryId: string | null = null;
+  let linkedKind: string | null = null;
+  const expected = await tryLinkWaitingExpectation(db, {
+    tenantId: input.tenantId,
+    depositId: input.depositId,
+    operatingCompanyId: input.operatingCompanyId,
+    depositorName: input.depositorName,
+    amountWon: input.amountWon,
+    now,
+  });
+  if (expected) {
+    status = 'AUTO_LINKED';
+    linkedInquiryId = expected.inquiryId;
+    linkedKind = expected.kind;
+  } else if (input.operatingCompanyId) {
+    const matched = await matchStoredDeposit(db, {
+      tenantId: input.tenantId,
+      operatingCompanyId: input.operatingCompanyId,
+      excludeDepositId: input.depositId,
+      depositorName: input.depositorName,
+      amountWon: input.amountWon,
+    });
+    if (matched.auto) {
+      const linked = await db.bankDeposit.updateMany({
+        where: { id: input.depositId, tenantId: input.tenantId, status: 'NEEDS_REVIEW' },
+        data: {
+          status: 'AUTO_LINKED',
+          linkedInquiryId: matched.auto.id,
+          linkedKind: matched.auto.kind,
+          linkedAt: now,
+          openReminderStoppedAt: now,
+        },
+      });
+      if (linked.count === 1) {
+        status = 'AUTO_LINKED';
+        linkedInquiryId = matched.auto.id;
+        linkedKind = matched.auto.kind;
+        await onDepositLinked(db, {
+          tenantId: input.tenantId,
+          depositId: input.depositId,
+          inquiryId: linkedInquiryId,
+          kind: linkedKind,
+          amountWon: input.amountWon,
+          depositorName: input.depositorName,
+          depositedAt: input.depositedAt,
+          resolvedByName: '자동',
+          now,
+        });
+      }
+    }
+  }
+  if (status === 'NEEDS_REVIEW') {
+    await noteOpenIfNeeded(
+      db,
+      {
+        tenantId: input.tenantId,
+        depositId: input.depositId,
+        operatingCompanyId: input.operatingCompanyId,
+        amountWon: input.amountWon,
+        depositorName: input.depositorName,
+        depositedAt: input.depositedAt,
+        status,
+      },
+      now,
+    );
+  }
+  await publishBankDeposit(db, {
+    tenantId: input.tenantId,
+    event: 'new',
+    id: input.depositId,
+    status,
+    amountWon: input.amountWon,
+    depositorName: input.depositorName,
+    operatingCompanyId: input.operatingCompanyId,
+    linkedInquiryId,
+    linkedFollowupId: null,
+    linkedKind,
+  });
+  return { status, linkedInquiryId, linkedKind };
+}
+
 export type IngestBankDepositItem = {
   dedupeKey: string;
   text: string;
@@ -301,6 +401,46 @@ export async function ingestBankDeposits(
       results.push({ dedupeKey, result: 'duplicate' });
       continue;
     }
+    const minute = kstMinuteWindow(parsed.depositedAt);
+    if (minute) {
+      const manuals = await db.bankDeposit.findMany({
+        where: {
+          tenantId: device.tenantId,
+          source: 'manual',
+          amountWon: parsed.amountWon,
+          depositedAt: { gte: minute.gte, lt: minute.lt },
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, contentHash: true, depositorName: true },
+      });
+      const merged = mergeIntoManualRow(manuals, { contentHash, depositorName: parsed.depositorName });
+      if (merged) {
+        if (contentHash) {
+          try {
+            await db.bankDeposit.updateMany({
+              where: { id: merged.fillId, tenantId: device.tenantId, contentHash: null },
+              data: { contentHash },
+            });
+          } catch (error) {
+            if (!isUniqueConflict(error)) throw error;
+          }
+        }
+        results.push({ dedupeKey, result: 'duplicate' });
+        continue;
+      }
+    }
+    const stone = await db.bankDepositTombstone.findFirst({
+      where: {
+        tenantId: device.tenantId,
+        expiresAt: { gt: now },
+        OR: [{ dedupeKey }, ...(contentHash ? [{ contentHash }] : []), { fingerprint }],
+      },
+      select: { id: true },
+    });
+    if (tombstoneBlocks(source, stone != null)) {
+      results.push({ dedupeKey, result: 'duplicate' });
+      continue;
+    }
     const operatingCompanyId = await resolveBrand(db, device.tenantId, parsed.accountMask);
     try {
       const created = await db.bankDeposit.create({
@@ -322,86 +462,15 @@ export async function ingestBankDeposits(
           status: 'NEEDS_REVIEW',
         },
       });
-      let status = created.status;
-      let linkedInquiryId: string | null = null;
-      let linkedKind: string | null = null;
-      const expected = await tryLinkWaitingExpectation(db, {
+      const settled = await arriveDeposit(db, {
         tenantId: device.tenantId,
         depositId: created.id,
         operatingCompanyId,
-        depositorName: parsed.depositorName,
-        amountWon: parsed.amountWon,
-        now,
-      });
-      if (expected) {
-        status = 'AUTO_LINKED';
-        linkedInquiryId = expected.inquiryId;
-        linkedKind = expected.kind;
-      } else if (operatingCompanyId) {
-        const matched = await matchStoredDeposit(db, {
-          tenantId: device.tenantId,
-          operatingCompanyId,
-          excludeDepositId: created.id,
-          depositorName: parsed.depositorName,
-          amountWon: parsed.amountWon,
-        });
-        if (matched.auto) {
-          const linked = await db.bankDeposit.updateMany({
-            where: { id: created.id, tenantId: device.tenantId, status: 'NEEDS_REVIEW' },
-            data: {
-              status: 'AUTO_LINKED',
-              linkedInquiryId: matched.auto.id,
-              linkedKind: matched.auto.kind,
-              linkedAt: now,
-              openReminderStoppedAt: now,
-            },
-          });
-          if (linked.count === 1) {
-            status = 'AUTO_LINKED';
-            linkedInquiryId = matched.auto.id;
-            linkedKind = matched.auto.kind;
-          await onDepositLinked(db, {
-            tenantId: device.tenantId,
-            depositId: created.id,
-            inquiryId: linkedInquiryId,
-            kind: linkedKind,
-            amountWon: parsed.amountWon,
-            depositorName: parsed.depositorName,
-            depositedAt: parsed.depositedAt,
-            resolvedByName: '자동',
-            now,
-          });
-          }
-        }
-      }
-      if (status === 'NEEDS_REVIEW') {
-        await noteOpenIfNeeded(
-          db,
-          {
-            tenantId: device.tenantId,
-            depositId: created.id,
-            operatingCompanyId,
-            amountWon: parsed.amountWon,
-            depositorName: parsed.depositorName,
-            depositedAt: parsed.depositedAt,
-            status,
-          },
-          now,
-        );
-      }
-      results.push({ dedupeKey, result: 'stored', status });
-      await publishBankDeposit(db, {
-        tenantId: device.tenantId,
-        event: 'new',
-        id: created.id,
-        status,
         amountWon: parsed.amountWon,
         depositorName: parsed.depositorName,
-        operatingCompanyId,
-        linkedInquiryId,
-        linkedFollowupId: null,
-        linkedKind,
-      });
+        depositedAt: parsed.depositedAt,
+      }, now);
+      results.push({ dedupeKey, result: 'stored', status: settled.status });
     } catch (error) {
       if (isUniqueConflict(error)) {
         results.push({ dedupeKey, result: 'duplicate' });
@@ -412,6 +481,141 @@ export async function ingestBankDeposits(
   }
   const rescan = await consumeRescan(db, device);
   return { results, ...rescan };
+}
+
+export async function createManualBankDeposit(
+  db: Db,
+  input: {
+    tenantId: string;
+    userId: string;
+    operatingCompanyId: string | null;
+    amountWon: number;
+    depositorName: string;
+    depositedAt: Date;
+    note: string | null;
+    force: boolean;
+  },
+  now = new Date(),
+) {
+  const problem = manualDepositProblems({
+    amountWon: input.amountWon,
+    depositorName: input.depositorName,
+    depositedAt: input.depositedAt,
+    now,
+  });
+  if (problem) return { error: problem };
+  const depositorName = input.depositorName.trim();
+  if (input.operatingCompanyId) {
+    const brand = await db.operatingCompany.findFirst({
+      where: { id: input.operatingCompanyId, tenantId: input.tenantId },
+      select: { id: true },
+    });
+    if (!brand) return { error: '브랜드를 찾지 못했어요.' as const };
+  }
+  const minute = kstMinuteWindow(input.depositedAt);
+  if (!input.force && minute) {
+    const sameMinute = await db.bankDeposit.findMany({
+      where: {
+        tenantId: input.tenantId,
+        amountWon: input.amountWon,
+        depositedAt: { gte: minute.gte, lt: minute.lt },
+      },
+      select: { id: true, depositorName: true },
+    });
+    const existing = sameMinute.find((row) => compactDepositorName(row.depositorName) === compactDepositorName(depositorName));
+    if (existing) {
+      return { error: 'duplicate' as const, existingId: existing.id };
+    }
+  }
+  let bankName = '직접 입력';
+  let accountMask = '';
+  if (input.operatingCompanyId) {
+    const accounts = await db.bankDepositAccount.findMany({
+      where: { tenantId: input.tenantId, operatingCompanyId: input.operatingCompanyId, isActive: true },
+      select: { bankName: true, accountMask: true },
+    });
+    if (accounts.length === 1 && accounts[0]) {
+      bankName = accounts[0].bankName;
+      accountMask = accounts[0].accountMask;
+    }
+  }
+  const fingerprint = depositFingerprint({
+    accountMask,
+    amountWon: input.amountWon,
+    depositorName,
+    depositedAt: input.depositedAt,
+  });
+  const created = await db.bankDeposit.create({
+    data: {
+      tenantId: input.tenantId,
+      operatingCompanyId: input.operatingCompanyId,
+      createdByUserId: input.userId,
+      dedupeKey: `manual:${randomBytes(24).toString('hex')}`.slice(0, 128),
+      source: 'manual',
+      fingerprint,
+      bankName,
+      amountWon: input.amountWon,
+      depositorName,
+      accountMask,
+      depositedAt: input.depositedAt,
+      receivedAt: now,
+      rawText: '',
+      note: input.note,
+      status: 'NEEDS_REVIEW',
+    },
+    select: { id: true },
+  });
+  await arriveDeposit(db, {
+    tenantId: input.tenantId,
+    depositId: created.id,
+    operatingCompanyId: input.operatingCompanyId,
+    amountWon: input.amountWon,
+    depositorName,
+    depositedAt: input.depositedAt,
+  }, now);
+  return { id: created.id };
+}
+
+export async function deleteBankDeposit(db: Db, tenantId: string, id: string, userId: string, now = new Date()) {
+  const row = await db.bankDeposit.findFirst({
+    where: { id, tenantId },
+    select: { id: true, dedupeKey: true, contentHash: true, fingerprint: true },
+  });
+  if (!row) return { error: 'missing' as const };
+  const expectations = await db.bankDepositExpectation.findMany({
+    where: { tenantId, matchedDepositId: id },
+    select: { id: true, inquiryId: true },
+  });
+  for (const expectation of expectations) {
+    try {
+      await db.bankDepositExpectation.updateMany({
+        where: { id: expectation.id, tenantId },
+        data: { status: 'WAITING', waitingKey: expectation.inquiryId, matchedDepositId: null, matchedAt: null },
+      });
+    } catch (error) {
+      if (!isUniqueConflict(error)) throw error;
+      await db.bankDepositExpectation.updateMany({
+        where: { id: expectation.id, tenantId },
+        data: { status: 'CANCELLED', waitingKey: null, matchedDepositId: null, matchedAt: null },
+      });
+    }
+  }
+  await db.bankDeposit.deleteMany({ where: { id, tenantId } });
+  await db.bankDepositTombstone.create({
+    data: {
+      tenantId,
+      dedupeKey: row.dedupeKey,
+      contentHash: row.contentHash,
+      fingerprint: row.fingerprint,
+      deletedByUserId: userId,
+      deletedAt: now,
+      expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+  broadcastJsonToStaff({ type: 'bank_deposit', v: 1, event: 'deleted', id }, tenantId);
+  const actor = await db.user.findFirst({ where: { id: userId, tenantId }, select: { name: true } });
+  await notifyOpenResolved(db, tenantId, id, actor?.name?.trim() || null);
+  return { ok: true as const };
 }
 
 const DEPOSIT_LIST_SELECT = {
