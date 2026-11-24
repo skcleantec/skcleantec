@@ -927,7 +927,12 @@ export function AdminLayout() {
       <CardPaymentApprovedAlert token={adminToken} enabled={Boolean(adminToken)} />
       <BankDepositLiveToast
         token={adminToken}
-        enabled={Boolean(adminToken && (meRole === 'ADMIN' || meRole === 'MARKETER'))}
+        enabled={Boolean(
+          adminToken &&
+            (meRole === 'ADMIN' || meRole === 'MARKETER') &&
+            tenantFeatures &&
+            hasFeature(tenantFeatures, 'mod_bank_deposit'),
+        )}
         onOpen={() => navigate('/admin/inquiries/deposits')}
       />
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}

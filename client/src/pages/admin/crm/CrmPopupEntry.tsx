@@ -66,7 +66,7 @@ export function CrmPopupEntry() {
       {/* PC CRM 전용 — 통화 중에도 입금이 들어오면 바로 안다 */}
       <BankDepositLiveToast
         token={token}
-        enabled
+        enabled={Boolean(tenantCapabilities.features?.includes('mod_bank_deposit'))}
         className="max-lg:hidden"
         onOpen={() => window.open('/admin/inquiries/deposits', '_blank', 'noopener')}
       />

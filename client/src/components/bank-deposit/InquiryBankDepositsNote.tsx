@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchBankDepositsByInquiry, type BankDepositItem } from '../../api/bankDeposits';
 import { useBankDepositRealtime } from '../../hooks/useBankDepositRealtime';
+import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { DEPOSIT_KIND_LABEL, kstDayLabel, kstTime, won } from './bankDepositFormat';
 
 function ymdKst(iso: string): string {
@@ -18,9 +19,11 @@ export function InquiryBankDepositsNote({
   className?: string;
 }) {
   const [items, setItems] = useState<BankDepositItem[]>([]);
+  const { features } = useTenantCapabilities();
+  const on = Boolean(features?.includes('mod_bank_deposit'));
 
   const load = useCallback(async () => {
-    if (!token || !inquiryId) {
+    if (!on || !token || !inquiryId) {
       setItems([]);
       return;
     }
@@ -30,7 +33,7 @@ export function InquiryBankDepositsNote({
     } catch {
       setItems([]);
     }
-  }, [token, inquiryId]);
+  }, [on, token, inquiryId]);
 
   useEffect(() => {
     setItems([]);
@@ -42,7 +45,7 @@ export function InquiryBankDepositsNote({
     (p) => {
       if (p.linkedInquiryId === inquiryId || items.some((x) => x.id === p.id)) void load();
     },
-    Boolean(token && inquiryId),
+    Boolean(on && token && inquiryId),
   );
 
   if (items.length === 0) return null;
