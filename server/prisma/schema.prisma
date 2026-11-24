@@ -286,6 +286,9 @@ model Tenant {
   reviewPaybackRequests ReviewPaybackRequest[]
   csReports CsReport[]
   messages Message[]
+  messageAttachments MessageAttachment[]
+  messageAttachmentLinks MessageAttachmentLink[]
+  messageNoticeReminds MessageNoticeRemind[]
   assignments Assignment[]
   adWorkSessions AdWorkSession[]
   dailyInquiryCounters DailyInquiryCounter[]
@@ -2201,6 +2204,7 @@ model User {
   assignmentsGiven     Assignment[] @relation("AdminAssignments")
   sentMessages        Message[]    @relation("SentMessages")
   receivedMessages    Message[]    @relation("ReceivedMessages")
+  messageAttachmentsUploaded MessageAttachment[] @relation("MessageAttachmentUploader")
   platformSupportMessagesSent PlatformSupportMessage[]
   platformSupportTenantReads  PlatformSupportTenantRead[]
   dayOffs             UserDayOff[] @relation("UserDayOffs")
@@ -2697,6 +2701,10 @@ model CrewStaffNotice {
   senderId    String   @map("sender_id")
   crewGroupId String   @map("crew_group_id")
   content     String   @db.Text
+  /// 사진·파일이 없는 공지를 목록에서 연 시각
+  readAt      DateTime? @map("read_at")
+  /// 사진·파일이 있는 공지를 한 번 연 시각
+  attachmentsViewedAt DateTime? @map("attachments_viewed_at")
   createdAt   DateTime @default(now()) @map("created_at")
 
   sender User          @relation("CrewStaffNoticeSender", fields: [senderId], references: [id], onDelete: Cascade)
@@ -4770,19 +4778,82 @@ model Message {
   tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   senderId   String    @map("sender_id")
   receiverId String    @map("receiver_id")
+  /// 빈 문자열 허용. 사진·파일만 보낼 수 있다.
   content    String
   readAt     DateTime? @map("read_at")
+  /// 사진·파일이 있는 공지를 받는 사람이 연 시각
+  attachmentsViewedAt DateTime? @map("attachments_viewed_at")
   createdAt  DateTime @default(now()) @map("created_at")
   batchId    String?   @map("batch_id")
 
   sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  attachmentLinks MessageAttachmentLink[]
 
   @@index([tenantId, receiverId, readAt])
   @@index([batchId])
   @@index([receiverId, readAt])
   @@index([senderId, receiverId, createdAt])
   @@map("messages")
+}
+
+/// 메시지·공지에 붙는 사진·PDF. 원본은 줄이지 않는다.
+model MessageAttachment {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploaderId  String   @map("uploader_id")
+  uploader    User     @relation("MessageAttachmentUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  /// image | pdf
+  kind        String   @db.VarChar(8)
+  fileName    String   @map("file_name") @db.VarChar(255)
+  sizeBytes   Int      @map("size_bytes")
+  width       Int?
+  height      Int?
+  pageCount   Int?     @map("page_count")
+  originalUrl String   @map("original_url") @db.VarChar(2048)
+  previewUrl  String?  @map("preview_url") @db.VarChar(2048)
+  thumbUrl    String?  @map("thumb_url") @db.VarChar(2048)
+  /// 원본·미리보기·썸네일 저장 키. 줄바꿈으로 이어 붙인다.
+  storageKey  String   @map("storage_key") @db.VarChar(2048)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  links MessageAttachmentLink[]
+
+  @@index([tenantId, createdAt])
+  @@map("message_attachments")
+}
+
+/// 첨부를 공지 묶음·1:1 메시지·크루 공지 중 한 곳에 건다. 받는 사람 수만큼 파일을 복사하지 않는다.
+model MessageAttachmentLink {
+  id                String  @id @default(uuid())
+  tenantId          String  @map("tenant_id")
+  tenant            Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attachmentId      String  @map("attachment_id")
+  attachment        MessageAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  sortOrder         Int     @default(0) @map("sort_order")
+  batchId           String? @map("batch_id") @db.VarChar(64)
+  messageId         String? @map("message_id")
+  message           Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  crewNoticeBatchId String? @map("crew_notice_batch_id") @db.VarChar(64)
+
+  @@index([tenantId, batchId])
+  @@index([tenantId, messageId])
+  @@index([tenantId, crewNoticeBatchId])
+  @@index([attachmentId])
+  @@map("message_attachment_links")
+}
+
+/// 같은 공지 다시 알림은 1시간에 한 번
+model MessageNoticeRemind {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batchId    String   @map("batch_id") @db.VarChar(64)
+  remindedAt DateTime @map("reminded_at")
+
+  @@unique([tenantId, batchId])
+  @@map("message_notice_reminds")
 }
 
 enum PlatformSupportSenderKind {

@@ -22,6 +22,7 @@ import {
 } from './modules/alimtalk/alimtalkBarobillResult.service.js';
 import { startAlimtalkBrandChannelSync } from './modules/alimtalk/alimtalkBrandChannel.sync.js';
 import { startBankDepositOpenReminder } from './modules/bank-deposit/bankDepositTeam.service.js';
+import { startMessageAttachmentCleanup } from './modules/messages/messageAttachment.service.js';
 
 async function bootstrap() {
   try {
@@ -127,6 +128,7 @@ async function bootstrap() {
   startAlimtalkBarobillResultPoll();
   /** 주인 없는 잔금 — 1분마다 확인하고, 입금마다 10분에 한 번만 휴대폰 알림 */
   startBankDepositOpenReminder(prisma);
+  startMessageAttachmentCleanup();
   startAlimtalkBrandChannelSync();
 
   /** 완료 검수본 보관 만료 — INSPECTION_RETENTION_CRON_ENABLED=true 시 24h마다 1회 */

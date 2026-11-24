@@ -25,6 +25,12 @@ import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
+import {
+  attachmentsByMessage,
+  listCrewNoticeArchive,
+  markCrewNoticeViewed,
+  markCrewNoticesOpened,
+} from '../messages/messageAttachment.service.js';
 
 const router = Router();
 
@@ -107,8 +113,16 @@ router.get('/field-schedule', async (req, res) => {
 router.get('/staff-notices', async (req, res) => {
   const gid = crewGroupId(req as unknown as { user: AuthPayload });
   try {
+    const group = await prisma.teamCrewGroup.findFirst({
+      where: { id: gid },
+      select: { tenantId: true },
+    });
+    if (!group) {
+      res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
+      return;
+    }
     const items = await prisma.crewStaffNotice.findMany({
-      where: { crewGroupId: gid },
+      where: { crewGroupId: gid, group: { tenantId: group.tenantId } },
       orderBy: { createdAt: 'desc' },
       take: 80,
       select: {
@@ -116,13 +130,54 @@ router.get('/staff-notices', async (req, res) => {
         batchId: true,
         content: true,
         createdAt: true,
+        readAt: true,
+        attachmentsViewedAt: true,
         sender: { select: { id: true, name: true } },
       },
     });
-    res.json({ items });
+    const files = await attachmentsByMessage(
+      group.tenantId,
+      items.map((item) => ({ id: item.id, batchId: item.batchId })),
+    );
+    const plainIds = items.filter((item) => (files.get(item.id) ?? []).length === 0 && item.readAt == null).map((item) => item.id);
+    const openedAt = await markCrewNoticesOpened(group.tenantId, gid, plainIds);
+    res.json({
+      items: items.map((item) => ({
+        ...item,
+        readAt: plainIds.includes(item.id) ? openedAt : item.readAt,
+        attachments: files.get(item.id) ?? [],
+      })),
+    });
   } catch (e) {
     console.error('GET /crew/staff-notices', e);
     res.status(500).json({ error: '공지를 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/notices-archive', async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const group = await prisma.teamCrewGroup.findFirst({ where: { id: gid }, select: { tenantId: true } });
+  if (!group) {
+    res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
+    return;
+  }
+  const cursor = typeof req.query.cursor === 'string' && req.query.cursor ? req.query.cursor : null;
+  res.json(await listCrewNoticeArchive(group.tenantId, gid, cursor));
+});
+
+router.post('/notices/:id/viewed', async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const group = await prisma.teamCrewGroup.findFirst({ where: { id: gid }, select: { tenantId: true } });
+  if (!group) {
+    res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
+    return;
+  }
+  try {
+    await markCrewNoticeViewed(group.tenantId, gid, req.params.id);
+    res.json({ ok: true });
+  } catch (error) {
+    const status = typeof error === 'object' && error && 'status' in error ? Number((error as { status: number }).status) : 500;
+    res.status(status === 404 ? 404 : 500).json({ error: status === 404 ? '공지를 찾을 수 없습니다.' : '처리하지 못했습니다.' });
   }
 });
 
