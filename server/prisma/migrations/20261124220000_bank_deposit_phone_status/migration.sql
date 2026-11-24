@@ -1,0 +1,13 @@
+-- 입금 알림 앱 heartbeat 상태. 예전 행은 비워 둔다.
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "listener_connected" BOOLEAN;
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "notice_access_enabled" BOOLEAN;
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "keep_alive_running" BOOLEAN;
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "battery_unrestricted" BOOLEAN;
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "last_notice_at" TIMESTAMP(3);
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "counters" JSONB;
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "status_at" TIMESTAMP(3);
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "listener_down_since" TIMESTAMP(3);
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "notice_off_since" TIMESTAMP(3);
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "keepalive_off_since" TIMESTAMP(3);
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "alert_push_code" VARCHAR(32);
+ALTER TABLE "bank_deposit_devices" ADD COLUMN IF NOT EXISTS "alert_push_at" TIMESTAMP(3);

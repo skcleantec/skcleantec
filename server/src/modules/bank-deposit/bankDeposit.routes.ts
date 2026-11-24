@@ -162,7 +162,7 @@ bankDepositDeviceRouter.post('/scan-report', async (req, res) => {
 
 bankDepositDeviceRouter.post('/heartbeat', async (req, res) => {
   const token = bearer(req);
-  const touched = token ? await touchBankDevice(prisma, token) : null;
+  const touched = token ? await touchBankDevice(prisma, token, req.body) : null;
   if (touched && 'error' in touched) {
     featureOff(res);
     return;
