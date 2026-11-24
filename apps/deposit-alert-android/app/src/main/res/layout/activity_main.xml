@@ -29,6 +29,41 @@
             android:textSize="14sp" />
 
         <TextView
+            android:id="@+id/listenHeadline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="듣지 못하는 중"
+            android:textColor="@color/ink"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="최근 메시지 알림"
+                android:textColor="@color/ink"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/noticeLog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="아직 없습니다."
+                android:textColor="@color/ink"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <TextView
             android:id="@+id/batteryWarning"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

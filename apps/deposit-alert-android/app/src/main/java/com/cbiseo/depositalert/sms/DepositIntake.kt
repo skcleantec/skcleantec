@@ -20,10 +20,11 @@ object DepositIntake {
         receivedAtMillis: Long,
         source: IntakeSource = IntakeSource.Sms,
         summary: Boolean = false,
-    ): Boolean {
-        val queued = enqueue(context, sender, rawText, receivedAtMillis, source, summary)
+        countDup: Boolean = true,
+    ): IntakeOutcome {
+        val outcome = enqueue(context, sender, rawText, receivedAtMillis, source, summary, countDup)
         if (source == IntakeSource.Sms) InboxScan.run(context)
-        return queued
+        return outcome
     }
 
     private suspend fun enqueue(
@@ -33,7 +34,8 @@ object DepositIntake {
         receivedAtMillis: Long,
         source: IntakeSource,
         summary: Boolean,
-    ): Boolean {
+        countDup: Boolean,
+    ): IntakeOutcome {
         val settings = DeviceSettings(context)
         val notice = source == IntakeSource.Notice || source == IntakeSource.NoticeRescan
         val reason = dropReason(rawText)
@@ -43,20 +45,26 @@ object DepositIntake {
                 settings.noteMessage(false)
                 Log.i("DepositAlert", "not deposit")
             }
-            return false
+            return IntakeOutcome.NotDeposit
         }
-        if (source != IntakeSource.Scan && !ArrivalMemory(context).admit(rawText, receivedAtMillis, source)) {
-            return false
-        }
+        val admitted = source == IntakeSource.Scan || ArrivalMemory(context).admit(rawText, receivedAtMillis, source)
         val hash = contentHash(sender, rawText)
         val hashes = SentHashMemory(context)
-        if (hashes.contains(hash)) {
-            if (notice) settings.noteNoticeDup()
-            else if (source != IntakeSource.Scan) settings.noteMessage(true)
-            return false
+        val already = hashes.contains(hash)
+        if (notice) {
+            val fate = fateOfRemovedNotice(isDeposit = true, hashAlreadySent = already, otherPathAlready = !admitted)
+            if (fate != NoticeFate.Send) {
+                if (already && countDup) settings.noteNoticeDup()
+                return IntakeOutcome.Duplicate
+            }
+        } else if (!admitted) {
+            return IntakeOutcome.Duplicate
+        } else if (already) {
+            if (source != IntakeSource.Scan) settings.noteMessage(true)
+            return IntakeOutcome.Duplicate
         }
         val preview = previewDeposit(sender, rawText, receivedAtMillis)
-        if (!preview.forward) return false
+        if (!preview.forward) return IntakeOutcome.NotDeposit
         if (!notice && source != IntakeSource.Scan) settings.noteMessage(true)
         val db = DepositDatabase.get(context)
         db.pending().deleteOlderThan(System.currentTimeMillis() - SEVEN_DAYS_MS)
@@ -76,14 +84,14 @@ object DepositIntake {
         )
         hashes.remember(hash)
         if (inserted == -1L) {
-            if (notice) settings.noteNoticeDup()
-            return false
+            if (notice && countDup) settings.noteNoticeDup()
+            return IntakeOutcome.Duplicate
         }
         if (notice) settings.noteNoticeSent(summary, source == IntakeSource.NoticeRescan)
         if (source == IntakeSource.Scan) settings.noteLateFound(1)
         flush(context)
         if (db.pending().count() > 0) DepositScheduler.enqueueUpload(context)
-        return true
+        return IntakeOutcome.Queued
     }
 
     suspend fun flush(context: Context) {

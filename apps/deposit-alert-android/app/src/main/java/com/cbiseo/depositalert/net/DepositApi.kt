@@ -58,11 +58,11 @@ class DepositApi {
         }
     }
 
-    fun heartbeat(base: String, token: String): HeartbeatResult {
+    fun heartbeat(base: String, token: String, body: String = "{}"): HeartbeatResult {
         val request = Request.Builder()
             .url("${base.trimEnd('/')}/api/bank-deposits/heartbeat")
             .header("Authorization", "Bearer $token")
-            .post("{}".toRequestBody(json))
+            .post(body.toRequestBody(json))
             .build()
         return try {
             http.newCall(request).execute().use { response ->
