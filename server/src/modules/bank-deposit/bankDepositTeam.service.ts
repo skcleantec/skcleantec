@@ -9,6 +9,8 @@ import { addressShort, preferredDateYmd } from './bankDepositView.js';
 import { matchStoredDeposit } from './bankDepositMatch.service.js';
 import { publishBankDeposit } from './bankDepositPublish.js';
 import { pushBankDepositToLeaders } from './bankDepositTeam.push.js';
+import { readBankDepositSettings, type BankDepositSettingsShape } from './bankDepositSettings.service.js';
+import { isTeamAskDeposit, openAlertDrift } from './bankDepositSettings.logic.js';
 import {
   allLeadersDeclined,
   balancePushBody,
@@ -17,6 +19,7 @@ import {
   contractDepositAmounts,
   customerBalanceWon,
   isOpenBalanceDeposit,
+  kstHour,
   notifiesTeamLeader,
   openPushBody,
   soleByNameAndAmount,
@@ -45,7 +48,12 @@ async function activeTeamLeaders(db: Db, tenantId: string) {
   return rows.filter((row) => isUserEmployedOnYmd(row.hireDate, row.resignationDate, today));
 }
 
-async function amountBook(db: Db, tenantId: string, now: Date) {
+async function amountBook(db: Db, tenantId: string, now: Date, settings?: BankDepositSettingsShape) {
+  const cfg = settings ?? (await readBankDepositSettings(db, tenantId));
+  if (cfg.depositAmountsMode === 'manual') {
+    const set = contractDepositAmounts(cfg.depositAmountsWon);
+    return { forBrand: (_brandId: string | null) => set, settings: cfg };
+  }
   const since = new Date(now.getTime() - 90 * DAY_MS);
   const [inquiries, forms] = await Promise.all([
     db.inquiry.findMany({
@@ -70,6 +78,7 @@ async function amountBook(db: Db, tenantId: string, now: Date) {
   for (const row of inquiries) add(row.operatingCompanyId, row.serviceDepositAmount);
   for (const row of forms) add(row.operatingCompanyId, row.depositAmount);
   return {
+    settings: cfg,
     forBrand(brandId: string | null) {
       return contractDepositAmounts(brandId ? byBrand.get(brandId) ?? [] : all);
     },
@@ -128,6 +137,8 @@ export async function notifyBalanceLinked(
   },
 ) {
   if (!input.inquiryId || !notifiesTeamLeader(input.kind)) return;
+  const settings = await readBankDepositSettings(db, input.tenantId);
+  if (!settings.teamBalanceAlertEnabled) return;
   const [leaders, inquiry] = await Promise.all([
     db.assignment.findMany({
       where: { tenantId: input.tenantId, inquiryId: input.inquiryId },
@@ -259,7 +270,7 @@ async function markNoOwner(db: Db, tenantId: string, depositId: string, now: Dat
   });
 }
 
-async function notifyResolved(db: Db, tenantId: string, depositId: string, resolvedByName: string | null) {
+export async function notifyOpenResolved(db: Db, tenantId: string, depositId: string, resolvedByName: string | null) {
   const leaders = await activeTeamLeaders(db, tenantId);
   for (const leader of leaders) {
     sendJsonToUser(leader.id, teamResolvedEvent({ depositId, resolvedByName }), tenantId);
@@ -317,6 +328,8 @@ export async function tryLinkWaitingExpectation(
     where: { id: input.depositId, tenantId: input.tenantId },
     select: { depositedAt: true, depositorName: true, amountWon: true, source: true },
   });
+  const balanceOn = (await readBankDepositSettings(db, input.tenantId)).teamBalanceAlertEnabled;
+  if (balanceOn) {
   await notifyBalanceLinked(db, {
     tenantId: input.tenantId,
     depositId: input.depositId,
@@ -349,7 +362,8 @@ export async function tryLinkWaitingExpectation(
         }
       : null,
   );
-  await notifyResolved(db, input.tenantId, input.depositId, '자동');
+  }
+  await notifyOpenResolved(db, input.tenantId, input.depositId, '자동');
   return { inquiryId: hit.inquiryId, kind: 'BALANCE' as const };
 }
 
@@ -368,7 +382,19 @@ export async function noteOpenIfNeeded(
 ) {
   if (input.status !== 'NEEDS_REVIEW') return;
   const book = await amountBook(db, input.tenantId, now);
-  if (!isOpenBalanceDeposit(input.amountWon, book.forBrand(input.operatingCompanyId))) return;
+  const asked = isTeamAskDeposit({
+    status: input.status,
+    amountWon: input.amountWon,
+    depositedAt: input.depositedAt,
+    now,
+    settings: book.settings,
+    contractAmounts: book.forBrand(input.operatingCompanyId),
+    stopped: false,
+    noOwner: false,
+  });
+  if (!asked) return;
+  const hour = kstHour(now);
+  if (hour < book.settings.teamAlertStartHour || hour >= book.settings.teamAlertEndHour) return;
   const brand = input.operatingCompanyId
     ? await db.operatingCompany.findFirst({
         where: { id: input.operatingCompanyId, tenantId: input.tenantId },
@@ -416,7 +442,7 @@ export async function onDepositLinked(
       },
     });
   }
-  await notifyResolved(db, input.tenantId, input.depositId, input.resolvedByName);
+  await notifyOpenResolved(db, input.tenantId, input.depositId, input.resolvedByName);
 }
 
 export async function onDepositUnlinked(db: Db, tenantId: string, depositId: string, now: Date) {
@@ -449,7 +475,7 @@ export async function onDepositUnlinked(db: Db, tenantId: string, depositId: str
 
 export async function onDepositIgnored(db: Db, tenantId: string, depositId: string, now: Date) {
   await stopOpenReminder(db, tenantId, depositId, now);
-  await notifyResolved(db, tenantId, depositId, null);
+  await notifyOpenResolved(db, tenantId, depositId, null);
 }
 
 export async function rematchInquiryDeposits(db: Db, tenantId: string, inquiryId: string, now = new Date()) {
@@ -523,7 +549,7 @@ export async function rematchInquiryDeposits(db: Db, tenantId: string, inquiryId
 }
 
 export async function remindOpenDeposits(db: Db, now = new Date()) {
-  const since = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+  const since = new Date(now.getTime() - 49 * 60 * 60 * 1000);
   const dueBefore = new Date(now.getTime() - 10 * 60 * 1000);
   const rows = await db.bankDeposit.findMany({
     where: {
@@ -543,16 +569,42 @@ export async function remindOpenDeposits(db: Db, now = new Date()) {
       depositedAt: true,
       teamRemindedAt: true,
       source: true,
+      noOwnerNotifiedAt: true,
     },
   });
   const featureOn = new Map<string, boolean>();
   const books = new Map<string, Awaited<ReturnType<typeof amountBook>>>();
   for (const row of rows) {
-    if (!canRemindOpenDeposit({ now, depositedAt: row.depositedAt, lastRemindedAt: row.teamRemindedAt })) continue;
     if (!featureOn.has(row.tenantId)) featureOn.set(row.tenantId, await isFeatureEnabled(row.tenantId, 'mod_bank_deposit'));
     if (!featureOn.get(row.tenantId)) continue;
     if (!books.has(row.tenantId)) books.set(row.tenantId, await amountBook(db, row.tenantId, now));
-    if (!isOpenBalanceDeposit(row.amountWon, books.get(row.tenantId)!.forBrand(row.operatingCompanyId))) continue;
+    const book = books.get(row.tenantId)!;
+    const asked = isTeamAskDeposit({
+      status: 'NEEDS_REVIEW',
+      amountWon: row.amountWon,
+      depositedAt: row.depositedAt,
+      now,
+      settings: book.settings,
+      contractAmounts: book.forBrand(row.operatingCompanyId),
+      stopped: false,
+      noOwner: Boolean(row.noOwnerNotifiedAt),
+    });
+    if (!asked) {
+      if (row.teamRemindedAt && !row.noOwnerNotifiedAt) {
+        await notifyOpenResolved(db, row.tenantId, row.id, null);
+        await stopOpenReminder(db, row.tenantId, row.id, now);
+      }
+      continue;
+    }
+    if (!canRemindOpenDeposit({
+      now,
+      depositedAt: row.depositedAt,
+      lastRemindedAt: row.teamRemindedAt,
+      startHour: book.settings.teamAlertStartHour,
+      endHour: book.settings.teamAlertEndHour,
+      intervalMin: book.settings.teamReminderIntervalMin,
+      maxHours: book.settings.teamReminderMaxHours,
+    })) continue;
     if (!teamMobilePushAllowed({ source: row.source, depositedAt: row.depositedAt, now })) {
       await db.bankDeposit.updateMany({
         where: { id: row.id, tenantId: row.tenantId, openReminderStoppedAt: null },
@@ -641,6 +693,8 @@ async function resolvedByName(db: Db, tenantId: string, linkedByUserId: string |
 }
 
 export async function listOpenForLeader(db: Db, tenantId: string, teamLeaderId: string, now = new Date()) {
+  const settings = await readBankDepositSettings(db, tenantId);
+  if (!settings.teamOpenAlertEnabled) return { items: [] };
   const [rows, declined, book] = await Promise.all([
     db.bankDeposit.findMany({
       where: { tenantId, status: 'NEEDS_REVIEW', openReminderStoppedAt: null },
@@ -660,12 +714,21 @@ export async function listOpenForLeader(db: Db, tenantId: string, teamLeaderId: 
       where: { tenantId, teamLeaderId },
       select: { depositId: true },
     }),
-    amountBook(db, tenantId, now),
+    amountBook(db, tenantId, now, settings),
   ]);
   const mine = new Set(declined.map((row) => row.depositId));
   return {
     items: rows
-      .filter((row) => !mine.has(row.id) && isOpenBalanceDeposit(row.amountWon, book.forBrand(row.operatingCompanyId)))
+      .filter((row) => !mine.has(row.id) && isTeamAskDeposit({
+        status: 'NEEDS_REVIEW',
+        amountWon: row.amountWon,
+        depositedAt: row.depositedAt,
+        now,
+        settings,
+        contractAmounts: book.forBrand(row.operatingCompanyId),
+        stopped: false,
+        noOwner: false,
+      }))
       .map((row) => ({
         id: row.id,
         amountWon: row.amountWon,
@@ -990,10 +1053,13 @@ export async function decorateStaffDeposits<
     linkedInquiryId: string | null;
   },
 >(db: Db, tenantId: string, items: T[]) {
-  if (items.length === 0) return items.map((item) => ({ ...item, teamDeclinedCount: 0, teamLeaderCount: 0, noOwner: false, expectation: null }));
+  if (items.length === 0) {
+    return items.map((item) => ({ ...item, teamDeclinedCount: 0, teamLeaderCount: 0, noOwner: false, teamAsked: false, expectation: null }));
+  }
   const ids = items.map((item) => item.id);
   const inquiryIds = [...new Set(items.map((item) => item.linkedInquiryId).filter((id): id is string => Boolean(id)))];
-  const [declines, leaders, expectations] = await Promise.all([
+  const now = new Date();
+  const [declines, leaders, expectations, flags, book] = await Promise.all([
     db.bankDepositTeamResponse.groupBy({
       by: ['depositId'],
       where: { tenantId, depositId: { in: ids } },
@@ -1006,22 +1072,97 @@ export async function decorateStaffDeposits<
           select: { inquiryId: true, depositorName: true, amountWon: true },
         })
       : [],
+    db.bankDeposit.findMany({
+      where: { tenantId, id: { in: ids } },
+      select: { id: true, depositedAt: true, openReminderStoppedAt: true, noOwnerNotifiedAt: true },
+    }),
+    amountBook(db, tenantId, now),
   ]);
   const declinedByDeposit = new Map(declines.map((row) => [row.depositId, row._count._all]));
   const expectationByInquiry = new Map(expectations.map((row) => [row.inquiryId, row]));
+  const flagById = new Map(flags.map((row) => [row.id, row]));
   return items.map((item) => {
     const teamDeclinedCount = declinedByDeposit.get(item.id) ?? 0;
     const waiting = item.linkedInquiryId ? expectationByInquiry.get(item.linkedInquiryId) : undefined;
+    const flag = flagById.get(item.id);
+    const noOwner = item.status === 'NEEDS_REVIEW' && (allLeadersDeclined(teamDeclinedCount, leaders.length) || Boolean(flag?.noOwnerNotifiedAt));
     return {
       ...item,
       teamDeclinedCount,
       teamLeaderCount: leaders.length,
-      noOwner: item.status === 'NEEDS_REVIEW' && allLeadersDeclined(teamDeclinedCount, leaders.length),
+      noOwner,
+      teamAsked: isTeamAskDeposit({
+        status: item.status,
+        amountWon: item.amountWon,
+        depositedAt: flag?.depositedAt ?? now,
+        now,
+        settings: book.settings,
+        contractAmounts: book.forBrand(item.operatingCompanyId),
+        stopped: Boolean(flag?.openReminderStoppedAt),
+        noOwner,
+      }),
       expectation: waiting
         ? { inquiryId: waiting.inquiryId, depositorName: waiting.depositorName, amountWon: waiting.amountWon }
         : null,
     };
   });
+}
+
+/** 설정을 바꾼 뒤, 대상에서 빠진 입금은 팀장 화면에서 지우고 새로 들어온 대상은 다음 주기에 알린다. */
+export async function applyOpenSettings(db: Db, tenantId: string, before: BankDepositSettingsShape, now = new Date()) {
+  const afterBook = await amountBook(db, tenantId, now);
+  const beforeBook = before.depositAmountsMode === 'manual'
+    ? { forBrand: (_brandId: string | null) => contractDepositAmounts(before.depositAmountsWon) }
+    : await amountBook(db, tenantId, now, { ...before, depositAmountsMode: 'auto', depositAmountsWon: [] });
+  const since = new Date(now.getTime() - 49 * 60 * 60 * 1000);
+  const rows = await db.bankDeposit.findMany({
+    where: { tenantId, status: 'NEEDS_REVIEW', depositedAt: { gte: since } },
+    select: {
+      id: true,
+      amountWon: true,
+      operatingCompanyId: true,
+      depositedAt: true,
+      teamRemindedAt: true,
+      openReminderStoppedAt: true,
+      noOwnerNotifiedAt: true,
+    },
+  });
+  for (const row of rows) {
+    const base = {
+      status: 'NEEDS_REVIEW',
+      amountWon: row.amountWon,
+      depositedAt: row.depositedAt,
+      now,
+      stopped: false,
+      noOwner: Boolean(row.noOwnerNotifiedAt),
+    };
+    const wasAsked = isTeamAskDeposit({
+      ...base,
+      settings: before,
+      contractAmounts: beforeBook.forBrand(row.operatingCompanyId),
+    });
+    const nowAsked = isTeamAskDeposit({
+      ...base,
+      settings: afterBook.settings,
+      contractAmounts: afterBook.forBrand(row.operatingCompanyId),
+    });
+    const drift = openAlertDrift({
+      wasAsked,
+      nowAsked,
+      wasNotified: Boolean(row.teamRemindedAt),
+      stopped: Boolean(row.openReminderStoppedAt),
+      noOwner: Boolean(row.noOwnerNotifiedAt),
+    });
+    if (drift === 'resolve') {
+      await notifyOpenResolved(db, tenantId, row.id, null);
+      await stopOpenReminder(db, tenantId, row.id, now);
+    } else if (drift === 'reopen') {
+      await db.bankDeposit.updateMany({
+        where: { id: row.id, tenantId, status: 'NEEDS_REVIEW', noOwnerNotifiedAt: null },
+        data: { openReminderStoppedAt: null },
+      });
+    }
+  }
 }
 
 export async function expectationForCandidates(

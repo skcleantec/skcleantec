@@ -7,12 +7,16 @@ import { kstDayRangeYmd, kstTodayYmd } from '../inquiries/inquiryListDateRange.j
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { bankDepositFeatureDisabledBody } from './bankDepositGuard.js';
+import { readBankDepositSettings, saveBankDepositSettings } from './bankDepositSettings.service.js';
+import { applyOpenSettings } from './bankDepositTeam.service.js';
 import { DEPOSIT_KINDS, type DepositKind } from './bankDepositMatch.js';
 import {
   createBankAccount,
   bankDepositSummary,
   createDeviceLinkCode,
+  createManualBankDeposit,
   deleteBankAccount,
+  deleteBankDeposit,
   depositCandidates,
   depositsForInquiries,
   depositsForInquiry,
@@ -351,6 +355,56 @@ bankDepositRouter.post('/unparsed/:id/resolve', requireStaffPermission('inquiry.
   res.json({ ok: true });
 });
 
+bankDepositRouter.get('/settings', requireStaffPermission('inquiry.view'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  res.json({ settings: await readBankDepositSettings(prisma, tenantId) });
+});
+
+bankDepositRouter.put('/settings', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  if (!(await userHasStaffAdminAccess(userOf(req)))) {
+    res.status(403).json({ error: '알림 설정은 관리자만 바꿀 수 있어요.' });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const saved = await saveBankDepositSettings(prisma, tenantId, body);
+  if (!saved.ok) {
+    res.status(400).json({ error: saved.error });
+    return;
+  }
+  await applyOpenSettings(prisma, tenantId, saved.before);
+  res.json({ settings: saved.settings });
+});
+
+bankDepositRouter.post('/manual', requireStaffPermission('inquiry.edit.basic'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const user = userOf(req);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const depositedAt = new Date(typeof body.depositedAt === 'string' ? body.depositedAt : '');
+  const created = await createManualBankDeposit(prisma, {
+    tenantId,
+    userId: user!.userId,
+    operatingCompanyId: clip(body.operatingCompanyId, 80) || null,
+    amountWon: typeof body.amountWon === 'number' ? body.amountWon : Number.NaN,
+    depositorName: typeof body.depositorName === 'string' ? body.depositorName : '',
+    depositedAt,
+    note: typeof body.note === 'string' ? clip(body.note, 200) || null : null,
+    force: body.force === true,
+  });
+  if ('error' in created) {
+    if (created.error === 'duplicate') {
+      res.status(409).json({ error: '같은 시각·금액·이름의 입금이 이미 있어요.', existingId: created.existingId });
+      return;
+    }
+    res.status(400).json({ error: created.error });
+    return;
+  }
+  res.status(201).json({ id: created.id });
+});
+
 bankDepositRouter.get('/summary', requireStaffPermission('inquiry.view'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, userOf(req));
   if (!tenantId) return;
@@ -428,6 +482,22 @@ bankDepositRouter.post('/:id/unlink', requireStaffPermission('inquiry.edit.basic
   if (!tenantId) return;
   const updated = await unlinkBankDeposit(prisma, tenantId, req.params.id);
   if ('error' in updated) {
+    res.status(404).json({ error: '입금을 찾지 못했어요.' });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+bankDepositRouter.delete('/:id', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const user = userOf(req);
+  if (!(await userHasStaffAdminAccess(user))) {
+    res.status(403).json({ error: '입금 삭제는 관리자만 할 수 있어요.' });
+    return;
+  }
+  const removed = await deleteBankDeposit(prisma, tenantId, req.params.id, user!.userId);
+  if ('error' in removed) {
     res.status(404).json({ error: '입금을 찾지 못했어요.' });
     return;
   }

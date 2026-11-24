@@ -4,8 +4,6 @@ import { normalizeDepositorName, type DepositKind } from './bankDepositMatch.js'
 
 const MISMATCH = new Set(['EXTRA_INCLUDED', 'PARTIAL', 'OTHER']);
 const HOUR_MS = 60 * 60 * 1000;
-const REMIND_MS = 10 * 60 * 1000;
-const STOP_MS = 48 * HOUR_MS;
 
 export function formatDepositWon(amountWon: number): string {
   return `${Math.trunc(amountWon).toLocaleString('ko-KR')}원`;
@@ -47,11 +45,19 @@ export function canRemindOpenDeposit(input: {
   now: Date;
   depositedAt: Date;
   lastRemindedAt: Date | null;
+  startHour?: number;
+  endHour?: number;
+  intervalMin?: number;
+  maxHours?: number;
 }): boolean {
-  if (input.now.getTime() - input.depositedAt.getTime() >= STOP_MS) return false;
+  const start = input.startHour ?? 8;
+  const end = input.endHour ?? 21;
+  const intervalMs = (input.intervalMin ?? 10) * 60 * 1000;
+  const stopMs = (input.maxHours ?? 48) * HOUR_MS;
+  if (input.now.getTime() - input.depositedAt.getTime() >= stopMs) return false;
   const hour = kstHour(input.now);
-  if (hour < 8 || hour >= 21) return false;
-  if (input.lastRemindedAt && input.now.getTime() - input.lastRemindedAt.getTime() < REMIND_MS) return false;
+  if (hour < start || hour >= end) return false;
+  if (input.lastRemindedAt && input.now.getTime() - input.lastRemindedAt.getTime() < intervalMs) return false;
   return true;
 }
 
