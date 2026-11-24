@@ -1,0 +1,142 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import {
+  heartbeatWrite,
+  pickPhoneAlert,
+  shouldSendPhoneAlert,
+  type HeartbeatPrevious,
+  type PhoneDevice,
+} from './bankDepositPhone.logic.js';
+
+const now = new Date('2026-11-24T09:00:00.000Z');
+const blank: HeartbeatPrevious = {
+  listenerDownSince: null,
+  noticeOffSince: null,
+  keepAliveOffSince: null,
+};
+
+function device(patch: Partial<PhoneDevice> = {}): PhoneDevice {
+  return {
+    id: 'phone-1',
+    createdAt: new Date('2026-11-24T00:00:00.000Z'),
+    lastSeenAt: new Date(now.getTime() - 60_000),
+    statusAt: new Date(now.getTime() - 60_000),
+    listenerConnected: true,
+    noticeAccessEnabled: true,
+    keepAliveRunning: true,
+    listenerDownSince: null,
+    noticeOffSince: null,
+    keepAliveOffSince: null,
+    alertPushCode: null,
+    alertPushAt: null,
+    ...patch,
+  };
+}
+
+describe('입금 알림 폰 상태', () => {
+  it('예전 빈 heartbeat 는 상태를 덮지 않는다', () => {
+    assert.deepEqual(heartbeatWrite({}, blank, now), {});
+    assert.deepEqual(heartbeatWrite({ extra: true }, blank, now), {});
+  });
+
+  it('새 본문의 상태와 앱 버전과 카운터를 저장한다', () => {
+    const noticed = new Date('2026-11-24T08:30:00.000Z');
+    const write = heartbeatWrite(
+      {
+        appVersion: '0.1.7',
+        listenerConnected: false,
+        noticeAccessEnabled: true,
+        keepAliveRunning: true,
+        batteryUnrestricted: false,
+        lastNoticeAt: noticed.getTime(),
+        counters: { posts: 3, extracted: 2, deposits: 1, missed: 0, rebinds: 4, sent: 1, secret: 9 },
+        ignored: 'nope',
+      },
+      blank,
+      now,
+    );
+    assert.equal(write.appVersion, '0.1.7');
+    assert.equal(write.listenerConnected, false);
+    assert.equal(write.noticeAccessEnabled, true);
+    assert.equal(write.keepAliveRunning, true);
+    assert.equal(write.batteryUnrestricted, false);
+    assert.equal(write.lastNoticeAt?.toISOString(), noticed.toISOString());
+    assert.deepEqual(write.counters, { posts: 3, extracted: 2, deposits: 1, missed: 0, rebinds: 4, sent: 1 });
+    assert.equal(write.statusAt?.toISOString(), now.toISOString());
+    assert.equal(write.listenerDownSince?.toISOString(), now.toISOString());
+    assert.equal(write.noticeOffSince, null);
+    assert.equal('ignored' in write, false);
+
+    const again = heartbeatWrite(
+      { listenerConnected: false, noticeAccessEnabled: true },
+      { ...blank, listenerDownSince: new Date('2026-11-24T08:00:00.000Z') },
+      now,
+    );
+    assert.equal(again.listenerDownSince?.toISOString(), '2026-11-24T08:00:00.000Z');
+    assert.equal(heartbeatWrite({ lastNoticeAt: 0 }, blank, now).lastNoticeAt, null);
+  });
+
+  it('phoneAlert 다섯 경우와 정상', () => {
+    const healthy = pickPhoneAlert([device()], now);
+    assert.equal(healthy.alert, null);
+
+    const listening = pickPhoneAlert(
+      [device({ listenerConnected: false, listenerDownSince: new Date(now.getTime() - 3 * 60_000 - 1) })],
+      now,
+    );
+    assert.equal(listening.alert?.level, 'error');
+    assert.equal(listening.alert?.code, 'NOT_LISTENING');
+    assert.equal(listening.alert?.since, new Date(now.getTime() - 3 * 60_000 - 1).toISOString());
+    assert.equal(
+      pickPhoneAlert(
+        [device({ listenerConnected: false, listenerDownSince: new Date(now.getTime() - 3 * 60_000) })],
+        now,
+      ).alert,
+      null,
+    );
+
+    const access = pickPhoneAlert(
+      [device({ noticeAccessEnabled: false, noticeOffSince: new Date('2026-11-24T08:10:00.000Z') })],
+      now,
+    );
+    assert.equal(access.alert?.code, 'NO_ACCESS');
+    assert.equal(access.alert?.level, 'error');
+    assert.equal(access.alert?.since, '2026-11-24T08:10:00.000Z');
+
+    const alive = pickPhoneAlert(
+      [device({ keepAliveRunning: false, keepAliveOffSince: new Date('2026-11-24T08:20:00.000Z') })],
+      now,
+    );
+    assert.equal(alive.alert?.code, 'KEEPALIVE_OFF');
+    assert.equal(alive.alert?.level, 'warn');
+
+    const silentAt = new Date(now.getTime() - 21 * 60_000);
+    const silent = pickPhoneAlert([device({ lastSeenAt: silentAt, listenerConnected: false })], now);
+    assert.equal(silent.alert?.code, 'SILENT');
+    assert.equal(silent.alert?.level, 'error');
+    assert.equal(silent.alert?.since, new Date(silentAt.getTime() + 21 * 60_000).toISOString());
+    assert.equal(pickPhoneAlert([device({ lastSeenAt: new Date(now.getTime() - 20 * 60_000) })], now).alert, null);
+
+    const old = pickPhoneAlert([device({ statusAt: null, listenerConnected: null })], now);
+    assert.equal(old.alert?.code, 'OLD_APP');
+    assert.equal(old.alert?.level, 'warn');
+    assert.equal(old.alert?.since, '2026-11-24T00:00:00.000Z');
+  });
+
+  it('같은 문제는 1시간에 한 번만 알린다', () => {
+    const error = pickPhoneAlert(
+      [device({ noticeAccessEnabled: false, noticeOffSince: new Date('2026-11-24T08:10:00.000Z') })],
+      now,
+    ).alert;
+    assert.equal(shouldSendPhoneAlert([device()], error, now), true);
+    const recent = device({ alertPushCode: 'NO_ACCESS', alertPushAt: new Date(now.getTime() - 30 * 60_000) });
+    assert.equal(shouldSendPhoneAlert([recent], error, now), false);
+    const hourAgo = device({ alertPushCode: 'NO_ACCESS', alertPushAt: new Date(now.getTime() - 60 * 60_000) });
+    assert.equal(shouldSendPhoneAlert([hourAgo], error, now), true);
+    const other = device({ alertPushCode: 'SILENT', alertPushAt: new Date(now.getTime() - 5 * 60_000) });
+    assert.equal(shouldSendPhoneAlert([other], error, now), true);
+    const warn = pickPhoneAlert([device({ statusAt: null })], now).alert;
+    assert.equal(shouldSendPhoneAlert([device()], warn, now), false);
+    assert.equal(shouldSendPhoneAlert([device()], null, now), false);
+  });
+});

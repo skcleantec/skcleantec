@@ -31,6 +31,8 @@ import {
   tryLinkWaitingExpectation,
 } from './bankDepositTeam.service.js';
 import { broadcastJsonToStaff } from '../realtime/realtimeHub.js';
+import { heartbeatWrite } from './bankDepositPhone.logic.js';
+import { countersForDevice, syncBankDepositPhoneAlert } from './bankDepositPhone.service.js';
 import type { DepositKind } from './bankDepositMatch.js';
 import {
   addressShort,
@@ -131,9 +133,33 @@ export async function listBankDevices(db: Db, tenantId: string) {
       revokedAt: true,
       lastScanAt: true,
       lastScanFound: true,
+      listenerConnected: true,
+      noticeAccessEnabled: true,
+      keepAliveRunning: true,
+      batteryUnrestricted: true,
+      lastNoticeAt: true,
+      counters: true,
+      statusAt: true,
     },
   });
-  return rows;
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    lastSeenAt: row.lastSeenAt,
+    appVersion: row.appVersion,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    revokedAt: row.revokedAt,
+    lastScanAt: row.lastScanAt,
+    lastScanFound: row.lastScanFound,
+    listenerConnected: row.listenerConnected,
+    noticeAccessEnabled: row.noticeAccessEnabled,
+    keepAliveRunning: row.keepAliveRunning,
+    batteryUnrestricted: row.batteryUnrestricted,
+    lastNoticeAt: row.lastNoticeAt,
+    counters: countersForDevice(row.counters),
+    statusAt: row.statusAt,
+  }));
 }
 
 export async function revokeBankDevice(db: Db, tenantId: string, id: string, now = new Date()) {
@@ -150,14 +176,20 @@ async function deviceByToken(db: Db, token: string) {
   return device;
 }
 
-export async function touchBankDevice(db: Db, token: string, now = new Date()) {
+export async function touchBankDevice(db: Db, token: string, body: unknown = {}, now = new Date()) {
   const device = await deviceByToken(db, token);
   if (!device) return null;
   if (!(await isFeatureEnabled(device.tenantId, 'mod_bank_deposit'))) return { error: 'disabled' as const };
+  const status = heartbeatWrite(body, device, now);
   await db.bankDepositDevice.updateMany({
     where: { id: device.id, tenantId: device.tenantId },
-    data: { lastSeenAt: now },
+    data: { lastSeenAt: now, ...status },
   });
+  try {
+    await syncBankDepositPhoneAlert(db, device.tenantId, now);
+  } catch {
+    console.warn('[bank-deposit] phone alert skipped');
+  }
   const rescan = await consumeRescan(db, device);
   return { serverTime: now.toISOString(), ...rescan };
 }
@@ -1167,7 +1199,13 @@ export async function bankDepositSummary(db: Db, tenantId: string, now = new Dat
     const iso = device.lastSeenAt.toISOString();
     if (!lastSeenAt || iso > lastSeenAt) lastSeenAt = iso;
   }
-  return { needsReviewCount, unparsedCount, devices: { total: devices.length, lastSeenAt } };
+  let phoneAlert = null;
+  try {
+    phoneAlert = await syncBankDepositPhoneAlert(db, tenantId, now);
+  } catch {
+    console.warn('[bank-deposit] phone alert skipped');
+  }
+  return { needsReviewCount, unparsedCount, devices: { total: devices.length, lastSeenAt }, phoneAlert };
 }
 
 export async function listUnparsedBankDeposits(db: Db, tenantId: string, now = new Date()) {

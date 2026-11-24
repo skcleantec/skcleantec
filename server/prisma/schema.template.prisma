@@ -6331,6 +6331,19 @@ model BankDepositDevice {
   rescanRequestedAt DateTime? @map("rescan_requested_at")
   lastScanAt DateTime? @map("last_scan_at")
   lastScanFound Int?   @map("last_scan_found")
+  /// 0.1.7 이상이 heartbeat 로 보내는 상태. 없으면 예전 앱.
+  listenerConnected    Boolean?  @map("listener_connected")
+  noticeAccessEnabled  Boolean?  @map("notice_access_enabled")
+  keepAliveRunning     Boolean?  @map("keep_alive_running")
+  batteryUnrestricted  Boolean?  @map("battery_unrestricted")
+  lastNoticeAt         DateTime? @map("last_notice_at")
+  counters             Json?
+  statusAt             DateTime? @map("status_at")
+  listenerDownSince    DateTime? @map("listener_down_since")
+  noticeOffSince       DateTime? @map("notice_off_since")
+  keepAliveOffSince    DateTime? @map("keepalive_off_since")
+  alertPushCode        String?   @map("alert_push_code") @db.VarChar(32)
+  alertPushAt          DateTime? @map("alert_push_at")
 
   deposits BankDeposit[]
   unparsed BankDepositUnparsed[]
