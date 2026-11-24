@@ -19,19 +19,45 @@ object DepositIntake {
         rawText: String,
         receivedAtMillis: Long,
         source: IntakeSource = IntakeSource.Sms,
-    ) {
-        if (!ArrivalMemory(context).admit(rawText, receivedAtMillis, source)) return
+    ): Boolean {
+        val queued = enqueue(context, sender, rawText, receivedAtMillis, source)
+        if (source == IntakeSource.Sms) InboxScan.run(context)
+        return queued
+    }
+
+    private suspend fun enqueue(
+        context: Context,
+        sender: String,
+        rawText: String,
+        receivedAtMillis: Long,
+        source: IntakeSource,
+    ): Boolean {
         val settings = DeviceSettings(context)
-        val preview = previewDeposit(sender, rawText, receivedAtMillis)
-        settings.noteMessage(preview.forward)
-        if (!preview.forward) {
-            Log.i("DepositAlert", "not deposit")
-            return
+        val reason = dropReason(rawText)
+        if (reason != null) {
+            if (source != IntakeSource.Scan) {
+                settings.noteDrop(reason)
+                settings.noteMessage(false)
+                Log.i("DepositAlert", "not deposit")
+            }
+            return false
         }
+        if (source != IntakeSource.Scan && !ArrivalMemory(context).admit(rawText, receivedAtMillis, source)) {
+            return false
+        }
+        val hash = contentHash(sender, rawText)
+        val hashes = SentHashMemory(context)
+        if (hashes.contains(hash)) {
+            if (source != IntakeSource.Scan) settings.noteMessage(true)
+            return false
+        }
+        val preview = previewDeposit(sender, rawText, receivedAtMillis)
+        if (!preview.forward) return false
+        if (source != IntakeSource.Scan) settings.noteMessage(true)
         val db = DepositDatabase.get(context)
         db.pending().deleteOlderThan(System.currentTimeMillis() - SEVEN_DAYS_MS)
         Log.i("DepositAlert", "deposit queued")
-        db.pending().insert(
+        val inserted = db.pending().insert(
             PendingDeposit(
                 dedupeKey = preview.dedupeKey,
                 sender = sender.trim().take(40),
@@ -40,10 +66,16 @@ object DepositIntake {
                 amountLabel = preview.amountLabel,
                 depositorName = preview.depositorName,
                 createdAt = System.currentTimeMillis(),
+                contentHash = hash,
+                source = sourceLabel(source),
             ),
         )
+        hashes.remember(hash)
+        if (inserted == -1L) return false
+        if (source == IntakeSource.Scan) settings.noteLateFound(1)
         flush(context)
         if (db.pending().count() > 0) DepositScheduler.enqueueUpload(context)
+        return true
     }
 
     suspend fun flush(context: Context) {
@@ -57,12 +89,18 @@ object DepositIntake {
         repeat(10) {
             val batch = db.pending().next(20)
             if (batch.isEmpty()) return
+            var askScan = false
             val halt = uploadPending(
                 batch,
-                post = { rows -> api.ingest(base, token, rows) },
+                post = { rows ->
+                    val reply = api.ingest(base, token, rows)
+                    if (reply is com.cbiseo.depositalert.net.IngestReply.Done && reply.rescan) askScan = true
+                    reply
+                },
                 onCleared = { row, result -> remember(db, settings, row, result) },
                 onUnauthorized = { settings.setNeedsReconnect(true) },
             )
+            if (askScan) InboxScan.run(context)
             if (halt != null) return
         }
     }

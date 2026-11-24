@@ -18,13 +18,14 @@ class KeepAliveService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, notification())
+        running = true
         DepositScheduler.ensureHeartbeat(this)
         DepositScheduler.enqueueUpload(this)
         return START_STICKY
     }
 
     override fun onDestroy() {
-        DepositScheduler.stop(this)
+        running = false
         super.onDestroy()
     }
 
@@ -54,6 +55,9 @@ class KeepAliveService : Service() {
     companion object {
         private const val CHANNEL_ID = "deposit-alert-keep"
         private const val NOTIFICATION_ID = 41
+        @Volatile private var running = false
+
+        fun isRunning(): Boolean = running
 
         fun start(context: Context) {
             try {
@@ -65,6 +69,7 @@ class KeepAliveService : Service() {
         }
 
         fun stop(context: Context) {
+            DepositScheduler.stop(context)
             context.stopService(Intent(context, KeepAliveService::class.java))
         }
     }

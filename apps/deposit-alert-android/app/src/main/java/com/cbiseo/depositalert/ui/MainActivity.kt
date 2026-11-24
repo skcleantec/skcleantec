@@ -23,6 +23,8 @@ import com.cbiseo.depositalert.databinding.ActivityMainBinding
 import com.cbiseo.depositalert.net.DepositApi
 import com.cbiseo.depositalert.net.RegisterReply
 import com.cbiseo.depositalert.service.KeepAliveService
+import com.cbiseo.depositalert.sms.DropReason
+import com.cbiseo.depositalert.sms.InboxScan
 import com.cbiseo.depositalert.sms.MessageNoticeReader
 import com.cbiseo.depositalert.sms.SAMPLE_NH_SMS
 import com.cbiseo.depositalert.sms.previewDeposit
@@ -53,6 +55,10 @@ class MainActivity : AppCompatActivity() {
     private val askSms = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         render()
     }
+    private val askReadSms = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        if (it) ui.launch(Dispatchers.IO) { InboxScan.run(applicationContext) }
+        render()
+    }
     private val askNotice = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         render()
     }
@@ -79,6 +85,8 @@ class MainActivity : AppCompatActivity() {
         binding.batteryPermission.setOnClickListener { openBattery() }
         binding.samsungBattery.setOnClickListener { openBattery() }
         binding.sampleButton.setOnClickListener { showSample() }
+        binding.scanButton.setOnClickListener { scanInbox() }
+        binding.readSmsPermission.setOnClickListener { scanInbox() }
         binding.disconnectButton.setOnClickListener { disconnect() }
     }
 
@@ -86,6 +94,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         settings.listen(prefListener)
         render()
+        ui.launch(Dispatchers.IO) { InboxScan.run(applicationContext) }
     }
 
     override fun onPause() {
@@ -167,6 +176,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun scanInbox() {
+        if (!readSmsGranted()) {
+            askReadSms.launch(Manifest.permission.READ_SMS)
+            return
+        }
+        ui.launch(Dispatchers.IO) { InboxScan.run(applicationContext) }
+    }
+
     private fun showSample() {
         val preview = previewDeposit("15882100", SAMPLE_NH_SMS, System.currentTimeMillis())
         binding.sampleResult.text = if (!preview.forward) {
@@ -190,6 +207,7 @@ class MainActivity : AppCompatActivity() {
             binding.messageNoticeSwitch.isChecked = settings.messageNotice()
             suppressSwitch = false
         }
+        binding.batteryWarning.visibility = if (batteryIgnored()) View.GONE else View.VISIBLE
         binding.statusListening.text = if (settings.listening()) "상태: 켜짐" else "상태: 꺼짐"
         binding.statusServer.text = when {
             !paired -> "서버: 연결 안 됨"
@@ -198,10 +216,18 @@ class MainActivity : AppCompatActivity() {
         }
         binding.statusSent.text = "마지막 전송: ${formatEpoch(settings.lastSentAt())}"
         binding.smsPermission.text = "문자 받기 · ${if (smsGranted()) "됨" else "필요"}"
+        binding.readSmsPermission.text = "지난 문자 확인 · ${if (readSmsGranted()) "됨" else "필요"}"
         binding.noticePermission.text = "알림 · ${if (noticeGranted()) "됨" else "필요"}"
         binding.batteryPermission.text = "배터리 절약 제외 · ${if (batteryIgnored()) "됨" else "필요"}"
         binding.statusArrivals.text =
-            "받은 문자 ${settings.receivedCount()}건 · 그중 입금 ${settings.depositCount()}건"
+            "받은 문자 ${settings.receivedCount()}건 · 그중 입금 ${settings.depositCount()}건 · 오늘 뒤늦게 찾은 ${settings.lateFoundToday()}건"
+        binding.statusDrops.text =
+            "탈락 · 농협 없음 ${settings.dropCount(DropReason.NoBank)} · 입금 없음 ${settings.dropCount(DropReason.NoDeposit)} · 출금·결제·광고 ${settings.dropCount(DropReason.Blocked)} · 잔액 못 지움 ${settings.dropCount(DropReason.BalanceLeft)}"
+        binding.statusScan.text = if (settings.lastScanAt() <= 0L) {
+            "마지막 점검: 없음"
+        } else {
+            "마지막 점검: ${formatEpoch(settings.lastScanAt())} · 새로 찾은 문자 ${settings.lastScanFound()}건"
+        }
         binding.messageNoticePermission.text = "메시지 알림 접근 · ${if (messageNoticeAllowed()) "됨" else "필요"}"
         refreshJob?.cancel()
         refreshJob = ui.launch {
@@ -239,6 +265,9 @@ class MainActivity : AppCompatActivity() {
         val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners").orEmpty()
         return enabled.contains(packageName)
     }
+
+    private fun readSmsGranted() = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
 
     private fun smsGranted() = ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) ==
         android.content.pm.PackageManager.PERMISSION_GRANTED

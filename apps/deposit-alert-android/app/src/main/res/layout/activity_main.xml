@@ -28,6 +28,18 @@
             android:textColor="@color/muted"
             android:textSize="14sp" />
 
+        <TextView
+            android:id="@+id/batteryWarning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="12dp"
+            android:text="배터리 절약 제외가 해제되어 있습니다. 입금 문자를 놓칠 수 있습니다."
+            android:textColor="@color/danger"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
         <LinearLayout
             android:id="@+id/pairBox"
             android:layout_width="match_parent"
@@ -137,6 +149,21 @@
                 android:layout_marginTop="4dp"
                 android:textColor="@color/ink" />
 
+            <TextView
+                android:id="@+id/statusDrops"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/statusScan"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/ink" />
+
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/messageNoticeSwitch"
                 android:layout_width="match_parent"
@@ -175,6 +202,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="문자 받기" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/readSmsPermission"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="지난 문자 확인" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/noticePermission"
@@ -268,6 +302,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="시험 문자 넣기" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/scanButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="지난 문자 다시 확인" />
 
             <TextView
                 android:id="@+id/sampleResult"

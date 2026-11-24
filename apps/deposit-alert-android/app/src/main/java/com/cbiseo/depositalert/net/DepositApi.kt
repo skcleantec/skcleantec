@@ -58,11 +58,28 @@ class DepositApi {
         }
     }
 
-    fun heartbeat(base: String, token: String): Int {
+    fun heartbeat(base: String, token: String): HeartbeatResult {
         val request = Request.Builder()
             .url("${base.trimEnd('/')}/api/bank-deposits/heartbeat")
             .header("Authorization", "Bearer $token")
             .post("{}".toRequestBody(json))
+            .build()
+        return try {
+            http.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                HeartbeatResult(response.code, response.code in 200..299 && Regex(""""rescan"\s*:\s*true"""").containsMatchIn(text))
+            }
+        } catch (_: Exception) {
+            HeartbeatResult(0, false)
+        }
+    }
+
+    fun scanReport(base: String, token: String, scanned: Int, found: Int): Int {
+        val body = JSONObject().put("scanned", scanned).put("found", found).toString()
+        val request = Request.Builder()
+            .url("${base.trimEnd('/')}/api/bank-deposits/scan-report")
+            .header("Authorization", "Bearer $token")
+            .post(body.toRequestBody(json))
             .build()
         return try {
             http.newCall(request).execute().use { it.code }
@@ -80,6 +97,8 @@ class DepositApi {
     }
 }
 
+data class HeartbeatResult(val code: Int, val rescan: Boolean)
+
 fun ingestJson(items: List<PendingDeposit>): String {
     val rows = JSONArray()
     for (row in items) {
@@ -88,7 +107,9 @@ fun ingestJson(items: List<PendingDeposit>): String {
                 .put("dedupeKey", row.dedupeKey)
                 .put("sender", row.sender)
                 .put("text", row.text)
-                .put("receivedAt", row.receivedAt),
+                .put("receivedAt", row.receivedAt)
+                .put("contentHash", row.contentHash)
+                .put("source", row.source),
         )
     }
     return JSONObject().put("items", rows).toString()

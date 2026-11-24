@@ -10,6 +10,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Entity(tableName = "pending_deposits")
 data class PendingDeposit(
@@ -20,6 +22,8 @@ data class PendingDeposit(
     val amountLabel: String,
     val depositorName: String,
     val createdAt: Long,
+    val contentHash: String = "",
+    val source: String = "sms",
 )
 
 @Entity(tableName = "sent_deposits")
@@ -66,7 +70,7 @@ interface SentDao {
     suspend fun prune()
 }
 
-@Database(entities = [PendingDeposit::class, SentDeposit::class], version = 1, exportSchema = false)
+@Database(entities = [PendingDeposit::class, SentDeposit::class], version = 2, exportSchema = false)
 abstract class DepositDatabase : RoomDatabase() {
     abstract fun pending(): PendingDao
     abstract fun sent(): SentDao
@@ -74,13 +78,20 @@ abstract class DepositDatabase : RoomDatabase() {
     companion object {
         @Volatile private var instance: DepositDatabase? = null
 
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pending_deposits ADD COLUMN contentHash TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE pending_deposits ADD COLUMN source TEXT NOT NULL DEFAULT 'sms'")
+            }
+        }
+
         fun get(context: Context): DepositDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     DepositDatabase::class.java,
                     "deposit-alert.db",
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
             }
         }
     }
