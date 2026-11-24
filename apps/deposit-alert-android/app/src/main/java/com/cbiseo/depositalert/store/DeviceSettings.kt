@@ -52,6 +52,32 @@ class DeviceSettings(context: Context) {
         setListening(false)
     }
 
+    fun messageNotice(): Boolean = plain.getBoolean(KEY_MESSAGE_NOTICE, false)
+
+    fun setMessageNotice(on: Boolean) {
+        plain.edit().putBoolean(KEY_MESSAGE_NOTICE, on).apply()
+    }
+
+    fun receivedCount(): Int = plain.getInt(KEY_RECEIVED, 0)
+
+    fun depositCount(): Int = plain.getInt(KEY_DEPOSIT, 0)
+
+    fun noteMessage(deposit: Boolean) {
+        synchronized(lock) {
+            val editor = plain.edit().putInt(KEY_RECEIVED, receivedCount() + 1)
+            if (deposit) editor.putInt(KEY_DEPOSIT, depositCount() + 1)
+            editor.commit()
+        }
+    }
+
+    fun listen(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        plain.registerOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun unlisten(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        plain.unregisterOnSharedPreferenceChangeListener(listener)
+    }
+
     private fun openSecret(): SharedPreferences {
         val master = MasterKey.Builder(app)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -73,5 +99,9 @@ class DeviceSettings(context: Context) {
         private const val KEY_LAST_SENT = "last_sent_at"
         private const val KEY_RECONNECT = "needs_reconnect"
         private const val KEY_TOKEN = "device_token"
+        private const val KEY_MESSAGE_NOTICE = "message_notice"
+        private const val KEY_RECEIVED = "received_count"
+        private const val KEY_DEPOSIT = "deposit_count"
+        private val lock = Any()
     }
 }

@@ -1,12 +1,15 @@
 package com.cbiseo.depositalert.ui
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import android.view.View
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +23,7 @@ import com.cbiseo.depositalert.databinding.ActivityMainBinding
 import com.cbiseo.depositalert.net.DepositApi
 import com.cbiseo.depositalert.net.RegisterReply
 import com.cbiseo.depositalert.service.KeepAliveService
+import com.cbiseo.depositalert.sms.MessageNoticeReader
 import com.cbiseo.depositalert.sms.SAMPLE_NH_SMS
 import com.cbiseo.depositalert.sms.previewDeposit
 import com.cbiseo.depositalert.store.DeviceSettings
@@ -42,6 +46,9 @@ class MainActivity : AppCompatActivity() {
     private var refreshJob: Job? = null
     private var suppressSwitch = false
     private val seoul = ZoneId.of("Asia/Seoul")
+    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        runOnUiThread { if (!isFinishing) render() }
+    }
 
     private val askSms = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         render()
@@ -65,6 +72,8 @@ class MainActivity : AppCompatActivity() {
         binding.serverStaging.isChecked = settings.serverBase() == DeviceSettings.STAGING
         binding.pairButton.setOnClickListener { pair() }
         binding.listeningSwitch.setOnCheckedChangeListener { _, checked -> onListening(checked) }
+        binding.messageNoticeSwitch.setOnCheckedChangeListener { _, checked -> onMessageNotice(checked) }
+        binding.messageNoticePermission.setOnClickListener { openMessageNoticeAccess() }
         binding.smsPermission.setOnClickListener { askSms.launch(Manifest.permission.RECEIVE_SMS) }
         binding.noticePermission.setOnClickListener { openNotifications() }
         binding.batteryPermission.setOnClickListener { openBattery() }
@@ -75,7 +84,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        settings.listen(prefListener)
         render()
+    }
+
+    override fun onPause() {
+        settings.unlisten(prefListener)
+        super.onPause()
     }
 
     override fun onDestroy() {
@@ -128,6 +143,21 @@ class MainActivity : AppCompatActivity() {
         render()
     }
 
+    private fun onMessageNotice(checked: Boolean) {
+        if (suppressSwitch) return
+        settings.setMessageNotice(checked)
+        if (checked && !messageNoticeAllowed()) {
+            openMessageNoticeAccess()
+        } else if (checked) {
+            NotificationListenerService.requestRebind(ComponentName(this, MessageNoticeReader::class.java))
+        }
+        render()
+    }
+
+    private fun openMessageNoticeAccess() {
+        startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+    }
+
     private fun disconnect() {
         settings.clearToken()
         KeepAliveService.stop(this)
@@ -155,6 +185,11 @@ class MainActivity : AppCompatActivity() {
             binding.listeningSwitch.isChecked = settings.listening()
             suppressSwitch = false
         }
+        if (binding.messageNoticeSwitch.isChecked != settings.messageNotice()) {
+            suppressSwitch = true
+            binding.messageNoticeSwitch.isChecked = settings.messageNotice()
+            suppressSwitch = false
+        }
         binding.statusListening.text = if (settings.listening()) "상태: 켜짐" else "상태: 꺼짐"
         binding.statusServer.text = when {
             !paired -> "서버: 연결 안 됨"
@@ -165,6 +200,9 @@ class MainActivity : AppCompatActivity() {
         binding.smsPermission.text = "문자 받기 · ${if (smsGranted()) "됨" else "필요"}"
         binding.noticePermission.text = "알림 · ${if (noticeGranted()) "됨" else "필요"}"
         binding.batteryPermission.text = "배터리 절약 제외 · ${if (batteryIgnored()) "됨" else "필요"}"
+        binding.statusArrivals.text =
+            "받은 문자 ${settings.receivedCount()}건 · 그중 입금 ${settings.depositCount()}건"
+        binding.messageNoticePermission.text = "메시지 알림 접근 · ${if (messageNoticeAllowed()) "됨" else "필요"}"
         refreshJob?.cancel()
         refreshJob = ui.launch {
             val rows = withContext(Dispatchers.IO) { DepositDatabase.get(this@MainActivity).sent().recent() }
@@ -195,6 +233,11 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).setData(Uri.parse("package:$packageName"))
         if (intent.resolveActivity(packageManager) != null) startActivity(intent)
         else startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+    }
+
+    private fun messageNoticeAllowed(): Boolean {
+        val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners").orEmpty()
+        return enabled.contains(packageName)
     }
 
     private fun smsGranted() = ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) ==
