@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  deleteBankDeposit,
   fetchBankDepositSummary,
   ignoreBankDeposit,
   listBankDepositDevices,
@@ -19,6 +20,7 @@ import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import { Button } from '../ui/Button';
 import { StatusChip, Tag } from '../ui/StatusChip';
 import { BankDepositLinkDialog } from './BankDepositLinkDialog';
+import { BankDepositManualDialog } from './BankDepositManualDialog';
 import { BankDepositSetupDialog } from './BankDepositSetupDialog';
 import { notifyBankDepositNavBadgeRefresh } from './bankDepositNavBadge';
 import {
@@ -105,18 +107,53 @@ function RowButtons({
   row,
   busy,
   canEdit,
+  canDelete,
+  deleteArmed,
   onFind,
   onIgnore,
   onUnlink,
+  onArmDelete,
+  onDelete,
 }: {
   row: BankDepositItem;
   busy: boolean;
   canEdit: boolean;
+  canDelete: boolean;
+  deleteArmed: boolean;
   onFind: () => void;
   onIgnore: () => void;
   onUnlink: () => void;
+  onArmDelete: (armed: boolean) => void;
+  onDelete: () => void;
 }) {
   if (!canEdit) return null;
+  if (deleteArmed) {
+    return (
+      <span className="flex items-center justify-end gap-1">
+        <span className="mr-1 text-fluid-2xs text-rose-700">지우면 되돌릴 수 없어요</span>
+        <Button size="sm" variant="danger" onClick={onDelete} disabled={busy}>
+          지우기
+        </Button>
+        <Button size="sm" variant="quiet" onClick={() => onArmDelete(false)} disabled={busy}>
+          취소
+        </Button>
+      </span>
+    );
+  }
+  const del = canDelete ? (
+    <button
+      type="button"
+      onClick={() => onArmDelete(true)}
+      disabled={busy}
+      aria-label="이 입금 줄 지우기"
+      title="이 입금 줄 지우기"
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-[7px] text-slate-400 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-45"
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3" />
+      </svg>
+    </button>
+  ) : null;
   if (row.status === 'NEEDS_REVIEW') {
     return (
       <span className="flex justify-end gap-1">
@@ -126,15 +163,17 @@ function RowButtons({
         <Button size="sm" variant="quiet" onClick={onIgnore} disabled={busy} title="청소와 상관없는 입금이면 목록에서 접어 둡니다">
           청소와 무관
         </Button>
+        {del}
       </span>
     );
   }
   if (row.status === 'IGNORED') {
     return (
-      <span className="flex justify-end">
+      <span className="flex justify-end gap-1">
         <Button size="sm" variant="quiet" onClick={onUnlink} disabled={busy}>
           되돌리기
         </Button>
+        {del}
       </span>
     );
   }
@@ -146,6 +185,7 @@ function RowButtons({
       <Button size="sm" variant="quiet" onClick={onUnlink} disabled={busy}>
         연결 끊기
       </Button>
+      {del}
     </span>
   );
 }
@@ -168,6 +208,8 @@ export function BankDepositPanel({ token }: { token: string }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [linkTarget, setLinkTarget] = useState<BankDepositItem | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [summary, setSummary] = useState<BankDepositSummary | null>(null);
   const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
@@ -338,9 +380,12 @@ export function BankDepositPanel({ token }: { token: string }) {
               폰 {seen.ok ? '연결됨' : '연결 끊김'} · {seen.text}
             </span>
           ) : null}
+          <Button size="sm" onClick={() => setManualOpen(true)} title="문자로 들어오지 않은 입금을 직접 넣습니다">
+            입금 직접 추가
+          </Button>
           {isAdmin ? (
             <Button size="sm" onClick={() => setSetupOpen(true)}>
-              폰·통장 설정
+              폰·통장·알림 설정
             </Button>
           ) : null}
         </div>
@@ -490,7 +535,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                     <th className="w-[104px] px-2 py-2">상태</th>
                     <th className="px-2 py-2">연결된 고객</th>
                     <th className="w-[150px] px-2 py-2">담당 · 팀장</th>
-                    <th className="w-[190px] px-4 py-2" />
+                    <th className="w-[236px] px-4 py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -502,6 +547,11 @@ export function BankDepositPanel({ token }: { token: string }) {
                       }`}
                     >
                       <td className="whitespace-nowrap px-4 py-2.5 text-fluid-xs tabular-nums text-slate-600">{kstTime(row.depositedAt)}
+                        {row.source === 'manual' ? (
+                          <span className="mt-0.5 block" title="사람이 직접 넣은 입금이에요">
+                            <Tag>직접 추가</Tag>
+                          </span>
+                        ) : null}
                         {row.source === 'scan' ? (
                           <span className="mt-0.5 block" title={`문자를 받은 순간에는 못 가져왔고, 점검에서 ${kstTime(row.receivedAt)}에 찾아왔어요`}>
                             <Tag>뒤늦게 가져옴</Tag>
@@ -535,6 +585,10 @@ export function BankDepositPanel({ token }: { token: string }) {
                           row={row}
                           busy={busyId === row.id}
                           canEdit
+                          canDelete={isAdmin}
+                          deleteArmed={armedDeleteId === row.id}
+                          onArmDelete={(armed) => setArmedDeleteId(armed ? row.id : null)}
+                          onDelete={() => void act(row, () => deleteBankDeposit(token, row.id)).then(() => setArmedDeleteId(null))}
                           onFind={() => setLinkTarget(row)}
                           onIgnore={() => void act(row, () => ignoreBankDeposit(token, row.id))}
                           onUnlink={() => void act(row, () => unlinkBankDeposit(token, row.id))}
@@ -557,7 +611,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                     <span className="min-w-0 flex-1 truncate text-fluid-xs font-semibold text-slate-800">{row.depositorName || '입금자명 없음'}</span>
                     <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">
                       {kstTime(row.depositedAt)}
-                      {row.source === 'scan' ? ' · 뒤늦게 가져옴' : ''}
+                      {row.source === 'scan' ? ' · 뒤늦게 가져옴' : row.source === 'manual' ? ' · 직접 추가' : ''}
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center gap-2">
@@ -572,6 +626,10 @@ export function BankDepositPanel({ token }: { token: string }) {
                       row={row}
                       busy={busyId === row.id}
                       canEdit
+                      canDelete={isAdmin}
+                      deleteArmed={armedDeleteId === row.id}
+                      onArmDelete={(armed) => setArmedDeleteId(armed ? row.id : null)}
+                      onDelete={() => void act(row, () => deleteBankDeposit(token, row.id)).then(() => setArmedDeleteId(null))}
                       onFind={() => setLinkTarget(row)}
                       onIgnore={() => void act(row, () => ignoreBankDeposit(token, row.id))}
                       onUnlink={() => void act(row, () => unlinkBankDeposit(token, row.id))}
@@ -607,6 +665,18 @@ export function BankDepositPanel({ token }: { token: string }) {
           onClose={() => setLinkTarget(null)}
           onLinked={() => {
             setLinkTarget(null);
+            void afterChange();
+          }}
+        />
+      ) : null}
+      {manualOpen ? (
+        <BankDepositManualDialog
+          token={token}
+          brands={brandOptions}
+          defaultDate={date}
+          onClose={() => setManualOpen(false)}
+          onCreated={() => {
+            setManualOpen(false);
             void afterChange();
           }}
         />

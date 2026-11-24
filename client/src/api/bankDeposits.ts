@@ -12,7 +12,7 @@ async function readError(res: Response): Promise<string> {
 export type BankDepositStatus = 'AUTO_LINKED' | 'NEEDS_REVIEW' | 'LINKED' | 'IGNORED';
 export type BankDepositKind = 'DEPOSIT' | 'BALANCE' | 'TOTAL' | 'OTHER';
 /** sms 실시간, scan 뒤늦게 가져옴, notification 알림창 */
-export type BankDepositSource = 'sms' | 'scan' | 'notification';
+export type BankDepositSource = 'sms' | 'scan' | 'notification' | 'manual';
 
 export type BankDepositItem = {
   id: string;
@@ -381,3 +381,76 @@ export type BankDepositStaffNotice = {
   claimedByTeamLeaderName?: string | null;
   source?: BankDepositSource;
 };
+
+/** 입금 확인 알림 설정 — 업체마다 하나 */
+export type BankDepositSettings = {
+  /** 주인 없는 입금을 모든 팀장에게 묻기 */
+  teamOpenAlertEnabled: boolean;
+  /** 잔금이 연결되면 담당 팀장에게 알리기 */
+  teamBalanceAlertEnabled: boolean;
+  /** 이 금액 미만의 주인 없는 입금은 팀장에게 묻지 않는다 */
+  teamAlertMinAmountWon: number;
+  /** 해결될 때까지 다시 알리는 간격(분) */
+  teamReminderIntervalMin: number;
+  /** 알림을 보내는 시간대(한국 시간, 시) — start 이상 end 미만 */
+  teamAlertStartHour: number;
+  teamAlertEndHour: number;
+  /** 입금 뒤 몇 시간까지 다시 알릴지 */
+  teamReminderMaxHours: number;
+  /** 계약금으로 보는 금액 — auto: 접수에서 자동으로, manual: 아래 목록 */
+  depositAmountsMode: 'auto' | 'manual';
+  depositAmountsWon: number[];
+  /** 관리자·마케터 화면 오른쪽 아래 알림 */
+  staffToastEnabled: boolean;
+};
+
+export async function fetchBankDepositSettings(token: string): Promise<{ settings: BankDepositSettings }> {
+  const res = await fetch(`${base}/settings`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function saveBankDepositSettings(
+  token: string,
+  body: Partial<BankDepositSettings>,
+): Promise<{ settings: BankDepositSettings }> {
+  const res = await fetch(`${base}/settings`, { method: 'PUT', headers: headers(token), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export class BankDepositDuplicateError extends Error {
+  existingId: string | null;
+  constructor(message: string, existingId: string | null) {
+    super(message);
+    this.existingId = existingId;
+  }
+}
+
+/** 문자로 못 받은 입금을 사람이 직접 넣는다. 같은 입금이 이미 있으면 BankDepositDuplicateError. */
+export async function createManualBankDeposit(
+  token: string,
+  body: {
+    operatingCompanyId?: string;
+    amountWon: number;
+    depositorName: string;
+    depositedAt: string;
+    note?: string;
+    force?: boolean;
+  },
+): Promise<{ id: string }> {
+  const res = await fetch(`${base}/manual`, { method: 'POST', headers: headers(token), body: JSON.stringify(body) });
+  if (res.status === 409) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string; existingId?: string };
+    throw new BankDepositDuplicateError(data.error || '같은 입금이 이미 있어요.', data.existingId ?? null);
+  }
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 입금 한 줄을 완전히 지운다(관리자). 되돌릴 수 없다. */
+export async function deleteBankDeposit(token: string, id: string): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/${encodeURIComponent(id)}`, { method: 'DELETE', headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
