@@ -27,6 +27,7 @@ import cashbillStateCronRoutes from './modules/cashbill/cashbillState.cron.route
 import taxInvoiceRoutes from './modules/taxinvoice/taxInvoice.routes.js';
 import orderFollowupsRoutes from './modules/order-followups/orderFollowups.routes.js';
 import { bankDepositDeviceRouter, bankDepositRouter } from './modules/bank-deposit/bankDeposit.routes.js';
+import bankDepositTeamRouter from './modules/bank-deposit/bankDeposit.team.routes.js';
 import inquiryLeadSourceRoutes from './modules/inquiry-lead-sources/inquiryLeadSource.routes.js';
 import reviewPaybackPublicRoutes from './modules/review-payback/reviewPayback.public.routes.js';
 import reviewPaybackAdminRoutes from './modules/review-payback/reviewPayback.admin.routes.js';
@@ -195,6 +196,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/assignments', assignmentsRoutes);
 app.use('/api/ai-dispatch', aiDispatchRoutes);
 app.use('/api/schedule', scheduleRoutes);
+app.use('/api/team', bankDepositTeamRouter);
 app.use('/api/team', teamRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/push', staffAppPushRoutes);

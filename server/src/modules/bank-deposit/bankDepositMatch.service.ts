@@ -6,6 +6,7 @@ import {
   type FollowupNameRow,
   type InquiryAmountRow,
 } from './bankDepositMatch.js';
+import { orderFormDepositorNames } from './bankDepositTeam.logic.js';
 import {
   addressShort,
   displayWon,
@@ -64,6 +65,10 @@ export async function matchStoredDeposit(
         createdBy: { select: { name: true } },
         orderForm: {
           select: {
+            id: true,
+            templateId: true,
+            customerAnswers: true,
+            prefillAnswers: true,
             depositAmount: true,
             balanceAmount: true,
             totalAmount: true,
@@ -166,6 +171,7 @@ export async function matchStoredDeposit(
     );
   }
 
+  const extraNames = await depositorNamesByForm(db, params.tenantId, inquiries);
   const inquiryRows: InquiryAmountRow[] = inquiries.map((row) => ({
     id: row.id,
     customerName: row.customerName,
@@ -177,6 +183,7 @@ export async function matchStoredDeposit(
     orderBalanceWon: row.orderForm?.balanceAmount ?? null,
     orderTotalWon: row.orderForm?.totalAmount ?? null,
     blockedKinds: blocked.get(row.id) ?? [],
+    extraNames: row.orderForm ? extraNames.get(row.orderForm.id) ?? [] : [],
   }));
   const followupRows: FollowupNameRow[] = followups.map((row) => ({
     id: row.id,
@@ -198,6 +205,35 @@ export async function matchStoredDeposit(
       ...(cards.get(`${candidate.target}:${candidate.id}`) ?? emptyCard()),
     })),
   };
+}
+
+async function depositorNamesByForm(
+  db: Db,
+  tenantId: string,
+  inquiries: Array<{ orderForm: { id: string; templateId: string | null; customerAnswers: unknown; prefillAnswers: unknown } | null }>,
+): Promise<Map<string, string[]>> {
+  const forms = inquiries.map((row) => row.orderForm).filter((row): row is NonNullable<typeof row> => Boolean(row));
+  const templateIds = [...new Set(forms.map((form) => form.templateId).filter((id): id is string => Boolean(id)))];
+  if (templateIds.length === 0) return new Map();
+  const fields = await db.orderFormTemplateField.findMany({
+    where: { tenantId, templateId: { in: templateIds }, label: { contains: '입금자' } },
+    select: { templateId: true, fieldKey: true, label: true },
+  });
+  const byTemplate = new Map<string, Array<{ fieldKey: string; label: string }>>();
+  for (const field of fields) {
+    const list = byTemplate.get(field.templateId) ?? [];
+    list.push(field);
+    byTemplate.set(field.templateId, list);
+  }
+  const out = new Map<string, string[]>();
+  for (const form of forms) {
+    if (!form.templateId) continue;
+    out.set(
+      form.id,
+      orderFormDepositorNames(byTemplate.get(form.templateId) ?? [], [form.customerAnswers, form.prefillAnswers]),
+    );
+  }
+  return out;
 }
 
 function emptyCard(): CandidateCard {

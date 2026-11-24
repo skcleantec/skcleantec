@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import type { Prisma, InquiryStatus, UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { rematchInquiryDeposits } from '../bank-deposit/bankDepositTeam.service.js';
 import { ShortTtlCache } from '../../lib/shortTtlCache.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffHasPermission } from '../auth/marketerPermission.middleware.js';
@@ -2058,6 +2059,15 @@ router.patch('/:id', async (req, res) => {
     void notifyInspectionChecklistRefresh({ inquiryId: id, tenantId }).catch((e) =>
       console.error('[inspection-notify]', e),
     );
+  }
+  if (
+    data.customerName !== undefined ||
+    data.nickname !== undefined ||
+    data.serviceDepositAmount !== undefined ||
+    data.serviceBalanceAmount !== undefined ||
+    data.serviceTotalAmount !== undefined
+  ) {
+    void rematchInquiryDeposits(prisma, tenantId, id);
   }
   void notifyAfterInquiryPatch({
     tenantId,

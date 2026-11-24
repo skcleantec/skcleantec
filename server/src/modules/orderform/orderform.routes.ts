@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
+import { rematchInquiryDeposits } from '../bank-deposit/bankDepositTeam.service.js';
 import { normalizeCustomerLinkBlockOrder } from '../../lib/orderFormCustomerLinkBlocks.js';
 import { computeEstimateTotalFromPyeong } from '../../lib/estimateTotal.js';
 import { authMiddleware, adminOrMarketerOrTeamLeader } from '../auth/auth.middleware.js';
@@ -3886,6 +3887,7 @@ router.post('/submit/:token', async (req, res) => {
           select: { name: true },
         })
       : null;
+    void rematchInquiryDeposits(prisma, submitTenantId, celebrateRow.id);
     void notifyOrderFormSubmitToStaff({
       tenantId: submitTenantId,
       inquiryId: celebrateRow.id,

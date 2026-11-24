@@ -4,7 +4,16 @@ import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { accountMasksMatch, parseBankDeposit } from './bankDepositParse.js';
 import { consumeDeviceRate, deviceCanIngest } from './bankDepositGuard.js';
 import { matchStoredDeposit } from './bankDepositMatch.service.js';
-import { notifyBankDeposit } from './bankDepositNotify.js';
+import { publishBankDeposit } from './bankDepositPublish.js';
+import {
+  decorateStaffDeposits,
+  expectationForCandidates,
+  noteOpenIfNeeded,
+  onDepositIgnored,
+  onDepositLinked,
+  onDepositUnlinked,
+  tryLinkWaitingExpectation,
+} from './bankDepositTeam.service.js';
 import type { DepositKind } from './bankDepositMatch.js';
 import {
   addressShort,
@@ -31,82 +40,6 @@ export function hashBankSecret(value: string): string {
 
 function newDeviceToken(): string {
   return `bd_${randomBytes(32).toString('base64url')}`;
-}
-
-async function depositNotifyNames(
-  db: Db,
-  tenantId: string,
-  input: { operatingCompanyId: string | null; linkedInquiryId: string | null; linkedFollowupId: string | null },
-) {
-  const [brand, inquiry, followup] = await Promise.all([
-    input.operatingCompanyId
-      ? db.operatingCompany.findFirst({
-          where: { id: input.operatingCompanyId, tenantId },
-          select: { name: true },
-        })
-      : null,
-    input.linkedInquiryId
-      ? db.inquiry.findFirst({
-          where: { id: input.linkedInquiryId, tenantId },
-          select: {
-            customerName: true,
-            createdBy: { select: { name: true } },
-            orderForm: { select: { createdBy: { select: { name: true } } } },
-          },
-        })
-      : null,
-    !input.linkedInquiryId && input.linkedFollowupId
-      ? db.orderFollowup.findFirst({
-          where: { id: input.linkedFollowupId, tenantId },
-          select: {
-            customerName: true,
-            createdBy: { select: { name: true } },
-            handledBy: { select: { name: true } },
-          },
-        })
-      : null,
-  ]);
-  return {
-    operatingCompanyName: brand?.name?.trim() || null,
-    customerName: inquiry?.customerName?.trim() || followup?.customerName?.trim() || null,
-    marketerName: inquiry
-      ? inquiryMarketerName(inquiry.createdBy?.name, inquiry.orderForm?.createdBy?.name)
-      : followup
-        ? followupMarketerName(followup.handledBy?.name, followup.createdBy?.name)
-        : null,
-  };
-}
-
-async function pushDepositNotice(
-  db: Db,
-  row: {
-    tenantId: string;
-    event: 'new' | 'changed';
-    id: string;
-    status: string;
-    amountWon: number;
-    depositorName: string;
-    operatingCompanyId: string | null;
-    linkedInquiryId: string | null;
-    linkedFollowupId: string | null;
-    linkedKind: string | null;
-  },
-) {
-  const names = await depositNotifyNames(db, row.tenantId, row);
-  notifyBankDeposit({
-    tenantId: row.tenantId,
-    event: row.event,
-    id: row.id,
-    status: row.status,
-    amountWon: row.amountWon,
-    depositorName: row.depositorName,
-    operatingCompanyId: row.operatingCompanyId,
-    operatingCompanyName: names.operatingCompanyName,
-    customerName: names.customerName,
-    marketerName: names.marketerName,
-    linkedInquiryId: row.linkedInquiryId,
-    linkedKind: row.linkedKind,
-  });
 }
 
 function newLinkCode(): string {
@@ -267,7 +200,19 @@ export async function ingestBankDeposits(
       let status = created.status;
       let linkedInquiryId: string | null = null;
       let linkedKind: string | null = null;
-      if (operatingCompanyId) {
+      const expected = await tryLinkWaitingExpectation(db, {
+        tenantId: device.tenantId,
+        depositId: created.id,
+        operatingCompanyId,
+        depositorName: parsed.depositorName,
+        amountWon: parsed.amountWon,
+        now,
+      });
+      if (expected) {
+        status = 'AUTO_LINKED';
+        linkedInquiryId = expected.inquiryId;
+        linkedKind = expected.kind;
+      } else if (operatingCompanyId) {
         const matched = await matchStoredDeposit(db, {
           tenantId: device.tenantId,
           operatingCompanyId,
@@ -276,17 +221,51 @@ export async function ingestBankDeposits(
           amountWon: parsed.amountWon,
         });
         if (matched.auto) {
-          status = 'AUTO_LINKED';
-          linkedInquiryId = matched.auto.id;
-          linkedKind = matched.auto.kind;
-          await db.bankDeposit.updateMany({
-            where: { id: created.id, tenantId: device.tenantId },
-            data: { status, linkedInquiryId, linkedKind, linkedAt: now },
+          const linked = await db.bankDeposit.updateMany({
+            where: { id: created.id, tenantId: device.tenantId, status: 'NEEDS_REVIEW' },
+            data: {
+              status: 'AUTO_LINKED',
+              linkedInquiryId: matched.auto.id,
+              linkedKind: matched.auto.kind,
+              linkedAt: now,
+              openReminderStoppedAt: now,
+            },
           });
+          if (linked.count === 1) {
+            status = 'AUTO_LINKED';
+            linkedInquiryId = matched.auto.id;
+            linkedKind = matched.auto.kind;
+          await onDepositLinked(db, {
+            tenantId: device.tenantId,
+            depositId: created.id,
+            inquiryId: linkedInquiryId,
+            kind: linkedKind,
+            amountWon: parsed.amountWon,
+            depositorName: parsed.depositorName,
+            depositedAt: parsed.depositedAt,
+            resolvedByName: '자동',
+            now,
+          });
+          }
         }
       }
+      if (status === 'NEEDS_REVIEW') {
+        await noteOpenIfNeeded(
+          db,
+          {
+            tenantId: device.tenantId,
+            depositId: created.id,
+            operatingCompanyId,
+            amountWon: parsed.amountWon,
+            depositorName: parsed.depositorName,
+            depositedAt: parsed.depositedAt,
+            status,
+          },
+          now,
+        );
+      }
       results.push({ dedupeKey, result: 'stored', status });
-      await pushDepositNotice(db, {
+      await publishBankDeposit(db, {
         tenantId: device.tenantId,
         event: 'new',
         id: created.id,
@@ -326,6 +305,7 @@ const DEPOSIT_LIST_SELECT = {
   note: true,
   rawText: true,
   linkedByUserId: true,
+  mismatchReason: true,
 } satisfies Prisma.BankDepositSelect;
 
 export async function listBankDeposits(
@@ -371,7 +351,8 @@ export async function listBankDeposits(
     if (group.status === 'NEEDS_REVIEW') counts.needsReview += n;
     if (group.status === 'IGNORED') counts.ignored += n;
   }
-  return { items: await withLinkedSummaries(db, params.tenantId, items), counts };
+  const linked = await withLinkedSummaries(db, params.tenantId, items);
+  return { items: await decorateStaffDeposits(db, params.tenantId, linked), counts };
 }
 
 async function withLinkedSummaries<
@@ -413,7 +394,7 @@ async function withLinkedSummaries<
         })
       : [],
     userIds.length
-      ? db.user.findMany({ where: { tenantId, id: { in: userIds } }, select: { id: true, name: true } })
+      ? db.user.findMany({ where: { tenantId, id: { in: userIds } }, select: { id: true, name: true, role: true } })
       : [],
   ]);
   return attachLinkedSummaries(items, {
@@ -448,6 +429,7 @@ async function withLinkedSummaries<
       ]),
     ),
     users: new Map(users.map((row) => [row.id, row.name])),
+    roles: new Map(users.map((row) => [row.id, row.role])),
   });
 }
 
@@ -461,7 +443,17 @@ export async function depositCandidates(db: Db, tenantId: string, id: string) {
     depositorName: row.depositorName,
     amountWon: row.amountWon,
   });
-  return { candidates: matched.candidates };
+  const expectations = await expectationForCandidates(
+    db,
+    tenantId,
+    matched.candidates.filter((row) => row.target === 'inquiry').map((row) => row.id),
+  );
+  return {
+    candidates: matched.candidates.map((row) => ({
+      ...row,
+      expectation: row.target === 'inquiry' ? expectations.get(row.id) ?? null : null,
+    })),
+  };
 }
 
 async function targetOk(
@@ -517,9 +509,26 @@ export async function linkBankDeposit(
       linkedKind: params.kind,
       linkedByUserId: params.userId,
       linkedAt: now,
+      mismatchReason: null,
+      openReminderStoppedAt: now,
     },
   });
-  await pushDepositNotice(db, {
+  const actor = await db.user.findFirst({
+    where: { id: params.userId, tenantId: params.tenantId },
+    select: { name: true },
+  });
+  await onDepositLinked(db, {
+    tenantId: params.tenantId,
+    depositId: row.id,
+    inquiryId: params.inquiryId,
+    kind: params.kind,
+    amountWon: row.amountWon,
+    depositorName: row.depositorName,
+    depositedAt: row.depositedAt,
+    resolvedByName: actor?.name ?? null,
+    now,
+  });
+  await publishBankDeposit(db, {
     tenantId: params.tenantId,
     event: 'changed',
     id: row.id,
@@ -546,9 +555,11 @@ export async function unlinkBankDeposit(db: Db, tenantId: string, id: string) {
       linkedKind: null,
       linkedByUserId: null,
       linkedAt: null,
+      mismatchReason: null,
     },
   });
-  await pushDepositNotice(db, {
+  await onDepositUnlinked(db, tenantId, row.id, new Date());
+  await publishBankDeposit(db, {
     tenantId,
     event: 'changed',
     id: row.id,
@@ -578,7 +589,8 @@ export async function ignoreBankDeposit(db: Db, tenantId: string, id: string, no
       linkedAt: null,
     },
   });
-  await pushDepositNotice(db, {
+  await onDepositIgnored(db, tenantId, row.id, new Date());
+  await publishBankDeposit(db, {
     tenantId,
     event: 'changed',
     id: row.id,
@@ -603,7 +615,8 @@ export async function depositsForInquiry(db: Db, tenantId: string, inquiryId: st
     orderBy: { depositedAt: 'desc' },
     select: DEPOSIT_LIST_SELECT,
   });
-  return withLinkedSummaries(db, tenantId, items);
+  const linked = await withLinkedSummaries(db, tenantId, items);
+  return decorateStaffDeposits(db, tenantId, linked);
 }
 
 const OPEN_FOLLOWUP = ['REQUESTED', 'ABSENT', 'ON_HOLD', 'DEPOSIT_PENDING', 'RESERVED'] as const;
@@ -768,7 +781,17 @@ export async function searchDepositTargets(db: Db, tenantId: string, id: string,
       }),
     })),
   ];
-  return { candidates };
+  const expectations = await expectationForCandidates(
+    db,
+    tenantId,
+    candidates.filter((row) => row.target === 'inquiry').map((row) => row.id),
+  );
+  return {
+    candidates: candidates.map((row) => ({
+      ...row,
+      expectation: row.target === 'inquiry' ? expectations.get(row.id) ?? null : null,
+    })),
+  };
 }
 
 export async function bankDepositSummary(db: Db, tenantId: string, now = new Date()) {

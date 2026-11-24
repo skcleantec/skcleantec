@@ -371,6 +371,9 @@ model Tenant {
   bankDepositAccounts BankDepositAccount[]
   bankDeposits BankDeposit[]
   bankDepositLinkCodes BankDepositLinkCode[]
+  bankDepositTeamResponses BankDepositTeamResponse[]
+  bankDepositExpectations BankDepositExpectation[]
+  bankDepositBalanceNotices BankDepositBalanceNotice[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
   telecrmAiQuoteRules TelecrmAiQuoteRule[]
@@ -2284,6 +2287,9 @@ model User {
   telecrmWorkEntries           TelecrmWorkEntry[]
   bankDepositsLinked           BankDeposit[] @relation("BankDepositLinkedBy")
   bankDepositLinkCodesCreated  BankDepositLinkCode[]
+  bankDepositTeamResponses     BankDepositTeamResponse[]
+  bankDepositExpectations      BankDepositExpectation[]
+  bankDepositBalanceNotices    BankDepositBalanceNotice[]
   telecrmConsultationQuotesCreated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteCreatedBy")
   telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
   telecrmAiQuoteCorrections TelecrmAiQuoteCorrection[]
@@ -3158,6 +3164,7 @@ model Inquiry {
   householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
   cardPayments              CardPayment[]
   bankDeposits              BankDeposit[]
+  bankDepositExpectations   BankDepositExpectation[]
   skHomepageInquiryMail     SkHomepageInquiryMail?
   cashBillIssues            CashBillIssue[]
   taxInvoiceIssues          TaxInvoiceIssue[]
@@ -6310,12 +6317,84 @@ model BankDeposit {
   linkedBy           User?     @relation("BankDepositLinkedBy", fields: [linkedByUserId], references: [id], onDelete: SetNull)
   linkedAt           DateTime? @map("linked_at")
   note               String?   @db.VarChar(200)
+  /// EXTRA_INCLUDED | PARTIAL | OTHER — 팀장이 잔금과 다른 금액으로 확인했을 때
+  mismatchReason     String?   @map("mismatch_reason") @db.VarChar(32)
+  /// 주인 없는 잔금을 팀장에게 마지막으로 알린 시각
+  teamRemindedAt     DateTime? @map("team_reminded_at")
+  /// 연결·무시·전원 거절 뒤 다시 알리지 않음. 연결 해제 시 비운다.
+  openReminderStoppedAt DateTime? @map("open_reminder_stopped_at")
+  noOwnerNotifiedAt  DateTime? @map("no_owner_notified_at")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  teamResponses      BankDepositTeamResponse[]
+  balanceNotices     BankDepositBalanceNotice[]
+  expectations       BankDepositExpectation[]
 
   @@unique([tenantId, dedupeKey])
   @@index([tenantId, depositedAt(sort: Desc)])
   @@index([tenantId, status, depositedAt(sort: Desc)])
   @@index([linkedInquiryId])
+  @@index([tenantId, status, openReminderStoppedAt])
   @@map("bank_deposits")
+}
+
+/// 팀장이 「내 건 아니에요」라고 한 기록
+model BankDepositTeamResponse {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  depositId    String   @map("deposit_id")
+  deposit      BankDeposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+  teamLeaderId String   @map("team_leader_id")
+  teamLeader   User     @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  /// DECLINED
+  response     String   @default("DECLINED") @db.VarChar(16)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([depositId, teamLeaderId])
+  @@index([tenantId, depositId])
+  @@map("bank_deposit_team_responses")
+}
+
+/// 잔금·총액 연결 알림을 같은 팀장에게 한 번만
+model BankDepositBalanceNotice {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  depositId    String   @map("deposit_id")
+  deposit      BankDeposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+  teamLeaderId String   @map("team_leader_id")
+  teamLeader   User     @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([depositId, teamLeaderId])
+  @@index([tenantId, depositId])
+  @@map("bank_deposit_balance_notices")
+}
+
+/// 팀장이 미리 적어 둔 회사 입금. 접수당 대기 중은 하나.
+model BankDepositExpectation {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inquiryId        String    @map("inquiry_id")
+  inquiry          Inquiry   @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  teamLeaderId     String    @map("team_leader_id")
+  teamLeader       User      @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  depositorName    String    @map("depositor_name") @db.VarChar(80)
+  amountWon        Int       @map("amount_won")
+  /// WAITING | MATCHED | CANCELLED
+  status           String    @db.VarChar(16)
+  /// 대기 중일 때만 접수 id. 끝나면 null 이라 다음 대기를 만들 수 있다.
+  waitingKey       String?   @map("waiting_key")
+  matchedDepositId String?   @map("matched_deposit_id")
+  matchedDeposit   BankDeposit? @relation(fields: [matchedDepositId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  matchedAt        DateTime? @map("matched_at")
+
+  @@unique([tenantId, waitingKey])
+  @@index([tenantId, inquiryId, status])
+  @@index([tenantId, status])
+  @@map("bank_deposit_expectations")
 }

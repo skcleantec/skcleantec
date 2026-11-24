@@ -31,6 +31,22 @@ export type BankDepositItem = {
   /** 연결된 접수·부재 요약 — 서버가 주면 표시한다 */
   linked?: BankDepositLinkedSummary | null;
   linkedByName?: string | null;
+  /** 팀장이 잔금·총액으로 확인했으면 그 이름 */
+  claimedByTeamLeaderName?: string | null;
+  /** EXTRA_INCLUDED | PARTIAL | OTHER */
+  mismatchReason?: string | null;
+  teamDeclinedCount?: number;
+  teamLeaderCount?: number;
+  /** 재직 팀장 전원이 「내 건 아니에요」 */
+  noOwner?: boolean;
+  /** 이 접수에 회사 입금 대기가 있으면 */
+  expectation?: BankDepositExpectationSummary | null;
+};
+
+export type BankDepositExpectationSummary = {
+  inquiryId: string;
+  depositorName: string;
+  amountWon: number;
 };
 
 export type BankDepositLinkedSummary = {
@@ -69,6 +85,8 @@ export type BankDepositCandidate = {
   teamLeaderNames?: string[];
   /** 이미 다른 입금이 연결된 금액 종류 */
   linkedKinds?: BankDepositKind[];
+  /** 회사 입금 대기. 없으면 null */
+  expectation?: { depositorName: string; amountWon: number } | null;
 };
 
 export type BankDepositSummary = {
@@ -291,3 +309,12 @@ export async function fetchBankDepositsByInquiries(
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
+
+/** 직원 화면 실시간 알림에 더해지는 값. 팀장·고객 전화번호는 없다. */
+export type BankDepositStaffNotice = {
+  type: 'bank_deposit';
+  v: 1;
+  event: 'new' | 'changed';
+  noOwner?: boolean;
+  claimedByTeamLeaderName?: string | null;
+};
