@@ -10,6 +10,10 @@ export type BankDepositRtPayload = {
   operatingCompanyId: string | null;
   linkedInquiryId: string | null;
   linkedKind: BankDepositKind | null;
+  /** 연결된 고객·담당 마케터·브랜드 이름. 서버가 주면 알림에 쓴다 */
+  customerName?: string | null;
+  marketerName?: string | null;
+  operatingCompanyName?: string | null;
   /** 새 입금인지, 연결 상태만 바뀐 것인지. 서버가 안 주면 undefined */
   event?: 'new' | 'changed';
 };
@@ -28,6 +32,10 @@ function parse(detail: unknown): BankDepositRtPayload | null {
     operatingCompanyId: typeof o.operatingCompanyId === 'string' ? o.operatingCompanyId : null,
     linkedInquiryId: typeof o.linkedInquiryId === 'string' ? o.linkedInquiryId : null,
     linkedKind: typeof o.linkedKind === 'string' ? (o.linkedKind as BankDepositKind) : null,
+    customerName: typeof o.customerName === 'string' && o.customerName.trim() ? o.customerName.trim() : null,
+    marketerName: typeof o.marketerName === 'string' && o.marketerName.trim() ? o.marketerName.trim() : null,
+    operatingCompanyName:
+      typeof o.operatingCompanyName === 'string' && o.operatingCompanyName.trim() ? o.operatingCompanyName.trim() : null,
     ...(o.event === 'new' || o.event === 'changed' ? { event: o.event } : {}),
   };
 }

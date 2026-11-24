@@ -73,14 +73,26 @@ export function BankDepositLiveToast({
           >
             <span className={`w-1.5 shrink-0 ${auto ? 'bg-emerald-500' : 'bg-amber-400'}`} aria-hidden />
             <button type="button" onClick={onOpen} className="min-w-0 flex-1 px-3 py-2.5 text-left hover:bg-slate-50">
-              <span className="block text-[11px] font-semibold text-slate-500">입금이 들어왔어요</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                입금이 들어왔어요
+                {item.operatingCompanyName ? (
+                  <span className="rounded bg-slate-100 px-1.5 py-px text-[10.5px] font-bold text-slate-700">{item.operatingCompanyName}</span>
+                ) : null}
+              </span>
               <span className="mt-0.5 flex items-baseline gap-1.5">
                 <span className="text-fluid-base font-extrabold tabular-nums text-slate-900">{won(item.amountWon)}</span>
-                <span className="min-w-0 truncate text-fluid-xs font-semibold text-slate-800">{item.depositorName || '입금자명 없음'}</span>
+                <span className="min-w-0 truncate text-fluid-xs font-semibold text-slate-800">
+                  {item.customerName || item.depositorName || '입금자명 없음'}
+                </span>
               </span>
+              {item.customerName && item.depositorName && item.customerName !== item.depositorName ? (
+                <span className="block truncate text-fluid-2xs text-slate-500">입금자 {item.depositorName}</span>
+              ) : null}
               <span className={`mt-0.5 block text-fluid-2xs ${auto ? 'text-emerald-800' : 'text-amber-900'}`}>
                 {auto
-                  ? `${item.linkedKind ? DEPOSIT_KIND_LABEL[item.linkedKind] : '접수'}으로 자동 연결됐어요`
+                  ? `${item.linkedKind ? DEPOSIT_KIND_LABEL[item.linkedKind] : '접수'}으로 자동 연결됐어요${
+                      item.marketerName ? ` · 담당 ${item.marketerName}` : ''
+                    }`
                   : '누구 입금인지 확인이 필요해요'}
               </span>
             </button>
