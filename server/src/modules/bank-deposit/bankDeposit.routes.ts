@@ -6,6 +6,7 @@ import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import { kstDayRangeYmd, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
+import { bankDepositFeatureDisabledBody } from './bankDepositGuard.js';
 import { DEPOSIT_KINDS, type DepositKind } from './bankDepositMatch.js';
 import {
   createBankAccount,
@@ -22,7 +23,11 @@ import {
   listBankAccounts,
   listBankDeposits,
   listBankDevices,
+  listUnparsedBankDeposits,
   registerBankDevice,
+  reportBankDepositScan,
+  requestBankDepositRescan,
+  resolveUnparsedBankDeposit,
   revokeBankDevice,
   touchBankDevice,
   unlinkBankDeposit,
@@ -40,7 +45,7 @@ function clip(value: unknown, max: number): string {
 }
 
 function featureOff(res: { status: (code: number) => { json: (body: object) => void } }): void {
-  res.status(403).json({ error: '이 업체에서 사용하지 않는 기능입니다.', code: 'feature_disabled', moduleId: 'mod_bank_deposit' });
+  res.status(403).json(bankDepositFeatureDisabledBody());
 }
 
 function bearer(req: Request): string {
@@ -106,6 +111,8 @@ bankDepositDeviceRouter.post('/ingest', async (req, res) => {
       dedupeKey: typeof row.dedupeKey === 'string' ? row.dedupeKey : '',
       text: typeof row.text === 'string' ? row.text : '',
       receivedAt: typeof row.receivedAt === 'string' ? row.receivedAt : '',
+      contentHash: typeof row.contentHash === 'string' ? row.contentHash : null,
+      source: typeof row.source === 'string' ? row.source : null,
     };
   });
   const outcome = await ingestBankDeposits(prisma, token, items);
@@ -119,7 +126,30 @@ bankDepositDeviceRouter.post('/ingest', async (req, res) => {
     });
     return;
   }
-  res.json({ results: outcome.results });
+  res.json(outcome);
+});
+
+bankDepositDeviceRouter.post('/scan-report', async (req, res) => {
+  const token = bearer(req);
+  if (!token) {
+    res.status(401).json({ error: '기기 연결이 필요해요.' });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const scanned = typeof body.scanned === 'number' ? body.scanned : Number.NaN;
+  const found = typeof body.found === 'number' ? body.found : Number.NaN;
+  const reported = await reportBankDepositScan(prisma, token, { scanned, found });
+  if ('error' in reported) {
+    if (reported.error === 'disabled') {
+      featureOff(res);
+      return;
+    }
+    res.status(reported.error === 'bad' ? 400 : 401).json({
+      error: reported.error === 'bad' ? '점검 건수를 숫자로 보내 주세요.' : '기기 연결이 끊어졌어요.',
+    });
+    return;
+  }
+  res.json(reported);
 });
 
 bankDepositDeviceRouter.post('/heartbeat', async (req, res) => {
@@ -287,6 +317,38 @@ bankDepositRouter.get('/', requireStaffPermission('inquiry.view'), async (req, r
     offset: Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0,
   });
   res.json(page);
+});
+
+bankDepositRouter.post('/devices/:id/rescan', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  if (!(await userHasStaffAdminAccess(userOf(req)))) {
+    res.status(403).json({ error: '다시 훑기는 관리자만 할 수 있어요.' });
+    return;
+  }
+  const ok = await requestBankDepositRescan(prisma, tenantId, req.params.id);
+  if (!ok) {
+    res.status(404).json({ error: '기기를 찾지 못했어요.' });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+bankDepositRouter.get('/unparsed', requireStaffPermission('inquiry.view'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  res.json(await listUnparsedBankDeposits(prisma, tenantId));
+});
+
+bankDepositRouter.post('/unparsed/:id/resolve', requireStaffPermission('inquiry.edit.basic'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const closed = await resolveUnparsedBankDeposit(prisma, tenantId, req.params.id);
+  if ('error' in closed) {
+    res.status(404).json({ error: '문자를 찾지 못했어요.' });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 bankDepositRouter.get('/summary', requireStaffPermission('inquiry.view'), async (req, res) => {

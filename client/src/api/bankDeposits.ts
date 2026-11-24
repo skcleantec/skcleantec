@@ -11,6 +11,8 @@ async function readError(res: Response): Promise<string> {
 
 export type BankDepositStatus = 'AUTO_LINKED' | 'NEEDS_REVIEW' | 'LINKED' | 'IGNORED';
 export type BankDepositKind = 'DEPOSIT' | 'BALANCE' | 'TOTAL' | 'OTHER';
+/** sms 실시간, scan 뒤늦게 가져옴, notification 알림창 */
+export type BankDepositSource = 'sms' | 'scan' | 'notification';
 
 export type BankDepositItem = {
   id: string;
@@ -28,6 +30,8 @@ export type BankDepositItem = {
   linkedAt: string | null;
   note: string | null;
   rawText: string;
+  /** sms | scan | notification. scan 이면 뒤늦게 가져온 입금 */
+  source?: BankDepositSource;
   /** 연결된 접수·부재 요약 — 서버가 주면 표시한다 */
   linked?: BankDepositLinkedSummary | null;
   linkedByName?: string | null;
@@ -91,6 +95,8 @@ export type BankDepositCandidate = {
 
 export type BankDepositSummary = {
   needsReviewCount: number;
+  /** 최근 14일, 아직 닫지 않은 해석 실패 문자. 서버는 항상 보낸다. */
+  unparsedCount?: number;
   devices: { total: number; lastSeenAt: string | null };
 };
 
@@ -110,6 +116,9 @@ export type BankDepositDeviceItem = {
   isActive: boolean;
   createdAt: string;
   revokedAt: string | null;
+  lastScanAt: string | null;
+  /** 마지막 점검에서 새로 찾은 입금 수 */
+  lastScanFound: number | null;
 };
 
 export type BankDepositAccountItem = {
@@ -139,8 +148,20 @@ export async function registerBankDepositDevice(body: {
 
 export async function ingestBankDeposits(
   deviceToken: string,
-  items: { dedupeKey: string; sender?: string; text: string; receivedAt: string }[],
-): Promise<{ results: { dedupeKey: string; result: 'stored' | 'duplicate' | 'skipped'; status?: BankDepositStatus }[] }> {
+  items: {
+    dedupeKey: string;
+    sender?: string;
+    text: string;
+    receivedAt: string;
+    /** 잔액이 포함된 원문의 64자 hex. 없으면 예전 방식으로만 중복을 본다 */
+    contentHash?: string;
+    source?: BankDepositSource;
+  }[],
+): Promise<{
+  results: { dedupeKey: string; result: 'stored' | 'duplicate' | 'skipped'; status?: BankDepositStatus }[];
+  rescan?: true;
+  sinceHours?: 48;
+}> {
   const res = await fetch(`${base}/ingest`, {
     method: 'POST',
     headers: headers(deviceToken),
@@ -150,7 +171,9 @@ export async function ingestBankDeposits(
   return res.json();
 }
 
-export async function heartbeatBankDepositDevice(deviceToken: string): Promise<{ serverTime: string }> {
+export async function heartbeatBankDepositDevice(
+  deviceToken: string,
+): Promise<{ serverTime: string; rescan?: true; sinceHours?: 48 }> {
   const res = await fetch(`${base}/heartbeat`, { method: 'POST', headers: headers(deviceToken) });
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
@@ -164,6 +187,45 @@ export async function createBankDepositLinkCode(token: string): Promise<{ code: 
 
 export async function listBankDepositDevices(token: string): Promise<{ items: BankDepositDeviceItem[] }> {
   const res = await fetch(`${base}/devices`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 관리자가 그 폰에게 최근 48시간을 다시 훑으라고 요청한다. 응답은 다음 heartbeat·ingest 에 한 번만 실린다. */
+export async function requestBankDepositRescan(token: string, id: string): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/devices/${encodeURIComponent(id)}/rescan`, { method: 'POST', headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 폰이 점검을 마친 뒤 기기 토큰으로 알린다. found 가 목록의 lastScanFound 가 된다. */
+export async function reportBankDepositScan(
+  deviceToken: string,
+  body: { scanned: number; found: number },
+): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/scan-report`, { method: 'POST', headers: headers(deviceToken), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export type BankDepositUnparsedItem = {
+  id: string;
+  /** balance_remains | unparsed */
+  reason: string;
+  /** 잔액을 지운 본문. 지워지지 않았으면 null */
+  text: string | null;
+  receivedAt: string;
+  resolvedAt: string | null;
+};
+
+export async function listUnparsedBankDeposits(token: string): Promise<{ items: BankDepositUnparsedItem[] }> {
+  const res = await fetch(`${base}/unparsed`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function resolveUnparsedBankDeposit(token: string, id: string): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/unparsed/${encodeURIComponent(id)}/resolve`, { method: 'POST', headers: headers(token) });
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
@@ -317,4 +379,5 @@ export type BankDepositStaffNotice = {
   event: 'new' | 'changed';
   noOwner?: boolean;
   claimedByTeamLeaderName?: string | null;
+  source?: BankDepositSource;
 };

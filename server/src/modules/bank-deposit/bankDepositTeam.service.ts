@@ -22,6 +22,7 @@ import {
   soleByNameAndAmount,
   teamBalanceEvent,
   teamExpectationEvent,
+  teamMobilePushAllowed,
   teamOpenEvent,
   teamResolvedEvent,
 } from './bankDepositTeam.logic.js';
@@ -73,6 +74,18 @@ async function amountBook(db: Db, tenantId: string, now: Date) {
       return contractDepositAmounts(brandId ? byBrand.get(brandId) ?? [] : all);
     },
   };
+}
+
+async function allowTeamMobile(db: Db, tenantId: string, depositId: string, fallbackAt: Date, now: Date) {
+  const row = await db.bankDeposit.findFirst({
+    where: { id: depositId, tenantId },
+    select: { source: true, depositedAt: true },
+  });
+  return teamMobilePushAllowed({
+    source: row?.source ?? 'sms',
+    depositedAt: row?.depositedAt ?? fallbackAt,
+    now,
+  });
 }
 
 async function sendLeaders(
@@ -139,6 +152,7 @@ export async function notifyBalanceLinked(
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
     }
   }
+  const allowMobile = await allowTeamMobile(db, input.tenantId, input.depositId, input.depositedAt, new Date());
   await sendLeaders(
     input.tenantId,
     fresh,
@@ -151,11 +165,13 @@ export async function notifyBalanceLinked(
       depositorName: input.depositorName,
       depositedAt: input.depositedAt.toISOString(),
     }),
-    {
-      title: '잔금이 입금됐어요',
-      body: balancePushBody(customerName, input.amountWon),
-      path: `${TEAM_PATH}?openInquiry=${encodeURIComponent(input.inquiryId)}`,
-    },
+    allowMobile
+      ? {
+          title: '잔금이 입금됐어요',
+          body: balancePushBody(customerName, input.amountWon),
+          path: `${TEAM_PATH}?openInquiry=${encodeURIComponent(input.inquiryId)}`,
+        }
+      : null,
   );
 }
 
@@ -184,9 +200,13 @@ async function notifyOpen(
     return;
   }
   if (pending.length === 0) return;
+  const allowMobile = await allowTeamMobile(db, input.tenantId, input.depositId, input.depositedAt, now);
   await db.bankDeposit.updateMany({
     where: { id: input.depositId, tenantId: input.tenantId },
-    data: { teamRemindedAt: now, openReminderStoppedAt: null },
+    data: {
+      teamRemindedAt: now,
+      openReminderStoppedAt: allowMobile ? null : now,
+    },
   });
   await sendLeaders(
     input.tenantId,
@@ -198,7 +218,9 @@ async function notifyOpen(
       depositedAt: input.depositedAt.toISOString(),
       operatingCompanyName: input.operatingCompanyName,
     }),
-    { title: '누구 고객 입금인지 확인해 주세요', body: openPushBody(input.depositorName, input.amountWon) },
+    allowMobile
+      ? { title: '누구 고객 입금인지 확인해 주세요', body: openPushBody(input.depositorName, input.amountWon) }
+      : null,
   );
 }
 
@@ -293,7 +315,7 @@ export async function tryLinkWaitingExpectation(
   });
   const deposit = await db.bankDeposit.findFirst({
     where: { id: input.depositId, tenantId: input.tenantId },
-    select: { depositedAt: true, depositorName: true, amountWon: true },
+    select: { depositedAt: true, depositorName: true, amountWon: true, source: true },
   });
   await notifyBalanceLinked(db, {
     tenantId: input.tenantId,
@@ -305,6 +327,11 @@ export async function tryLinkWaitingExpectation(
     depositedAt: deposit?.depositedAt ?? input.now,
     customerName: hit.inquiry.customerName,
   });
+  const allowMobile = teamMobilePushAllowed({
+    source: deposit?.source ?? 'sms',
+    depositedAt: deposit?.depositedAt ?? input.now,
+    now: input.now,
+  });
   await sendLeaders(
     input.tenantId,
     [{ id: hit.teamLeaderId }],
@@ -314,11 +341,13 @@ export async function tryLinkWaitingExpectation(
       customerName: hit.inquiry.customerName,
       amountWon: input.amountWon,
     }),
-    {
-      title: '입금 확인됐어요',
-      body: balancePushBody(hit.inquiry.customerName, input.amountWon),
-      path: `${TEAM_PATH}?openInquiry=${encodeURIComponent(hit.inquiryId)}`,
-    },
+    allowMobile
+      ? {
+          title: '입금 확인됐어요',
+          body: balancePushBody(hit.inquiry.customerName, input.amountWon),
+          path: `${TEAM_PATH}?openInquiry=${encodeURIComponent(hit.inquiryId)}`,
+        }
+      : null,
   );
   await notifyResolved(db, input.tenantId, input.depositId, '자동');
   return { inquiryId: hit.inquiryId, kind: 'BALANCE' as const };
@@ -513,6 +542,7 @@ export async function remindOpenDeposits(db: Db, now = new Date()) {
       depositorName: true,
       depositedAt: true,
       teamRemindedAt: true,
+      source: true,
     },
   });
   const featureOn = new Map<string, boolean>();
@@ -523,6 +553,13 @@ export async function remindOpenDeposits(db: Db, now = new Date()) {
     if (!featureOn.get(row.tenantId)) continue;
     if (!books.has(row.tenantId)) books.set(row.tenantId, await amountBook(db, row.tenantId, now));
     if (!isOpenBalanceDeposit(row.amountWon, books.get(row.tenantId)!.forBrand(row.operatingCompanyId))) continue;
+    if (!teamMobilePushAllowed({ source: row.source, depositedAt: row.depositedAt, now })) {
+      await db.bankDeposit.updateMany({
+        where: { id: row.id, tenantId: row.tenantId, openReminderStoppedAt: null },
+        data: { openReminderStoppedAt: now },
+      });
+      continue;
+    }
     const won = await db.bankDeposit.updateMany({
       where: {
         id: row.id,

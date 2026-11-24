@@ -65,6 +65,10 @@ export async function publishBankDeposit(
     claimedByTeamLeaderName?: string | null;
   },
 ) {
+  const stored = await db.bankDeposit.findFirst({
+    where: { id: row.id, tenantId: row.tenantId },
+    select: { source: true },
+  });
   const names = await depositNotifyNames(db, row.tenantId, row);
   notifyBankDeposit({
     tenantId: row.tenantId,
@@ -81,5 +85,6 @@ export async function publishBankDeposit(
     linkedKind: row.linkedKind,
     noOwner: row.noOwner,
     claimedByTeamLeaderName: row.claimedByTeamLeaderName,
+    source: stored?.source === 'scan' || stored?.source === 'notification' ? stored.source : 'sms',
   });
 }

@@ -157,3 +157,11 @@ export function teamExpectationEvent(input: {
 }) {
   return { type: 'bank_deposit:team' as const, v: 1 as const, event: 'expectation_matched' as const, ...input };
 }
+
+const SCAN_PUSH_MS = 24 * HOUR_MS;
+
+/** 점검으로 들어온 입금이 하루보다 오래됐으면 휴대폰 알림은 보내지 않는다. 화면 알림은 그대로다. */
+export function teamMobilePushAllowed(input: { source: string; depositedAt: Date; now: Date }): boolean {
+  if (input.source !== 'scan') return true;
+  return input.now.getTime() - input.depositedAt.getTime() <= SCAN_PUSH_MS;
+}

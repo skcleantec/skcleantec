@@ -16,6 +16,7 @@ export function notifyBankDeposit(row: {
   linkedKind: string | null;
   noOwner?: boolean;
   claimedByTeamLeaderName?: string | null;
+  source?: 'sms' | 'scan' | 'notification';
 }): void {
   broadcastJsonToStaff(
     {
@@ -34,6 +35,7 @@ export function notifyBankDeposit(row: {
       linkedKind: row.linkedKind,
       ...(row.noOwner ? { noOwner: true } : {}),
       ...(row.claimedByTeamLeaderName ? { claimedByTeamLeaderName: row.claimedByTeamLeaderName } : {}),
+      source: row.source ?? 'sms',
     },
     row.tenantId,
   );
