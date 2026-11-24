@@ -11,6 +11,8 @@ import { publishBankDeposit } from './bankDepositPublish.js';
 import { pushBankDepositToLeaders } from './bankDepositTeam.push.js';
 import { readBankDepositSettings, type BankDepositSettingsShape } from './bankDepositSettings.service.js';
 import { leadersOnDuty } from './bankDepositCancel.logic.js';
+import { guideAccountForLeader } from './bankDepositGuide.logic.js';
+import { guideAccountForInquiry } from './bankDepositGuide.service.js';
 import { isTeamAskDeposit, openAlertDrift } from './bankDepositSettings.logic.js';
 import {
   allLeadersDeclined,
@@ -948,16 +950,22 @@ export async function readExpectation(db: Db, tenantId: string, teamLeaderId: st
   if (!assigned) return { error: 'forbidden' as const };
   const inquiry = await db.inquiry.findFirst({
     where: { id: inquiryId, tenantId, deletedAt: null },
-    select: { customerName: true },
+    select: { customerName: true, operatingCompanyId: true },
   });
   if (!inquiry) return { error: 'missing' as const };
-  const expectation = await db.bankDepositExpectation.findFirst({
-    where: { tenantId, inquiryId, status: 'WAITING' },
-    select: { id: true, depositorName: true, amountWon: true, status: true },
-  });
+  const [expectation, storedAccount, amountWon] = await Promise.all([
+    db.bankDepositExpectation.findFirst({
+      where: { tenantId, inquiryId, status: 'WAITING' },
+      select: { id: true, depositorName: true, amountWon: true, status: true },
+    }),
+    guideAccountForInquiry(db, tenantId, inquiry.operatingCompanyId),
+    balanceOf(db, tenantId, inquiryId),
+  ]);
+  const account = guideAccountForLeader(true, storedAccount);
   return {
     expectation,
-    defaults: { depositorName: inquiry.customerName, amountWon: await balanceOf(db, tenantId, inquiryId) },
+    defaults: { depositorName: inquiry.customerName, amountWon },
+    account: account === 'hidden' ? null : account,
   };
 }
 

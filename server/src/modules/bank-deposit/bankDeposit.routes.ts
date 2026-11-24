@@ -10,6 +10,7 @@ import { bankDepositFeatureDisabledBody } from './bankDepositGuard.js';
 import { readBankDepositSettings, saveBankDepositSettings } from './bankDepositSettings.service.js';
 import { applyOpenSettings } from './bankDepositTeam.service.js';
 import { cancelBankDeposit, uncancelBankDeposit } from './bankDepositCancel.service.js';
+import { listGuideAccounts, writeGuideAccount } from './bankDepositGuide.service.js';
 import { DEPOSIT_KINDS, type DepositKind } from './bankDepositMatch.js';
 import {
   createBankAccount,
@@ -358,6 +359,37 @@ bankDepositRouter.post('/unparsed/:id/resolve', requireStaffPermission('inquiry.
   const closed = await resolveUnparsedBankDeposit(prisma, tenantId, req.params.id);
   if ('error' in closed) {
     res.status(404).json({ error: '문자를 찾지 못했어요.' });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+bankDepositRouter.get('/guide-accounts', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  if (!(await userHasStaffAdminAccess(userOf(req)))) {
+    res.status(403).json({ error: '입금 안내 계좌는 관리자만 다룰 수 있어요.' });
+    return;
+  }
+  res.json(await listGuideAccounts(prisma, tenantId));
+});
+
+bankDepositRouter.put('/guide-accounts/:operatingCompanyId', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const user = userOf(req);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const saved = await writeGuideAccount(prisma, {
+    tenantId,
+    userId: user!.userId,
+    isAdmin: await userHasStaffAdminAccess(user),
+    operatingCompanyId: req.params.operatingCompanyId,
+    bankName: body.bankName,
+    accountNumber: body.accountNumber,
+    accountHolder: body.accountHolder,
+  });
+  if (!saved.ok) {
+    res.status(saved.status).json({ error: saved.error });
     return;
   }
   res.json({ ok: true });
