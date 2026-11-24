@@ -39,13 +39,30 @@ function isLinked(row: BankDepositItem): boolean {
 function LinkedCell({ row }: { row: BankDepositItem }) {
   if (!isLinked(row)) {
     if (row.status === 'IGNORED') return <span className="text-fluid-2xs text-slate-400">{row.note?.trim() || '연결하지 않음'}</span>;
-    return <span className="text-fluid-2xs text-amber-800">누구 입금인지 골라 주세요</span>;
+    if (row.noOwner) {
+      return (
+        <span className="block text-fluid-2xs font-semibold text-rose-700">
+          팀장 모두 「내 건 아니에요」 · 사무실에서 확인해 주세요
+        </span>
+      );
+    }
+    return (
+      <span className="block text-fluid-2xs text-amber-800">
+        누구 입금인지 골라 주세요
+        {row.teamLeaderCount && row.teamLeaderCount > 0 ? (
+          <span className="ml-1 text-slate-500">
+            · 팀장 확인 중 {row.teamDeclinedCount ?? 0}/{row.teamLeaderCount}명 아님
+          </span>
+        ) : null}
+      </span>
+    );
   }
   const kind = row.linkedKind ? DEPOSIT_KIND_LABEL[row.linkedKind] : '';
   const linked = row.linked ?? null;
   const target = linked?.target ?? (row.linkedFollowupId ? 'followup' : 'inquiry');
   const name = linked?.customerName?.trim() || (target === 'followup' ? '부재·보류 고객' : '접수 고객');
   const sub = [
+    row.claimedByTeamLeaderName ? `${row.claimedByTeamLeaderName} 팀장 확인` : '',
     kind,
     linked?.preferredDate ? `청소 ${kstDayLabel(linked.preferredDate)}` : '',
     targetStatusLabel(target, linked?.status),

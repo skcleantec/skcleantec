@@ -47,8 +47,10 @@ export function BankDepositLiveToast({
     (p) => {
       const isNew = p.event ? p.event === 'new' : !seenIds.has(p.id);
       seenIds.add(p.id);
-      if (!isNew) return;
-      if (p.status !== 'AUTO_LINKED' && p.status !== 'NEEDS_REVIEW') return;
+      // 팀장 확인·주인 없음은 뒤따르는 변경이어도 알린다.
+      const teamNews = Boolean(p.noOwner || p.claimedByTeamLeaderName);
+      if (!isNew && !teamNews) return;
+      if (!teamNews && p.status !== 'AUTO_LINKED' && p.status !== 'NEEDS_REVIEW') return;
       seq.current += 1;
       const key = seq.current;
       setItems((prev) => [...prev.slice(-2), { ...p, key }]);
@@ -65,7 +67,12 @@ export function BankDepositLiveToast({
   return createPortal(
     <div className={`fixed bottom-4 right-4 z-[70] flex w-[min(320px,calc(100vw-32px))] flex-col gap-2 ${className}`} role="status" aria-live="polite">
       {items.map((item) => {
-        const auto = item.status === 'AUTO_LINKED';
+        const auto = item.status === 'AUTO_LINKED' || Boolean(item.claimedByTeamLeaderName);
+        const headline = item.noOwner
+          ? '주인을 못 찾은 입금이 있어요'
+          : item.claimedByTeamLeaderName
+            ? '팀장이 입금을 확인했어요'
+            : '입금이 들어왔어요';
         return (
           <div
             key={item.key}
@@ -74,7 +81,7 @@ export function BankDepositLiveToast({
             <span className={`w-1.5 shrink-0 ${auto ? 'bg-emerald-500' : 'bg-amber-400'}`} aria-hidden />
             <button type="button" onClick={onOpen} className="min-w-0 flex-1 px-3 py-2.5 text-left hover:bg-slate-50">
               <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                입금이 들어왔어요
+                {headline}
                 {item.operatingCompanyName ? (
                   <span className="rounded bg-slate-100 px-1.5 py-px text-[10.5px] font-bold text-slate-700">{item.operatingCompanyName}</span>
                 ) : null}
@@ -89,7 +96,11 @@ export function BankDepositLiveToast({
                 <span className="block truncate text-fluid-2xs text-slate-500">입금자 {item.depositorName}</span>
               ) : null}
               <span className={`mt-0.5 block text-fluid-2xs ${auto ? 'text-emerald-800' : 'text-amber-900'}`}>
-                {auto
+                {item.noOwner
+                  ? '팀장 모두 내 건이 아니라고 했어요. 사무실에서 확인해 주세요'
+                  : item.claimedByTeamLeaderName
+                    ? `${item.claimedByTeamLeaderName} 팀장이 ${item.linkedKind ? DEPOSIT_KIND_LABEL[item.linkedKind] : '잔금'}으로 연결했어요`
+                    : auto
                   ? `${item.linkedKind ? DEPOSIT_KIND_LABEL[item.linkedKind] : '접수'}으로 자동 연결됐어요${
                       item.marketerName ? ` · 담당 ${item.marketerName}` : ''
                     }`
