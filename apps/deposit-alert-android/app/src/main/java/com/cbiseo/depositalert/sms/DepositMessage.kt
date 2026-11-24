@@ -24,18 +24,41 @@ fun joinSmsParts(parts: List<String>): String = parts.joinToString(separator = "
 
 enum class DropReason { NoBank, NoDeposit, Blocked, BalanceLeft }
 
-/** 입금이 아니면 탈락 이유. 통과면 null. 본문은 남기지 않는다. */
+private val WITHDRAWAL = "농협 출금"
+
+/** 농협 입금과 금액 꼴이 있으면 입금이다. 이름 자리의 출금·결제·광고는 보지 않는다. */
+fun isDepositShape(text: String): Boolean {
+    return text.contains("농협") && AMOUNT.containsMatchIn(text) && !isWithdrawalLead(text)
+}
+
+/** 앞머리가 농협 출금인 조각. [Web발신]과 붙임표만 허용한다. */
+fun isWithdrawalLead(text: String): Boolean {
+    var body = text.trim()
+    while (body.startsWith("[Web발신]")) body = body.removePrefix("[Web발신]").trim()
+    body = body.trimStart { it.isWhitespace() || it == '-' }
+    return body.startsWith(WITHDRAWAL)
+}
+
+/**
+ * 입금이 아니면 탈락 이유. 통과면 null.
+ * 농협 입금+금액이면 통과한다. 농협 출금으로 시작하거나, 금액 꼴이 없거나, 농협이 아니면 버린다.
+ */
 fun dropReason(text: String): DropReason? {
-    if (text.contains("출금") || text.contains("결제") || text.contains("광고")) return DropReason.Blocked
+    if (isWithdrawalLead(text)) return DropReason.Blocked
     if (!text.contains("농협")) return DropReason.NoBank
-    if (!text.contains("입금")) return DropReason.NoDeposit
+    if (!isDepositShape(text)) return DropReason.NoDeposit
     val stripped = stripBalance(text)
     if (stripped.isEmpty() || !balanceRemoved(stripped)) return DropReason.BalanceLeft
     return null
 }
 
-/** 입금+농협만 통과. 출금·결제·광고는 기기 밖으로 내보내지 않는다. */
-fun shouldForwardDeposit(text: String): Boolean = dropReason(text) == null
+/** 한 글에 입금과 출금이 같이 있으면 나눈 뒤, 입금 조각만 돌려준다. */
+fun depositSlices(text: String): List<String> {
+    return splitBankBlob(text).filter { dropReason(it) == null }
+}
+
+/** 입금 조각이 하나라도 있으면 참. 출금 조각은 나가지 않는다. */
+fun shouldForwardDeposit(text: String): Boolean = depositSlices(text).isNotEmpty()
 
 fun stripBalance(text: String): String {
     return BALANCE.replace(text, " ")
@@ -90,8 +113,9 @@ data class DepositPreview(
 )
 
 fun previewDeposit(sender: String, rawText: String, receivedAtMillis: Long): DepositPreview {
-    val forward = shouldForwardDeposit(rawText)
-    val stripped = if (forward) stripBalance(rawText) else ""
+    val slice = depositSlices(rawText).firstOrNull().orEmpty()
+    val forward = slice.isNotEmpty()
+    val stripped = if (forward) stripBalance(slice) else ""
     val safe = forward && stripped.isNotEmpty() && balanceRemoved(stripped)
     val (amount, name) = if (safe) displayFields(stripped) else "" to ""
     return DepositPreview(
@@ -99,7 +123,7 @@ fun previewDeposit(sender: String, rawText: String, receivedAtMillis: Long): Dep
         stripped = if (safe) stripped else "",
         amountLabel = amount,
         depositorName = name,
-        dedupeKey = if (safe) dedupeKey(sender, rawText, receivedAtMillis) else "",
+        dedupeKey = if (safe) dedupeKey(sender, slice, receivedAtMillis) else "",
     )
 }
 

@@ -1,5 +1,6 @@
 package com.cbiseo.depositalert.sms
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.content.ComponentName
 import android.content.Context
@@ -66,40 +67,71 @@ class MessageNoticeReader : NotificationListenerService() {
         val notice = sbn.notification ?: return
         val draft = draftOf(sbn.packageName, notice)
         val pieces = collectNoticePieces(draft)
-        val letters = noticeMethodLetters(draft)
+        val letters = noticeMethodLetters(draft).filter { it == 'a' || it == 'b' || it == 'c' || it == 'd' }
         Log.i("DepositAlert", "notice methods=$letters pieces=${pieces.size}")
         val appContext = applicationContext
         val receivedAt = notice.`when`.takeIf { it > 0L } ?: sbn.postTime
         val missed = noticeMissedBank(pieces)
-        val depositPieces = pieces.count { dropReason(it.text) == null }
+        val depositPieces = pieces.count { isDepositShape(it.text) }
+        val nhPieces = pieces.count { it.text.contains("농협") }
+        val locked = keyguardLocked(this)
+        val summary = draft.summary
         io.launch {
             gate.withLock {
                 val store = DeviceSettings(appContext)
                 if (posted) store.noteNoticePost(receivedAt)
                 val source = if (rescan) IntakeSource.NoticeRescan else IntakeSource.Notice
-                val outcomes = ArrayList<IntakeOutcome>(pieces.size)
+                val tally = NoticeTally()
+                var recovered = false
+                if (pieces.isEmpty()) tally.noText = 1
                 for (piece in pieces) {
-                    outcomes.add(
-                        DepositIntake.accept(
-                            appContext,
-                            piece.sender,
-                            piece.text,
-                            piece.receivedAtMillis,
-                            source,
-                            piece.summary,
-                            countDup = journal,
-                        ),
-                    )
+                    when (val reason = dropReason(piece.text)) {
+                        DropReason.Blocked -> tally.withdrawal++
+                        DropReason.NoBank -> tally.notNh++
+                        DropReason.NoDeposit -> tally.noAmount++
+                        DropReason.BalanceLeft -> tally.balance++
+                        null -> when (
+                            DepositIntake.accept(
+                                appContext,
+                                piece.sender,
+                                piece.text,
+                                piece.receivedAtMillis,
+                                source,
+                                piece.summary,
+                                countDup = journal,
+                            )
+                        ) {
+                            IntakeOutcome.Queued -> {
+                                tally.sent++
+                                recovered = true
+                            }
+                            IntakeOutcome.Duplicate -> tally.alreadySent++
+                            IntakeOutcome.OtherPath -> tally.otherPath++
+                            IntakeOutcome.NotDeposit -> tally.noAmount++
+                        }
+                    }
                 }
-                val recovered = outcomes.any { it == IntakeOutcome.Queued }
                 if (journal || recovered) {
                     store.noteNoticeExtracted(pieces.size)
                     if (missed) store.noteNoticeMissed()
                     store.noteNoticeDeposits(depositPieces)
-                    val result = classifyNoticeRecord(pieces.size, outcomes, missed)
                     val shownAt = if (receivedAt > 0L) receivedAt else System.currentTimeMillis()
-                    NoticeLog(appContext).add(shownAt, pieces.size, result)
-                    Log.i("DepositAlert", "notice lines=${pieces.size} result=${noticeResultCode(result)}")
+                    NoticeLog(appContext).add(
+                        NoticeRecord(
+                            atMillis = shownAt,
+                            methods = letters,
+                            pieces = pieces.size,
+                            nhPieces = nhPieces,
+                            depositShape = depositPieces,
+                            tally = tally,
+                            locked = locked,
+                            summary = summary,
+                        ),
+                    )
+                    Log.i(
+                        "DepositAlert",
+                        "notice record methods=$letters pieces=${pieces.size} nh=$nhPieces shape=$depositPieces",
+                    )
                 }
             }
         }
@@ -144,6 +176,11 @@ class MessageNoticeReader : NotificationListenerService() {
             }
         }
     }
+}
+
+private fun keyguardLocked(context: Context): Boolean {
+    val manager = context.getSystemService(KeyguardManager::class.java) ?: return false
+    return manager.isKeyguardLocked
 }
 
 private fun draftOf(packageName: String, notice: Notification): NoticeDraft {

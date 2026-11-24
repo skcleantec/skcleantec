@@ -15,6 +15,13 @@ data class HeartbeatSnapshot(
     val missed: Int,
     val rebinds: Int,
     val sent: Int,
+    val alreadySent: Int = 0,
+    val otherPath: Int = 0,
+    val withdrawal: Int = 0,
+    val noAmount: Int = 0,
+    val notNh: Int = 0,
+    val noText: Int = 0,
+    val balance: Int = 0,
 )
 
 /** 서버가 모르는 칸은 무시한다. 문자 본문·잔액·토큰은 넣지 않는다. */
@@ -26,6 +33,13 @@ fun heartbeatBody(shot: HeartbeatSnapshot): String {
         .put("missed", shot.missed)
         .put("rebinds", shot.rebinds)
         .put("sent", shot.sent)
+        .put("alreadySent", shot.alreadySent)
+        .put("otherPath", shot.otherPath)
+        .put("withdrawal", shot.withdrawal)
+        .put("noAmount", shot.noAmount)
+        .put("notNh", shot.notNh)
+        .put("noText", shot.noText)
+        .put("balance", shot.balance)
     return JSONObject()
         .put("appVersion", shot.appVersion)
         .put("listenerConnected", shot.listenerConnected)

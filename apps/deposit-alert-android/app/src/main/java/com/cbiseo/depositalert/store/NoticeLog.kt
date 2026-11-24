@@ -2,52 +2,88 @@ package com.cbiseo.depositalert.store
 
 import android.content.Context
 import com.cbiseo.depositalert.sms.NoticeRecord
-import com.cbiseo.depositalert.sms.NoticeRecordResult
-import com.cbiseo.depositalert.sms.noticeResultCode
-import com.cbiseo.depositalert.sms.noticeResultFromCode
+import com.cbiseo.depositalert.sms.NoticeTally
+import com.cbiseo.depositalert.sms.decodeNoticeRecord
+import com.cbiseo.depositalert.sms.encodeNoticeRecord
 import com.cbiseo.depositalert.sms.trimNoticeLog
 
-/** 메시지 앱 알림을 받은 최근 20건. 시각·줄 수·결과만 두고 본문과 잔액은 넣지 않는다. */
+/** 메시지 앱 알림을 받은 최근 20건. 이유와 개수만 두고 본문·이름·잔액·계좌는 넣지 않는다. */
 class NoticeLog(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun add(atMillis: Long, lines: Int, result: NoticeRecordResult) {
-        if (atMillis <= 0L || lines < 0) return
+    fun add(record: NoticeRecord) {
+        if (record.atMillis <= 0L) return
         synchronized(lock) {
             val rows = load().toMutableList()
-            rows.add(NoticeRecord(atMillis, lines, result))
+            rows.add(record)
             save(trimNoticeLog(rows))
+            addReasons(record.tally)
         }
     }
 
     fun recent(): List<NoticeRecord> = synchronized(lock) { load().asReversed() }
+
+    fun reasonTotals(): NoticeTally = synchronized(lock) {
+        val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")).toString()
+        if (prefs.getString(KEY_DAY, "") != today) return NoticeTally()
+        NoticeTally(
+            sent = prefs.getInt(KEY_SENT, 0),
+            alreadySent = prefs.getInt(KEY_DUP, 0),
+            otherPath = prefs.getInt(KEY_OTHER, 0),
+            withdrawal = prefs.getInt(KEY_WD, 0),
+            noAmount = prefs.getInt(KEY_AMT, 0),
+            notNh = prefs.getInt(KEY_NH, 0),
+            noText = prefs.getInt(KEY_EMPTY, 0),
+            balance = prefs.getInt(KEY_BAL, 0),
+        )
+    }
+
+    private fun addReasons(tally: NoticeTally) {
+        val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")).toString()
+        val same = prefs.getString(KEY_DAY, "") == today
+        val editor = prefs.edit().putString(KEY_DAY, today)
+        fun put(key: String, add: Int) {
+            val current = if (same) prefs.getInt(key, 0) else 0
+            editor.putInt(key, current + add.coerceAtLeast(0))
+        }
+        put(KEY_SENT, tally.sent)
+        put(KEY_DUP, tally.alreadySent)
+        put(KEY_OTHER, tally.otherPath)
+        put(KEY_WD, tally.withdrawal)
+        put(KEY_AMT, tally.noAmount)
+        put(KEY_NH, tally.notNh)
+        put(KEY_EMPTY, tally.noText)
+        put(KEY_BAL, tally.balance)
+        editor.commit()
+    }
 
     private fun load(): List<NoticeRecord> {
         val raw = prefs.getString(KEY, "").orEmpty()
         if (raw.isBlank()) return emptyList()
         val rows = ArrayList<NoticeRecord>()
         for (line in raw.lineSequence()) {
-            val part = line.split('|')
-            if (part.size != 3) continue
-            val at = part[0].toLongOrNull() ?: continue
-            val count = part[1].toIntOrNull() ?: continue
-            val result = noticeResultFromCode(part[2]) ?: continue
-            if (at <= 0L || count < 0) continue
-            rows.add(NoticeRecord(at, count, result))
+            val row = decodeNoticeRecord(line) ?: continue
+            rows.add(row)
         }
         return rows
     }
 
     private fun save(rows: List<NoticeRecord>) {
-        val text = rows.joinToString("\n") { row ->
-            "${row.atMillis}|${row.lines}|${noticeResultCode(row.result)}"
-        }
-        prefs.edit().putString(KEY, text).commit()
+        prefs.edit().putString(KEY, rows.joinToString("\n") { encodeNoticeRecord(it) }).commit()
     }
 
     companion object {
         private const val PREFS = "deposit_alert_plain"
         private const val KEY = "notice_log"
+        private const val KEY_DAY = "reason_day"
+        private const val KEY_SENT = "reason_sent"
+        private const val KEY_DUP = "reason_dup"
+        private const val KEY_OTHER = "reason_other"
+        private const val KEY_WD = "reason_wd"
+        private const val KEY_AMT = "reason_amt"
+        private const val KEY_NH = "reason_nh"
+        private const val KEY_EMPTY = "reason_empty"
+        private const val KEY_BAL = "reason_bal"
         private val lock = Any()
     }
 }

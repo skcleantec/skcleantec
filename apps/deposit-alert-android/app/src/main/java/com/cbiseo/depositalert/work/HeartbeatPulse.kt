@@ -11,6 +11,7 @@ import com.cbiseo.depositalert.service.KeepAliveService
 import com.cbiseo.depositalert.sms.InboxScan
 import com.cbiseo.depositalert.sms.MessageNoticeReader
 import com.cbiseo.depositalert.store.DeviceSettings
+import com.cbiseo.depositalert.store.NoticeLog
 
 object HeartbeatPulse {
     fun send(context: Context): HeartbeatResult {
@@ -35,6 +36,7 @@ object HeartbeatPulse {
 
     private fun snapshot(context: Context): HeartbeatSnapshot {
         val settings = DeviceSettings(context)
+        val reasons = NoticeLog(context).reasonTotals()
         val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         return HeartbeatSnapshot(
             appVersion = BuildConfig.VERSION_NAME,
@@ -49,6 +51,13 @@ object HeartbeatPulse {
             missed = settings.noticeMissed(),
             rebinds = settings.noticeRebinds(),
             sent = settings.noticeSent(),
+            alreadySent = reasons.alreadySent,
+            otherPath = reasons.otherPath,
+            withdrawal = reasons.withdrawal,
+            noAmount = reasons.noAmount,
+            notNh = reasons.notNh,
+            noText = reasons.noText,
+            balance = reasons.balance,
         )
     }
 }
