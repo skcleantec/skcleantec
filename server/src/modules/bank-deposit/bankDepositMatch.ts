@@ -56,6 +56,13 @@ function positiveEqual(value: number | null, amount: number): boolean {
   return value != null && value > 0 && value === amount;
 }
 
+/** 계약금·잔금이 있으면 총액을, 총액이 있으면 계약금·잔금을 자동으로 붙이지 않는다. */
+export function overlapsLinkedKind(kind: DepositKind, blockedKinds: DepositKind[]): boolean {
+  if (kind === 'TOTAL') return blockedKinds.includes('DEPOSIT') || blockedKinds.includes('BALANCE');
+  if (kind === 'DEPOSIT' || kind === 'BALANCE') return blockedKinds.includes('TOTAL');
+  return false;
+}
+
 export function amountKinds(row: InquiryAmountRow, amountWon: number): DepositKind[] {
   const kinds: DepositKind[] = [];
   if (positiveEqual(row.depositWon, amountWon) || positiveEqual(row.orderDepositWon, amountWon)) kinds.push('DEPOSIT');
@@ -79,7 +86,8 @@ export function matchBankDeposit(input: {
     const kinds = amountKinds(row, input.amountWon);
     const single = kinds.length === 1 ? kinds[0] : null;
     const blocked = single != null && row.blockedKinds.includes(single);
-    if (nameOk && single && !blocked) full.push({ id: row.id, kind: single });
+    const overlap = single != null && overlapsLinkedKind(single, row.blockedKinds);
+    if (nameOk && single && !blocked && !overlap) full.push({ id: row.id, kind: single });
     if (!nameOk && kinds.length === 0) continue;
     const reasons: string[] = [];
     if (nameOk && single) reasons.push(`이름과 ${KIND_LABEL[single]}이 같습니다`);
@@ -88,11 +96,13 @@ export function matchBankDeposit(input: {
     else if (single) reasons.push(`${KIND_LABEL[single]} 금액만 같습니다`);
     else reasons.push('금액이 여러 칸과 같습니다');
     if (blocked && single) reasons.push(`이미 ${KIND_LABEL[single]} 입금이 연결되어 있습니다`);
+    if (overlap && single === 'TOTAL') reasons.push('이미 계약금·잔금이 들어온 접수입니다');
+    if (overlap && (single === 'DEPOSIT' || single === 'BALANCE')) reasons.push('이미 총액이 들어온 접수입니다');
     let score = 0;
     if (nameOk) score += 50;
     if (single) score += 40;
     if (kinds.length > 1) score += 20;
-    if (nameOk && single && !blocked) score += 20;
+    if (nameOk && single && !blocked && !overlap) score += 20;
     candidates.push({
       target: 'inquiry',
       id: row.id,

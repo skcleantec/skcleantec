@@ -72,6 +72,28 @@ describe('입금 맞추기', () => {
     assert.match(result.candidates[0]?.reasons.join(' ') ?? '', /이미 계약금/);
   });
 
+  it('계약금이나 잔금이 있으면 총액으로 자동 연결하지 않는다', () => {
+    const result = matchBankDeposit({
+      depositorName: '김예시',
+      amountWon: 100000,
+      inquiries: [inquiry({ id: 'inq-1', customerName: '김예시', totalWon: 100000, blockedKinds: ['DEPOSIT'] })],
+      followups: [],
+    });
+    assert.equal(result.auto, null);
+    assert.match(result.candidates[0]?.reasons.join(' ') ?? '', /이미 계약금·잔금이 들어온 접수입니다/);
+  });
+
+  it('총액이 있으면 계약금·잔금으로 자동 연결하지 않는다', () => {
+    const result = matchBankDeposit({
+      depositorName: '김예시',
+      amountWon: 80000,
+      inquiries: [inquiry({ id: 'inq-1', customerName: '김예시', balanceWon: 80000, blockedKinds: ['TOTAL'] })],
+      followups: [],
+    });
+    assert.equal(result.auto, null);
+    assert.match(result.candidates[0]?.reasons.join(' ') ?? '', /이미 총액이 들어온 접수입니다/);
+  });
+
   it('발주서 잔금과 같으면 잔금으로 잡는다', () => {
     const result = matchBankDeposit({
       depositorName: '김예시',
