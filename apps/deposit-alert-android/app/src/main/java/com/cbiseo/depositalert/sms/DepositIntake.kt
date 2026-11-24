@@ -19,8 +19,9 @@ object DepositIntake {
         rawText: String,
         receivedAtMillis: Long,
         source: IntakeSource = IntakeSource.Sms,
+        summary: Boolean = false,
     ): Boolean {
-        val queued = enqueue(context, sender, rawText, receivedAtMillis, source)
+        val queued = enqueue(context, sender, rawText, receivedAtMillis, source, summary)
         if (source == IntakeSource.Sms) InboxScan.run(context)
         return queued
     }
@@ -31,11 +32,13 @@ object DepositIntake {
         rawText: String,
         receivedAtMillis: Long,
         source: IntakeSource,
+        summary: Boolean,
     ): Boolean {
         val settings = DeviceSettings(context)
+        val notice = source == IntakeSource.Notice || source == IntakeSource.NoticeRescan
         val reason = dropReason(rawText)
         if (reason != null) {
-            if (source != IntakeSource.Scan) {
+            if (!notice && source != IntakeSource.Scan) {
                 settings.noteDrop(reason)
                 settings.noteMessage(false)
                 Log.i("DepositAlert", "not deposit")
@@ -48,12 +51,13 @@ object DepositIntake {
         val hash = contentHash(sender, rawText)
         val hashes = SentHashMemory(context)
         if (hashes.contains(hash)) {
-            if (source != IntakeSource.Scan) settings.noteMessage(true)
+            if (notice) settings.noteNoticeDup()
+            else if (source != IntakeSource.Scan) settings.noteMessage(true)
             return false
         }
         val preview = previewDeposit(sender, rawText, receivedAtMillis)
         if (!preview.forward) return false
-        if (source != IntakeSource.Scan) settings.noteMessage(true)
+        if (!notice && source != IntakeSource.Scan) settings.noteMessage(true)
         val db = DepositDatabase.get(context)
         db.pending().deleteOlderThan(System.currentTimeMillis() - SEVEN_DAYS_MS)
         Log.i("DepositAlert", "deposit queued")
@@ -71,7 +75,11 @@ object DepositIntake {
             ),
         )
         hashes.remember(hash)
-        if (inserted == -1L) return false
+        if (inserted == -1L) {
+            if (notice) settings.noteNoticeDup()
+            return false
+        }
+        if (notice) settings.noteNoticeSent(summary, source == IntakeSource.NoticeRescan)
         if (source == IntakeSource.Scan) settings.noteLateFound(1)
         flush(context)
         if (db.pending().count() > 0) DepositScheduler.enqueueUpload(context)
@@ -124,6 +132,9 @@ object DepositIntake {
             ),
         )
         db.sent().prune()
+        if (row.source == "notification" && (result == "skipped" || result == "unsent")) {
+            settings.noteNoticeRejected()
+        }
         if (result == "unsent") return
         settings.markSent(now)
         settings.setNeedsReconnect(false)

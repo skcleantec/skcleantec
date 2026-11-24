@@ -40,6 +40,18 @@
             android:textSize="14sp"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/noticeWarning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="12dp"
+            android:text="농협 문자가 채팅+로 와서, 이게 꺼지면 입금을 받을 수 없어요"
+            android:textColor="@color/danger"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
         <LinearLayout
             android:id="@+id/pairBox"
             android:layout_width="match_parent"
@@ -143,41 +155,51 @@
                 android:textColor="@color/ink" />
 
             <TextView
-                android:id="@+id/statusArrivals"
+                android:id="@+id/noticeStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="8dp"
                 android:textColor="@color/ink" />
 
             <TextView
-                android:id="@+id/statusDrops"
+                android:id="@+id/noticeStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/ink"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/noticeExtra"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:textColor="@color/muted"
                 android:textSize="13sp" />
-
-            <TextView
-                android:id="@+id/statusScan"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="@color/ink" />
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/messageNoticeSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
+                android:checked="true"
                 android:text="메시지 알림으로 받기" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="기본은 꺼짐. 삼성 메시지와 Google 메시지의 알림 글만 읽습니다."
+                android:text="기본은 켜짐. 삼성 메시지와 Google 메시지 알림만 읽습니다."
                 android:textColor="@color/muted"
                 android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/noticeRescan"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="알림 다시 확인" />
         </LinearLayout>
 
         <LinearLayout
@@ -261,6 +283,44 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="배터리 설정 열기" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="이 폰은 농협 문자가 채팅+로 와서 문자함 점검은 0건이 정상"
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/statusArrivals"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="@color/ink" />
+
+            <TextView
+                android:id="@+id/statusDrops"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/statusScan"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/ink" />
         </LinearLayout>
 
         <LinearLayout

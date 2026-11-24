@@ -1,6 +1,6 @@
 package com.cbiseo.depositalert.sms
 
-enum class IntakeSource { Sms, Notice, Scan }
+enum class IntakeSource { Sms, Notice, NoticeRescan, Scan }
 
 data class PathMarks(val sms: Boolean = false, val notice: Boolean = false)
 
@@ -23,10 +23,10 @@ val MESSAGE_NOTICE_PACKAGES = setOf(
     "com.google.android.apps.messaging",
 )
 
-/** 기본 메시지 앱의 알림 글만 돌려준다. 다른 앱은 null. */
+/** 기본 메시지 앱의 알림 글만 돌려준다. 다른 앱은 null. 요약 알림도 글이 있으면 남긴다. */
 fun messageNoticeBody(packageName: String, text: String?, bigText: String?, summary: Boolean): String? {
     if (packageName !in MESSAGE_NOTICE_PACKAGES) return null
-    if (summary) return null
+    if (summary && text.isNullOrBlank() && bigText.isNullOrBlank()) return null
     val parts = listOf(bigText, text).mapNotNull { value -> value?.trim()?.takeIf { it.isNotEmpty() } }
     return parts.maxByOrNull { it.length }
 }
