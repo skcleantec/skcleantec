@@ -131,6 +131,12 @@ export const TENANT_FEATURE_MODULES = {
     defaultOn: false,
     upsellDescription: '일정에 맞춰 팀을 미리 제안합니다.',
   },
+  mod_bank_deposit: {
+    label: '입금 확인',
+    tier: 'standard' as const,
+    defaultOn: false,
+    upsellDescription: '통장 입금 문자를 접수와 맞춰 봅니다.',
+  },
 } as const;
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
