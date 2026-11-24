@@ -377,6 +377,7 @@ model Tenant {
   bankDepositUnparsed BankDepositUnparsed[]
   bankDepositSettings BankDepositSettings?
   bankDepositTombstones BankDepositTombstone[]
+  bankDepositGuideAccounts BankDepositGuideAccount[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
   telecrmAiQuoteRules TelecrmAiQuoteRule[]
@@ -1803,6 +1804,7 @@ model OperatingCompany {
   telecrmWorkEntries         TelecrmWorkEntry[]
   bankDepositAccounts        BankDepositAccount[]
   bankDeposits               BankDeposit[]
+  bankDepositGuideAccounts  BankDepositGuideAccount[]
   telecrmAiQuoteCorrections  TelecrmAiQuoteCorrection[]
   telecrmAiQuoteLoftSettings TelecrmAiQuoteLoftSetting[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
@@ -2292,6 +2294,7 @@ model User {
   bankDepositsCreated          BankDeposit[] @relation("BankDepositCreatedBy")
   bankDepositsCancelled        BankDeposit[] @relation("BankDepositCancelledBy")
   bankDepositTombstonesDeleted BankDepositTombstone[] @relation("BankDepositTombstoneDeletedBy")
+  bankDepositGuideAccountsUpdated BankDepositGuideAccount[] @relation("BankDepositGuideAccountUpdatedBy")
   bankDepositLinkCodesCreated  BankDepositLinkCode[]
   bankDepositTeamResponses     BankDepositTeamResponse[]
   bankDepositExpectations      BankDepositExpectation[]
@@ -6489,4 +6492,22 @@ model BankDepositTombstone {
   @@index([tenantId, contentHash])
   @@index([tenantId, fingerprint])
   @@map("bank_deposit_tombstones")
+}
+
+/// 고객에게 안내할 회사 계좌. 브랜드마다 하나. 팀장 앱 「계좌입금」에만 보여 준다.
+model BankDepositGuideAccount {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String   @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  bankName           String   @map("bank_name") @db.VarChar(20)
+  accountNumber      String   @map("account_number") @db.VarChar(30)
+  accountHolder      String   @map("account_holder") @db.VarChar(40)
+  updatedByUserId    String?  @map("updated_by_user_id")
+  updatedBy          User?    @relation("BankDepositGuideAccountUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, operatingCompanyId])
+  @@map("bank_deposit_guide_accounts")
 }
