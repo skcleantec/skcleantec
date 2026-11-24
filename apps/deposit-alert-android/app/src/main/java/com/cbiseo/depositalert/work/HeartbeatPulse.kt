@@ -36,7 +36,8 @@ object HeartbeatPulse {
 
     private fun snapshot(context: Context): HeartbeatSnapshot {
         val settings = DeviceSettings(context)
-        val reasons = NoticeLog(context).reasonTotals()
+        val log = NoticeLog(context)
+        val reasons = log.reasonTotals()
         val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         return HeartbeatSnapshot(
             appVersion = BuildConfig.VERSION_NAME,
@@ -58,6 +59,8 @@ object HeartbeatPulse {
             notNh = reasons.notNh,
             noText = reasons.noText,
             balance = reasons.balance,
+            hiddenLost = log.hiddenLostTotal(),
+            lastHiddenLostAt = log.lastHiddenLostAt(),
         )
     }
 }

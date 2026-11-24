@@ -49,6 +49,7 @@ class MessageNoticeReader : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         accept(sbn, posted = false, rescan = true, journal = true)
+        readActive()
     }
 
     private fun readActive() {
@@ -57,7 +58,12 @@ class MessageNoticeReader : NotificationListenerService() {
         } catch (_: Exception) {
             null
         } ?: return
-        for (sbn in active) accept(sbn, posted = false, rescan = true, journal = false)
+        val keys = HashSet<String>()
+        for (sbn in active) {
+            if (sbn.packageName in MESSAGE_NOTICE_PACKAGES) keys.add(sbn.key)
+            accept(sbn, posted = false, rescan = true, journal = false)
+        }
+        HiddenWatchHub.markAbsentExcept(keys)
     }
 
     private fun accept(sbn: StatusBarNotification, posted: Boolean, rescan: Boolean, journal: Boolean) {
@@ -76,6 +82,14 @@ class MessageNoticeReader : NotificationListenerService() {
         val nhPieces = pieces.count { it.text.contains("농협") }
         val locked = keyguardLocked(this)
         val summary = draft.summary
+        val hidden = looksHidden(pieces.size, nhPieces)
+        when (HiddenWatchHub.see(sbn.key, hidden, System.currentTimeMillis())) {
+            SeeResult.Armed -> {
+                HiddenFollowScheduler.arm()
+                Log.i("DepositAlert", "hidden follow arm")
+            }
+            else -> Unit
+        }
         io.launch {
             gate.withLock {
                 val store = DeviceSettings(appContext)
@@ -126,6 +140,7 @@ class MessageNoticeReader : NotificationListenerService() {
                             tally = tally,
                             locked = locked,
                             summary = summary,
+                            maybeHidden = hidden,
                         ),
                     )
                     Log.i(

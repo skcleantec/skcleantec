@@ -22,6 +22,8 @@ data class HeartbeatSnapshot(
     val notNh: Int = 0,
     val noText: Int = 0,
     val balance: Int = 0,
+    val hiddenLost: Int = 0,
+    val lastHiddenLostAt: Long = 0L,
 )
 
 /** 서버가 모르는 칸은 무시한다. 문자 본문·잔액·토큰은 넣지 않는다. */
@@ -40,6 +42,7 @@ fun heartbeatBody(shot: HeartbeatSnapshot): String {
         .put("notNh", shot.notNh)
         .put("noText", shot.noText)
         .put("balance", shot.balance)
+        .put("hiddenLost", shot.hiddenLost)
     return JSONObject()
         .put("appVersion", shot.appVersion)
         .put("listenerConnected", shot.listenerConnected)
@@ -47,6 +50,7 @@ fun heartbeatBody(shot: HeartbeatSnapshot): String {
         .put("keepAliveRunning", shot.keepAliveRunning)
         .put("batteryUnrestricted", shot.batteryUnrestricted)
         .put("lastNoticeAt", shot.lastNoticeAt)
+        .put("lastHiddenLostAt", shot.lastHiddenLostAt)
         .put("counters", counters)
         .toString()
 }
