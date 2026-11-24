@@ -13,6 +13,8 @@ sealed class IngestReply {
     data class Done(val items: List<ClearedItem>) : IngestReply()
     data object Unauthorized : IngestReply()
     data object Retry : IngestReply()
+    /** 400 등, 다시 보내도 같은 거절이 나는 응답. */
+    data object Rejected : IngestReply()
 }
 
 private val OBJECT = Regex("""\{[^{}]*\}""")
@@ -22,7 +24,8 @@ private val COUNTS = Regex(""""(stored|duplicate|skipped)"\s*:\s*\d+""")
 
 fun interpretIngest(httpCode: Int, body: String, sentKeys: List<String>): IngestReply {
     if (httpCode == 401) return IngestReply.Unauthorized
-    if (httpCode !in 200..299) return IngestReply.Retry
+    if (httpCode == 429 || httpCode in 500..599) return IngestReply.Retry
+    if (httpCode !in 200..299) return IngestReply.Rejected
     val parsed = OBJECT.findAll(body).mapNotNull { match ->
         val key = KEY.find(match.value)?.groupValues?.get(1) ?: return@mapNotNull null
         val result = RESULT.find(match.value)?.groupValues?.get(1) ?: return@mapNotNull null

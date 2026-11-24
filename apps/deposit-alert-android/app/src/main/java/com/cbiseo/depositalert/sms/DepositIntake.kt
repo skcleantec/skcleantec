@@ -6,7 +6,7 @@ import com.cbiseo.depositalert.data.DepositDatabase
 import com.cbiseo.depositalert.data.PendingDeposit
 import com.cbiseo.depositalert.data.SentDeposit
 import com.cbiseo.depositalert.net.DepositApi
-import com.cbiseo.depositalert.net.IngestReply
+import com.cbiseo.depositalert.net.uploadPending
 import com.cbiseo.depositalert.store.DeviceSettings
 import com.cbiseo.depositalert.work.DepositScheduler
 
@@ -41,43 +41,40 @@ object DepositIntake {
         val token = settings.token()
         if (token.isEmpty()) return
         val api = DepositApi()
+        val base = settings.serverBase()
         repeat(10) {
             val batch = db.pending().next(20)
             if (batch.isEmpty()) return
-            when (val reply = api.ingest(settings.serverBase(), token, batch)) {
-                is IngestReply.Done -> remember(db, settings, batch, reply)
-                IngestReply.Unauthorized -> {
-                    settings.setNeedsReconnect(true)
-                    return
-                }
-                IngestReply.Retry -> return
-            }
+            val halt = uploadPending(
+                batch,
+                post = { rows -> api.ingest(base, token, rows) },
+                onCleared = { row, result -> remember(db, settings, row, result) },
+                onUnauthorized = { settings.setNeedsReconnect(true) },
+            )
+            if (halt != null) return
         }
     }
 
     private suspend fun remember(
         db: DepositDatabase,
         settings: DeviceSettings,
-        batch: List<PendingDeposit>,
-        reply: IngestReply.Done,
+        row: PendingDeposit,
+        result: String,
     ) {
-        val byKey = batch.associateBy { it.dedupeKey }
-        db.pending().deleteKeys(reply.items.map { it.dedupeKey })
+        db.pending().deleteKeys(listOf(row.dedupeKey))
         val now = System.currentTimeMillis()
-        for (item in reply.items) {
-            val row = byKey[item.dedupeKey] ?: continue
-            db.sent().insert(
-                SentDeposit(
-                    dedupeKey = row.dedupeKey,
-                    receivedAt = row.receivedAt,
-                    amountLabel = row.amountLabel,
-                    depositorName = row.depositorName,
-                    resultLabel = resultLabel(item.result),
-                    createdAt = now,
-                ),
-            )
-        }
+        db.sent().insert(
+            SentDeposit(
+                dedupeKey = row.dedupeKey,
+                receivedAt = row.receivedAt,
+                amountLabel = row.amountLabel,
+                depositorName = row.depositorName,
+                resultLabel = resultLabel(result),
+                createdAt = now,
+            ),
+        )
         db.sent().prune()
+        if (result == "unsent") return
         settings.markSent(now)
         settings.setNeedsReconnect(false)
     }

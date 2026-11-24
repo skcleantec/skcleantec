@@ -5,6 +5,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 class DepositApi {
@@ -14,11 +16,11 @@ class DepositApi {
     private val json = "application/json; charset=utf-8".toMediaType()
 
     fun register(base: String, code: String, deviceName: String, appVersion: String): RegisterReply {
-        val body = buildString {
-            append("{\"code\":").append(quote(code))
-            append(",\"deviceName\":").append(quote(deviceName))
-            append(",\"appVersion\":").append(quote(appVersion)).append('}')
-        }
+        val body = JSONObject()
+            .put("code", code)
+            .put("deviceName", deviceName)
+            .put("appVersion", appVersion)
+            .toString()
         val request = Request.Builder()
             .url("${base.trimEnd('/')}/api/bank-deposits/devices/register")
             .post(body.toRequestBody(json))
@@ -36,13 +38,10 @@ class DepositApi {
     }
 
     fun ingest(base: String, token: String, items: List<PendingDeposit>): IngestReply {
-        val payload = items.joinToString(prefix = "{\"items\":[", postfix = "]}") { row ->
-            buildString {
-                append("{\"dedupeKey\":").append(quote(row.dedupeKey))
-                append(",\"sender\":").append(quote(row.sender))
-                append(",\"text\":").append(quote(row.text))
-                append(",\"receivedAt\":").append(quote(row.receivedAt)).append('}')
-            }
+        val payload = try {
+            ingestJson(items)
+        } catch (_: Exception) {
+            return IngestReply.Rejected
         }
         val request = Request.Builder()
             .url("${base.trimEnd('/')}/api/bank-deposits/ingest")
@@ -79,13 +78,18 @@ class DepositApi {
         }
         return message
     }
+}
 
-    private fun quote(value: String): String {
-        val escaped = value
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-        return "\"$escaped\""
+fun ingestJson(items: List<PendingDeposit>): String {
+    val rows = JSONArray()
+    for (row in items) {
+        rows.put(
+            JSONObject()
+                .put("dedupeKey", row.dedupeKey)
+                .put("sender", row.sender)
+                .put("text", row.text)
+                .put("receivedAt", row.receivedAt),
+        )
     }
+    return JSONObject().put("items", rows).toString()
 }
