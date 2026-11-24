@@ -504,3 +504,10 @@ export async function saveBankDepositGuideAccount(
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
+
+/** 관리자 본인 폰으로만 예시 입금 알림을 한 번 보낸다. */
+export async function sendBankDepositPushTest(token: string): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/push-test`, { method: 'POST', headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
