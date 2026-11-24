@@ -14,6 +14,10 @@ export type BankDepositRtPayload = {
   customerName?: string | null;
   marketerName?: string | null;
   operatingCompanyName?: string | null;
+  /** 재직 팀장 전원이 「내 건 아니에요」 */
+  noOwner?: boolean;
+  /** 팀장이 자기 고객 입금으로 확인했으면 그 이름 */
+  claimedByTeamLeaderName?: string | null;
   /** 새 입금인지, 연결 상태만 바뀐 것인지. 서버가 안 주면 undefined */
   event?: 'new' | 'changed';
 };
@@ -36,6 +40,9 @@ function parse(detail: unknown): BankDepositRtPayload | null {
     marketerName: typeof o.marketerName === 'string' && o.marketerName.trim() ? o.marketerName.trim() : null,
     operatingCompanyName:
       typeof o.operatingCompanyName === 'string' && o.operatingCompanyName.trim() ? o.operatingCompanyName.trim() : null,
+    ...(o.noOwner === true ? { noOwner: true } : {}),
+    claimedByTeamLeaderName:
+      typeof o.claimedByTeamLeaderName === 'string' && o.claimedByTeamLeaderName.trim() ? o.claimedByTeamLeaderName.trim() : null,
     ...(o.event === 'new' || o.event === 'changed' ? { event: o.event } : {}),
   };
 }

@@ -27,6 +27,7 @@ import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFo
 import { OrderFormTemplateBadge } from '../../components/orderform/OrderFormTemplateInfo';
 import { TeamQuotationInquiryLinkPanel } from '../../components/quotations/TeamQuotationInquiryLinkPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
+import { TeamDepositExpectationBox } from '../../components/bank-deposit/TeamDepositExpectationBox';
 import { TeamHouseholdLedgerInquiryAddPanel } from '../../components/team/TeamHouseholdLedgerInquiryAddPanel';
 import { TeamNaviLaunchButton } from '../../components/team/TeamNaviLaunchButton';
 import { PartnerReceivedBanner } from '../../components/admin/PartnerReceivedBanner';
@@ -2186,6 +2187,9 @@ export function TeamInquiryDetailModal({
               tenantShare={item.tenantShare ?? null}
               compact={isExternalCompact}
             />
+            {teamToken && viewerMe?.role === 'TEAM_LEADER' ? (
+              <TeamDepositExpectationBox token={teamToken} inquiryId={item.id} />
+            ) : null}
             {teamToken && viewerMe?.role === 'TEAM_LEADER' ? (
               <TeamModalSection
                 compact={isExternalCompact}

@@ -39,6 +39,7 @@ import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
+import { TeamBankDepositCenter } from '../bank-deposit/TeamBankDepositCenter';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
@@ -870,6 +871,10 @@ export function TeamLayout() {
     <NavFavoritesProvider app="team" tenantSlug={tenantSlug} userId={viewerUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
       <CardPaymentApprovedAlert token={teamToken} enabled={Boolean(teamToken)} />
+      <TeamBankDepositCenter
+        token={teamToken}
+        enabled={Boolean(teamToken && tenantFeatures && hasFeature(tenantFeatures, 'mod_bank_deposit'))}
+      />
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 max-lg:bg-[#edf0f5]" aria-hidden="true">
         <div className="hidden lg:block absolute -top-[20%] -left-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-indigo-500/16 to-purple-500/10 blur-[100px] opacity-80" />
