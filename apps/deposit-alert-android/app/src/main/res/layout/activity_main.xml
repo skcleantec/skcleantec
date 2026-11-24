@@ -129,6 +129,28 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:textColor="@color/ink" />
+
+            <TextView
+                android:id="@+id/statusArrivals"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/ink" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/messageNoticeSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="메시지 알림으로 받기" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="기본은 꺼짐. 삼성 메시지와 Google 메시지의 알림 글만 읽습니다."
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -167,6 +189,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="배터리 절약 제외" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/messageNoticePermission"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="메시지 알림 접근" />
         </LinearLayout>
 
         <LinearLayout

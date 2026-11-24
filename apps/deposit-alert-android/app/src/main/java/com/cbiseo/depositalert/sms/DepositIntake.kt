@@ -13,9 +13,21 @@ import com.cbiseo.depositalert.work.DepositScheduler
 private const val SEVEN_DAYS_MS = 7L * 24 * 60 * 60 * 1000
 
 object DepositIntake {
-    suspend fun accept(context: Context, sender: String, rawText: String, receivedAtMillis: Long) {
+    suspend fun accept(
+        context: Context,
+        sender: String,
+        rawText: String,
+        receivedAtMillis: Long,
+        source: IntakeSource = IntakeSource.Sms,
+    ) {
+        if (!ArrivalMemory(context).admit(rawText, receivedAtMillis, source)) return
+        val settings = DeviceSettings(context)
         val preview = previewDeposit(sender, rawText, receivedAtMillis)
-        if (!preview.forward) return
+        settings.noteMessage(preview.forward)
+        if (!preview.forward) {
+            Log.i("DepositAlert", "not deposit")
+            return
+        }
         val db = DepositDatabase.get(context)
         db.pending().deleteOlderThan(System.currentTimeMillis() - SEVEN_DAYS_MS)
         Log.i("DepositAlert", "deposit queued")

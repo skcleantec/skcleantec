@@ -48,6 +48,15 @@ fun receivedAtIso(receivedAtMillis: Long): String {
 /** 키에만 원문을 쓴다. 해시를 만든 뒤 원문은 저장하지 않는다. */
 fun dedupeKey(sender: String, rawText: String, receivedAtMillis: Long): String {
     val material = sender.trim() + "\n" + rawText + "\n" + receivedMinuteKey(receivedAtMillis)
+    return sha256(material)
+}
+
+/** 문자 방송과 메시지 알림이 같은 입금을 두 번 보내지 않게, 잔액을 지운 본문과 분만 해시한다. */
+fun crossPathKey(rawText: String, receivedAtMillis: Long): String {
+    return sha256(stripBalance(rawText) + "\n" + receivedMinuteKey(receivedAtMillis))
+}
+
+private fun sha256(material: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(material.toByteArray(Charsets.UTF_8))
     return digest.joinToString(separator = "") { byte -> "%02x".format(byte) }
 }

@@ -24,7 +24,7 @@ class SmsReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                DepositIntake.accept(context.applicationContext, sender, body, receivedAt)
+                DepositIntake.accept(context.applicationContext, sender, body, receivedAt, IntakeSource.Sms)
             } finally {
                 pending.finish()
             }
