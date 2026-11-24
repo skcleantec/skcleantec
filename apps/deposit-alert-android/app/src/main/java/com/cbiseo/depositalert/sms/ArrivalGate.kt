@@ -1,6 +1,6 @@
 package com.cbiseo.depositalert.sms
 
-enum class IntakeSource { Sms, Notice }
+enum class IntakeSource { Sms, Notice, Scan }
 
 data class PathMarks(val sms: Boolean = false, val notice: Boolean = false)
 
@@ -9,6 +9,7 @@ data class PathMarks(val sms: Boolean = false, val notice: Boolean = false)
  * 다른 경로가 이미 같은 분·같은 본문을 받았으면 막는다.
  */
 fun admitPath(marks: PathMarks, source: IntakeSource): Pair<Boolean, PathMarks> {
+    if (source == IntakeSource.Scan) return true to marks
     val mine = if (source == IntakeSource.Sms) marks.sms else marks.notice
     val other = if (source == IntakeSource.Sms) marks.notice else marks.sms
     if (other && !mine) return false to marks

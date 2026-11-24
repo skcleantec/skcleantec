@@ -70,6 +70,48 @@ class DeviceSettings(context: Context) {
         }
     }
 
+    fun noteDrop(reason: com.cbiseo.depositalert.sms.DropReason, times: Int = 1) {
+        if (times <= 0) return
+        noteDrops(mapOf(reason to times))
+    }
+
+    fun noteDrops(counts: Map<com.cbiseo.depositalert.sms.DropReason, Int>) {
+        if (counts.values.none { it > 0 }) return
+        synchronized(lock) {
+            val editor = plain.edit()
+            for ((reason, count) in counts) {
+                if (count <= 0) continue
+                val key = dropKey(reason)
+                editor.putInt(key, plain.getInt(key, 0) + count)
+            }
+            editor.commit()
+        }
+    }
+
+    fun dropCount(reason: com.cbiseo.depositalert.sms.DropReason): Int = plain.getInt(dropKey(reason), 0)
+
+    fun lateFoundToday(): Int {
+        if (plain.getString(KEY_LATE_DAY, "") != todayKey()) return 0
+        return plain.getInt(KEY_LATE_COUNT, 0)
+    }
+
+    fun noteLateFound(count: Int) {
+        if (count <= 0) return
+        synchronized(lock) {
+            val today = todayKey()
+            val current = if (plain.getString(KEY_LATE_DAY, "") == today) plain.getInt(KEY_LATE_COUNT, 0) else 0
+            plain.edit().putString(KEY_LATE_DAY, today).putInt(KEY_LATE_COUNT, current + count).commit()
+        }
+    }
+
+    fun lastScanAt(): Long = plain.getLong(KEY_SCAN_AT, 0L)
+
+    fun lastScanFound(): Int = plain.getInt(KEY_SCAN_FOUND, 0)
+
+    fun markScan(at: Long, found: Int) {
+        plain.edit().putLong(KEY_SCAN_AT, at).putInt(KEY_SCAN_FOUND, found).commit()
+    }
+
     fun listen(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
         plain.registerOnSharedPreferenceChangeListener(listener)
     }
@@ -102,6 +144,21 @@ class DeviceSettings(context: Context) {
         private const val KEY_MESSAGE_NOTICE = "message_notice"
         private const val KEY_RECEIVED = "received_count"
         private const val KEY_DEPOSIT = "deposit_count"
+        private const val KEY_LATE_DAY = "late_day"
+        private const val KEY_LATE_COUNT = "late_count"
+        private const val KEY_SCAN_AT = "scan_at"
+        private const val KEY_SCAN_FOUND = "scan_found"
         private val lock = Any()
+
+        private fun todayKey(): String {
+            return java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")).toString()
+        }
+
+        private fun dropKey(reason: com.cbiseo.depositalert.sms.DropReason): String = when (reason) {
+            com.cbiseo.depositalert.sms.DropReason.NoBank -> "drop_no_bank"
+            com.cbiseo.depositalert.sms.DropReason.NoDeposit -> "drop_no_deposit"
+            com.cbiseo.depositalert.sms.DropReason.Blocked -> "drop_blocked"
+            com.cbiseo.depositalert.sms.DropReason.BalanceLeft -> "drop_balance"
+        }
     }
 }

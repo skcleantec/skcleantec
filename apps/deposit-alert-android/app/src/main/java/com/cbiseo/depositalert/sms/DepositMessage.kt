@@ -22,11 +22,20 @@ private val ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
 fun joinSmsParts(parts: List<String>): String = parts.joinToString(separator = "") { it }
 
-/** 입금+농협만 통과. 출금·결제·광고는 기기 밖으로 내보내지 않는다. */
-fun shouldForwardDeposit(text: String): Boolean {
-    if (text.contains("출금") || text.contains("결제") || text.contains("광고")) return false
-    return text.contains("입금") && text.contains("농협")
+enum class DropReason { NoBank, NoDeposit, Blocked, BalanceLeft }
+
+/** 입금이 아니면 탈락 이유. 통과면 null. 본문은 남기지 않는다. */
+fun dropReason(text: String): DropReason? {
+    if (text.contains("출금") || text.contains("결제") || text.contains("광고")) return DropReason.Blocked
+    if (!text.contains("농협")) return DropReason.NoBank
+    if (!text.contains("입금")) return DropReason.NoDeposit
+    val stripped = stripBalance(text)
+    if (stripped.isEmpty() || !balanceRemoved(stripped)) return DropReason.BalanceLeft
+    return null
 }
+
+/** 입금+농협만 통과. 출금·결제·광고는 기기 밖으로 내보내지 않는다. */
+fun shouldForwardDeposit(text: String): Boolean = dropReason(text) == null
 
 fun stripBalance(text: String): String {
     return BALANCE.replace(text, " ")
@@ -43,6 +52,17 @@ fun receivedMinuteKey(receivedAtMillis: Long): String {
 
 fun receivedAtIso(receivedAtMillis: Long): String {
     return Instant.ofEpochMilli(receivedAtMillis).atZone(SEOUL).format(ISO)
+}
+
+/** 보낸이와 잔액이 들어 있는 원문만 해시한다. 받은 시각은 넣지 않는다. */
+fun contentHash(sender: String, rawText: String): String {
+    return sha256(sender.trim() + "\n" + rawText)
+}
+
+fun sourceLabel(source: IntakeSource): String = when (source) {
+    IntakeSource.Sms -> "sms"
+    IntakeSource.Notice -> "notification"
+    IntakeSource.Scan -> "scan"
 }
 
 /** 키에만 원문을 쓴다. 해시를 만든 뒤 원문은 저장하지 않는다. */

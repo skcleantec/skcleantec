@@ -1,0 +1,39 @@
+package com.cbiseo.depositalert.sms
+
+const val SCAN_WINDOW_MS = 48L * 60 * 60 * 1000
+
+data class InboxLine(val sender: String, val body: String, val receivedAtMillis: Long)
+
+data class ScanChoice(
+    val scanned: Int,
+    val picks: List<InboxLine>,
+    val drops: Map<DropReason, Int>,
+)
+
+/** 최근 48시간 안에서 농협 입금만 고른다. 이미 보낸 contentHash 는 빼다. */
+fun chooseScan(
+    lines: List<InboxLine>,
+    already: Set<String>,
+    nowMillis: Long,
+    windowMs: Long = SCAN_WINDOW_MS,
+): ScanChoice {
+    val drops = linkedMapOf<DropReason, Int>()
+    val picks = mutableListOf<InboxLine>()
+    val seen = HashSet(already)
+    var scanned = 0
+    for (line in lines) {
+        if (line.receivedAtMillis <= 0L) continue
+        val age = nowMillis - line.receivedAtMillis
+        if (age < 0L || age > windowMs) continue
+        scanned++
+        val reason = dropReason(line.body)
+        if (reason != null) {
+            drops[reason] = (drops[reason] ?: 0) + 1
+            continue
+        }
+        val hash = contentHash(line.sender, line.body)
+        if (!seen.add(hash)) continue
+        picks.add(line)
+    }
+    return ScanChoice(scanned, picks, drops)
+}

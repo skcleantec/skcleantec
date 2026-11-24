@@ -10,7 +10,7 @@ sealed class RegisterReply {
 }
 
 sealed class IngestReply {
-    data class Done(val items: List<ClearedItem>) : IngestReply()
+    data class Done(val items: List<ClearedItem>, val rescan: Boolean = false) : IngestReply()
     data object Unauthorized : IngestReply()
     data object Retry : IngestReply()
     /** 400 등, 다시 보내도 같은 거절이 나는 응답. */
@@ -21,22 +21,24 @@ private val OBJECT = Regex("""\{[^{}]*\}""")
 private val KEY = Regex(""""dedupeKey"\s*:\s*"([^"]+)"""")
 private val RESULT = Regex(""""result"\s*:\s*"(stored|duplicate|skipped)"""")
 private val COUNTS = Regex(""""(stored|duplicate|skipped)"\s*:\s*\d+""")
+private val RESCAN = Regex(""""rescan"\s*:\s*true""")
 
 fun interpretIngest(httpCode: Int, body: String, sentKeys: List<String>): IngestReply {
     if (httpCode == 401) return IngestReply.Unauthorized
     if (httpCode == 429 || httpCode in 500..599) return IngestReply.Retry
     if (httpCode !in 200..299) return IngestReply.Rejected
+    val rescan = RESCAN.containsMatchIn(body)
     val parsed = OBJECT.findAll(body).mapNotNull { match ->
         val key = KEY.find(match.value)?.groupValues?.get(1) ?: return@mapNotNull null
         val result = RESULT.find(match.value)?.groupValues?.get(1) ?: return@mapNotNull null
         ClearedItem(key, result)
     }.toList()
-    if (parsed.isNotEmpty()) return IngestReply.Done(parsed)
+    if (parsed.isNotEmpty()) return IngestReply.Done(parsed, rescan)
     if (COUNTS.containsMatchIn(body)) {
-        return IngestReply.Done(sentKeys.map { ClearedItem(it, "stored") })
+        return IngestReply.Done(sentKeys.map { ClearedItem(it, "stored") }, rescan)
     }
     if (sentKeys.isNotEmpty() && body.isBlank()) {
-        return IngestReply.Done(sentKeys.map { ClearedItem(it, "stored") })
+        return IngestReply.Done(sentKeys.map { ClearedItem(it, "stored") }, rescan)
     }
     return IngestReply.Retry
 }
