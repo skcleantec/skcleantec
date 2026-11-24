@@ -201,7 +201,7 @@ export function BankDepositPanel({ token }: { token: string }) {
     (p) => {
       if (dateRef.current === kstTodayYmd()) {
         void loadRef.current({ quiet: true });
-        setFreshIds((prev) => new Set(prev).add(p.id));
+        if (p.event !== 'changed') setFreshIds((prev) => new Set(prev).add(p.id));
         setTimeout(() => {
           setFreshIds((prev) => {
             const next = new Set(prev);

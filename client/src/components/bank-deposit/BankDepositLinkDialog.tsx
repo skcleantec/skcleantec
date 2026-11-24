@@ -66,7 +66,7 @@ function CandidateRow({
             <span className="text-fluid-2xs text-slate-500">{c.nickname.trim()}</span>
           ) : null}
           <Tag>{c.target === 'inquiry' ? '접수' : '부재·보류'}</Tag>
-          {status ? <Tag>{status}</Tag> : null}
+          {status && status !== '접수' ? <Tag>{status}</Tag> : null}
           {c.phoneTail ? <span className="text-fluid-2xs tabular-nums text-slate-500">끝번호 {c.phoneTail}</span> : null}
         </span>
         {c.preferredDate || c.addressShort ? (
