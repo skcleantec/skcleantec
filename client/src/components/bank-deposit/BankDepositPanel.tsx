@@ -392,9 +392,9 @@ export function BankDepositPanel({ token }: { token: string }) {
               <table className="w-full table-fixed text-left">
                 <thead>
                   <tr className="border-b border-slate-100 text-fluid-2xs font-semibold text-slate-500">
-                    <th className="w-[84px] px-4 py-2">시각</th>
+                    <th className="w-[104px] px-4 py-2">시각</th>
                     <th className="w-[120px] px-2 py-2 text-right">금액</th>
-                    <th className="w-[150px] px-4 py-2">입금자</th>
+                    <th className="w-[220px] px-4 py-2">입금자</th>
                     <th className="w-[104px] px-2 py-2">상태</th>
                     <th className="px-2 py-2">연결된 고객</th>
                     <th className="w-[190px] px-4 py-2" />
@@ -408,7 +408,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                         freshIds.has(row.id) ? 'bg-emerald-50' : row.status === 'IGNORED' ? 'bg-slate-50/60' : ''
                       }`}
                     >
-                      <td className="px-4 py-2.5 text-fluid-xs tabular-nums text-slate-600">{kstTime(row.depositedAt)}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-fluid-xs tabular-nums text-slate-600">{kstTime(row.depositedAt)}</td>
                       <td
                         className={`px-2 py-2.5 text-right text-fluid-sm font-bold tabular-nums ${
                           row.status === 'IGNORED' ? 'text-slate-400' : 'text-slate-900'
