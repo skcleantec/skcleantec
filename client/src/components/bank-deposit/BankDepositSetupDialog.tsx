@@ -216,7 +216,7 @@ export function BankDepositSetupDialog({
             <section>
               <p className="text-fluid-xs font-bold text-slate-900">입금 받는 통장</p>
               <p className="mt-0.5 text-fluid-2xs leading-relaxed text-slate-600">
-                통장을 등록해야 그 통장으로 들어온 입금을 브랜드의 접수와 자동으로 맞춥니다. 등록하지 않은 통장의 입금은 모두 「확인 필요」로 남아요.
+                통장을 등록해야 그 통장으로 들어온 입금을 브랜드의 접수와 자동으로 맞춥니다. 등록하지 않은 통장의 입금은 모두 「확인 필요」로 남아요. 계좌는 입금 문자에 보이는 그대로(별표 포함) 적어 주세요.
               </p>
               {accounts.length > 0 ? (
                 <ul className="mt-1.5 divide-y divide-slate-100 rounded-lg border border-slate-200">
@@ -270,7 +270,7 @@ export function BankDepositSetupDialog({
                   value={accountMask}
                   onChange={(e) => setAccountMask(e.target.value)}
                   aria-label="문자에 보이는 계좌"
-                  placeholder="문자에 보이는 그대로 (예: 000-****-0000-00)"
+                  placeholder="000-****-0000-00"
                   className="h-9 min-w-0 rounded-lg border border-slate-300 px-2.5 text-fluid-xs tabular-nums text-slate-900 placeholder:text-slate-400"
                 />
                 <Button size="md" onClick={() => void addAccount()} disabled={!brandId || !accountMask.trim() || adding}>
