@@ -27,7 +27,11 @@ import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFo
 import { OrderFormTemplateBadge } from '../../components/orderform/OrderFormTemplateInfo';
 import { TeamQuotationInquiryLinkPanel } from '../../components/quotations/TeamQuotationInquiryLinkPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
-import { TeamDepositExpectationBox } from '../../components/bank-deposit/TeamDepositExpectationBox';
+import {
+  TeamDepositExpectationBox,
+  TeamDepositRequestDialog,
+  useTeamDepositExpectation,
+} from '../../components/bank-deposit/TeamDepositExpectationBox';
 import { TeamHouseholdLedgerInquiryAddPanel } from '../../components/team/TeamHouseholdLedgerInquiryAddPanel';
 import { TeamNaviLaunchButton } from '../../components/team/TeamNaviLaunchButton';
 import { PartnerReceivedBanner } from '../../components/admin/PartnerReceivedBanner';
@@ -1388,7 +1392,9 @@ export function TeamInquiryDetailModal({
     viewerMe?.role !== 'EXTERNAL_PARTNER' &&
     !viewerMe?.previewExternal;
   const showCashbill = Boolean(teamToken) && viewerMe?.canIssueCashbill === true;
-  const footerActionCount = (showCardPayment ? 1 : 0) + (showCashbill ? 1 : 0) + 1;
+  const depositCtl = useTeamDepositExpectation(teamToken, item?.id ?? '', viewerMe?.role === 'TEAM_LEADER');
+  const showBankDeposit = depositCtl.available;
+  const footerActionCount = (showCardPayment ? 1 : 0) + (showBankDeposit ? 1 : 0) + (showCashbill ? 1 : 0) + 1;
 
   const handleOpenCardPayment = useCallback(() => {
     const token = getTeamToken();
@@ -2187,9 +2193,7 @@ export function TeamInquiryDetailModal({
               tenantShare={item.tenantShare ?? null}
               compact={isExternalCompact}
             />
-            {teamToken && viewerMe?.role === 'TEAM_LEADER' ? (
-              <TeamDepositExpectationBox token={teamToken} inquiryId={item.id} />
-            ) : null}
+            <TeamDepositExpectationBox token={teamToken} inquiryId={item.id} ctl={depositCtl} />
             {teamToken && viewerMe?.role === 'TEAM_LEADER' ? (
               <TeamModalSection
                 compact={isExternalCompact}
@@ -2518,7 +2522,7 @@ export function TeamInquiryDetailModal({
             </button>
           ) : null}
           <div
-            className={`grid gap-1.5 ${footerActionCount >= 3 ? 'grid-cols-3' : footerActionCount === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}
+            className={`grid gap-1.5 ${footerActionCount >= 4 ? 'grid-cols-4' : footerActionCount === 3 ? 'grid-cols-3' : footerActionCount === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}
           >
             {showCardPayment ? (
               <button
@@ -2529,6 +2533,16 @@ export function TeamInquiryDetailModal({
                 disabled={cardPayChecking}
               >
                 {teamBiPlain('team.modal.cardPayment')}
+              </button>
+            ) : null}
+            {showBankDeposit ? (
+              <button
+                type="button"
+                onClick={() => depositCtl.setOpen(true)}
+                className={teamFooterActionPrimaryClass}
+                title="잔금을 회사 계좌로 받을 때 — 입금자명을 적어 두면 입금되는 순간 알려 드려요"
+              >
+                계좌입금
               </button>
             ) : null}
             {showCashbill ? (
@@ -2545,6 +2559,7 @@ export function TeamInquiryDetailModal({
             </button>
           </div>
         </footer>
+        {teamToken && showBankDeposit ? <TeamDepositRequestDialog token={teamToken} inquiryId={item.id} ctl={depositCtl} /> : null}
       </div>
     </div>
   );

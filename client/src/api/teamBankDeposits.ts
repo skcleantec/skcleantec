@@ -39,6 +39,9 @@ export type TeamDepositExpectation = {
   status: 'WAITING' | 'MATCHED' | 'CANCELLED' | string;
 };
 
+/** 고객에게 안내할 회사 계좌 — 관리자 전용 › 사업자 정보에 적어 둔 것 */
+export type TeamDepositGuideAccount = { bankName: string; accountNumber: string; accountHolder: string };
+
 export type TeamDepositMismatchReason = 'EXTRA_INCLUDED' | 'PARTIAL' | 'OTHER';
 
 const base = `${API}/team`;
@@ -86,7 +89,11 @@ export async function declineTeamBankDeposit(token: string, depositId: string): 
 export async function fetchDepositExpectation(
   token: string,
   inquiryId: string,
-): Promise<{ expectation: TeamDepositExpectation | null; defaults: { depositorName: string; amountWon: number | null } }> {
+): Promise<{
+  expectation: TeamDepositExpectation | null;
+  defaults: { depositorName: string; amountWon: number | null };
+  account?: TeamDepositGuideAccount | null;
+}> {
   const res = await fetch(`${base}/inquiries/${encodeURIComponent(inquiryId)}/deposit-expectation`, {
     headers: { Authorization: `Bearer ${token}` },
   });
