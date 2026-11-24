@@ -98,6 +98,7 @@ import {
   InspectionCustomerViewPage,
   PublicReceiptPage,
   AdminReviewPaybackPage,
+  AdminBankDepositPage,
   AdminCsPage,
   AdminLandingContactLayout,
   AdminLandingContactListPage,
@@ -297,6 +298,7 @@ function App() {
             <Route path="bulk-excel/history" element={<SuspensePage><AdminInquiryExcelHistoryPage /></SuspensePage>} />
             <Route path="followup" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route path="review-payback" element={<SuspensePage><AdminReviewPaybackPage /></SuspensePage>} />
+            <Route path="deposits" element={<SuspensePage><AdminBankDepositPage /></SuspensePage>} />
             <Route path="card-payment/pg/apply" element={<Navigate to="/admin/team-leaders/pg-onboarding/apply" replace />} />
             <Route path="card-payment/pg" element={<Navigate to="/admin/team-leaders/card-payment/pg" replace />} />
             <Route path="card-payment" element={<Navigate to="/admin/team-leaders/card-payment" replace />} />

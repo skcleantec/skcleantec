@@ -28,6 +28,19 @@ export type BankDepositItem = {
   linkedAt: string | null;
   note: string | null;
   rawText: string;
+  /** 연결된 접수·부재 요약 — 서버가 주면 표시한다 */
+  linked?: BankDepositLinkedSummary | null;
+  linkedByName?: string | null;
+};
+
+export type BankDepositLinkedSummary = {
+  target: 'inquiry' | 'followup';
+  id: string;
+  customerName: string;
+  nickname?: string | null;
+  preferredDate?: string | null;
+  status?: string | null;
+  inquiryNumber?: string | null;
 };
 
 export type BankDepositCounts = { today: number; autoLinked: number; needsReview: number; ignored: number };
@@ -38,6 +51,31 @@ export type BankDepositCandidate = {
   score: number;
   kind: BankDepositKind | null;
   reasons: string[];
+  customerName?: string;
+  nickname?: string | null;
+  phoneTail?: string | null;
+  preferredDate?: string | null;
+  addressShort?: string | null;
+  status?: string | null;
+  inquiryNumber?: string | null;
+  depositWon?: number | null;
+  balanceWon?: number | null;
+  totalWon?: number | null;
+  /** 이미 다른 입금이 연결된 금액 종류 */
+  linkedKinds?: BankDepositKind[];
+};
+
+export type BankDepositSummary = {
+  needsReviewCount: number;
+  devices: { total: number; lastSeenAt: string | null };
+};
+
+export type BankDepositInquiryBrief = {
+  id: string;
+  kind: BankDepositKind | null;
+  amountWon: number;
+  depositedAt: string;
+  depositorName: string;
 };
 
 export type BankDepositDeviceItem = {
@@ -210,6 +248,38 @@ export async function fetchBankDepositsByInquiry(
   inquiryId: string,
 ): Promise<{ items: BankDepositItem[] }> {
   const res = await fetch(`${base}/by-inquiry/${encodeURIComponent(inquiryId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 입금 문자의 주인을 이름·전화 끝자리로 직접 찾는다. */
+export async function searchBankDepositTargets(
+  token: string,
+  id: string,
+  q: string,
+): Promise<{ candidates: BankDepositCandidate[] }> {
+  const res = await fetch(`${base}/${encodeURIComponent(id)}/search?q=${encodeURIComponent(q)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 메뉴 배지·폰 연결 상태. 접수 보기 권한이면 볼 수 있다. */
+export async function fetchBankDepositSummary(token: string): Promise<BankDepositSummary> {
+  const res = await fetch(`${base}/summary`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 접수 여러 건의 입금 표시를 한 번에. */
+export async function fetchBankDepositsByInquiries(
+  token: string,
+  inquiryIds: string[],
+): Promise<{ byInquiry: Record<string, BankDepositInquiryBrief[]> }> {
+  const res = await fetch(`${base}/by-inquiries?ids=${encodeURIComponent(inquiryIds.join(','))}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(await readError(res));

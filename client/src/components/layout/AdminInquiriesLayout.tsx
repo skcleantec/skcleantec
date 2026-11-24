@@ -16,10 +16,12 @@ import {
 } from '../../utils/filterAdminSideNavByPermissions';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
 import { useInquiriesSubNavBadges } from '../../utils/adminInquiriesNavBadges';
+import { useBankDepositNavBadge } from '../bank-deposit/bankDepositNavBadge';
 import { StaffWorkflowGuideBar } from '../admin/workflow-guide/StaffWorkflowGuideBar';
 
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
+const DEPOSITS_PATH = '/admin/inquiries/deposits';
 const CS_PATH = '/admin/inquiries/cs';
 const LEADS_PATH = '/admin/inquiries/leads';
 
@@ -30,11 +32,15 @@ export function AdminInquiriesLayout() {
   const { features, plan } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
   const { badges } = useInquiriesSubNavBadges(ready && Boolean(token));
+  const depositReviewCount = useBankDepositNavBadge(ready && Boolean(token));
 
   const navItems = useMemo(() => {
     const withBadge = ADMIN_INQUIRIES_NAV_ITEMS.map((item) => {
       if (item.type === 'link' && item.to === REVIEW_PAYBACK_PATH) {
         return { ...item, badge: badges.reviewPaybackUnseenCount };
+      }
+      if (item.type === 'link' && item.to === DEPOSITS_PATH) {
+        return { ...item, badge: depositReviewCount };
       }
       if (item.type === 'link' && item.to === CS_PATH) {
         return { ...item, badge: badges.csPendingCount };
@@ -46,7 +52,7 @@ export function AdminInquiriesLayout() {
     });
     const byFeature = filterAdminSideNavItems(withBadge, features, plan);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [badges, features, plan, staffMe]);
+  }, [badges, depositReviewCount, features, plan, staffMe]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),

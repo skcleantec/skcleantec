@@ -124,6 +124,7 @@ import { AdminInspectionPanel } from '../../components/inquiry-inspection/AdminI
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
+import { InquiryBankDepositsNote } from '../../components/bank-deposit/InquiryBankDepositsNote';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useHasTenantFeature, useTenantCapabilities } from '../../hooks/useTenantCapabilities';
@@ -5420,6 +5421,7 @@ export function AdminInquiriesPage() {
                 </div>
               </div>
               <div className="sm:col-span-2">
+                <InquiryBankDepositsNote token={token} inquiryId={editItem.id} className="mb-2" />
                 <InquirySettlementPanel
                   inquiryId={editItem.id}
                   token={token}
