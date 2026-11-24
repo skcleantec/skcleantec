@@ -2290,6 +2290,7 @@ model User {
   telecrmWorkEntries           TelecrmWorkEntry[]
   bankDepositsLinked           BankDeposit[] @relation("BankDepositLinkedBy")
   bankDepositsCreated          BankDeposit[] @relation("BankDepositCreatedBy")
+  bankDepositsCancelled        BankDeposit[] @relation("BankDepositCancelledBy")
   bankDepositTombstonesDeleted BankDepositTombstone[] @relation("BankDepositTombstoneDeletedBy")
   bankDepositLinkCodesCreated  BankDepositLinkCode[]
   bankDepositTeamResponses     BankDepositTeamResponse[]
@@ -6323,8 +6324,15 @@ model BankDeposit {
   depositedAt        DateTime  @map("deposited_at")
   receivedAt         DateTime  @map("received_at")
   rawText            String    @map("raw_text") @db.Text
-  /// AUTO_LINKED | NEEDS_REVIEW | LINKED | IGNORED
+  /// AUTO_LINKED | NEEDS_REVIEW | LINKED | IGNORED | CANCELLED
   status             String    @db.VarChar(20)
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancelledByUserId  String?   @map("cancelled_by_user_id")
+  cancelledByUser    User?     @relation("BankDepositCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  /// staff | inquiry. 사람이 직접 취소하면 staff, 접수 취소에 따라가면 inquiry
+  cancelledBy        String?   @map("cancelled_by") @db.VarChar(16)
+  /// 예약취소 전 상태. 되돌릴 때 쓴다.
+  cancelPrevStatus   String?   @map("cancel_prev_status") @db.VarChar(20)
   linkedInquiryId    String?   @map("linked_inquiry_id")
   linkedInquiry      Inquiry?  @relation(fields: [linkedInquiryId], references: [id], onDelete: SetNull)
   linkedFollowupId   String?   @map("linked_followup_id")
@@ -6456,6 +6464,8 @@ model BankDepositSettings {
   depositAmountsMode      String   @default("auto") @map("deposit_amounts_mode") @db.VarChar(16)
   depositAmountsWon       Json     @default("[]") @map("deposit_amounts_won")
   staffToastEnabled       Boolean  @default(true) @map("staff_toast_enabled")
+  /// 오늘 휴무인 팀장에게는 주인 없는 입금을 묻지 않는다
+  skipDayOffLeaders       Boolean  @default(true) @map("skip_day_off_leaders")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   @@map("bank_deposit_settings")

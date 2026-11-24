@@ -23,6 +23,7 @@ function toShape(row: {
   depositAmountsMode: string;
   depositAmountsWon: unknown;
   staffToastEnabled: boolean;
+  skipDayOffLeaders: boolean;
 }): BankDepositSettingsShape {
   return {
     teamOpenAlertEnabled: row.teamOpenAlertEnabled,
@@ -35,6 +36,7 @@ function toShape(row: {
     depositAmountsMode: row.depositAmountsMode === 'manual' ? 'manual' : 'auto',
     depositAmountsWon: amountsOf(row.depositAmountsWon),
     staffToastEnabled: row.staffToastEnabled,
+    skipDayOffLeaders: row.skipDayOffLeaders,
   };
 }
 

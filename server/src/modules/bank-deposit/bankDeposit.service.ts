@@ -16,6 +16,7 @@ import {
   unparsedListSince,
   unparsedRecord,
 } from './bankDepositIngest.logic.js';
+import { depositListCounts } from './bankDepositCancel.logic.js';
 import { manualDepositProblems, tombstoneBlocks } from './bankDepositSettings.logic.js';
 import { matchStoredDeposit } from './bankDepositMatch.service.js';
 import { publishBankDeposit } from './bankDepositPublish.js';
@@ -240,6 +241,7 @@ async function arriveDeposit(
     depositedAt: Date;
   },
   now: Date,
+  notice: 'new' | 'changed' = 'new',
 ) {
   let status = 'NEEDS_REVIEW';
   let linkedInquiryId: string | null = null;
@@ -310,7 +312,7 @@ async function arriveDeposit(
   }
   await publishBankDeposit(db, {
     tenantId: input.tenantId,
-    event: 'new',
+    event: notice,
     id: input.depositId,
     status,
     amountWon: input.amountWon,
@@ -321,6 +323,25 @@ async function arriveDeposit(
     linkedKind,
   });
   return { status, linkedInquiryId, linkedKind };
+}
+
+/** 예약취소를 풀어 NEEDS_REVIEW 가 된 입금을 한 번 다시 맞춘다. */
+export async function rematchNeedsReviewDeposit(db: Db, tenantId: string, id: string, now = new Date()) {
+  const row = await db.bankDeposit.findFirst({ where: { id, tenantId, status: 'NEEDS_REVIEW' } });
+  if (!row) return;
+  await arriveDeposit(
+    db,
+    {
+      tenantId,
+      depositId: row.id,
+      operatingCompanyId: row.operatingCompanyId,
+      amountWon: row.amountWon,
+      depositorName: row.depositorName,
+      depositedAt: row.depositedAt,
+    },
+    now,
+    'changed',
+  );
 }
 
 export type IngestBankDepositItem = {
@@ -645,6 +666,7 @@ export async function listBankDeposits(
     tenantId: string;
     range: { gte: Date; lte: Date };
     status: string | null;
+    kind: string | null;
     operatingCompanyId: string | null;
     q: string | null;
     limit: number;
@@ -661,6 +683,7 @@ export async function listBankDeposits(
       where: {
         ...whereBase,
         ...(params.status ? { status: params.status } : {}),
+        ...(params.kind ? { linkedKind: params.kind } : {}),
         ...(params.q ? { depositorName: { contains: params.q, mode: 'insensitive' as const } } : {}),
       },
       orderBy: { depositedAt: 'desc' },
@@ -674,14 +697,7 @@ export async function listBankDeposits(
       _count: { _all: true },
     }),
   ]);
-  const counts = { today: 0, autoLinked: 0, needsReview: 0, ignored: 0 };
-  for (const group of grouped) {
-    const n = group._count._all;
-    counts.today += n;
-    if (group.status === 'AUTO_LINKED') counts.autoLinked += n;
-    if (group.status === 'NEEDS_REVIEW') counts.needsReview += n;
-    if (group.status === 'IGNORED') counts.ignored += n;
-  }
+  const counts = depositListCounts(grouped.map((group) => ({ status: group.status, n: group._count._all })));
   const linked = await withLinkedSummaries(db, params.tenantId, items);
   return { items: await decorateStaffDeposits(db, params.tenantId, linked), counts };
 }
@@ -937,17 +953,27 @@ export async function ignoreBankDeposit(db: Db, tenantId: string, id: string, no
 }
 
 export async function depositsForInquiry(db: Db, tenantId: string, inquiryId: string) {
-  const items = await db.bankDeposit.findMany({
-    where: {
-      tenantId,
-      linkedInquiryId: inquiryId,
-      status: { in: ['AUTO_LINKED', 'LINKED'] },
-    },
-    orderBy: { depositedAt: 'desc' },
-    select: DEPOSIT_LIST_SELECT,
-  });
-  const linked = await withLinkedSummaries(db, tenantId, items);
-  return decorateStaffDeposits(db, tenantId, linked);
+  const [items, cancelledRows] = await Promise.all([
+    db.bankDeposit.findMany({
+      where: {
+        tenantId,
+        linkedInquiryId: inquiryId,
+        status: { in: ['AUTO_LINKED', 'LINKED'] },
+      },
+      orderBy: { depositedAt: 'desc' },
+      select: DEPOSIT_LIST_SELECT,
+    }),
+    db.bankDeposit.findMany({
+      where: { tenantId, linkedInquiryId: inquiryId, status: 'CANCELLED' },
+      orderBy: { depositedAt: 'desc' },
+      select: DEPOSIT_LIST_SELECT,
+    }),
+  ]);
+  const [linked, cancelled] = await Promise.all([
+    withLinkedSummaries(db, tenantId, items).then((rows) => decorateStaffDeposits(db, tenantId, rows)),
+    withLinkedSummaries(db, tenantId, cancelledRows).then((rows) => decorateStaffDeposits(db, tenantId, rows)),
+  ]);
+  return { items: linked, cancelled };
 }
 
 const OPEN_FOLLOWUP = ['REQUESTED', 'ABSENT', 'ON_HOLD', 'DEPOSIT_PENDING', 'RESERVED'] as const;

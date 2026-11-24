@@ -10,6 +10,7 @@ import { matchStoredDeposit } from './bankDepositMatch.service.js';
 import { publishBankDeposit } from './bankDepositPublish.js';
 import { pushBankDepositToLeaders } from './bankDepositTeam.push.js';
 import { readBankDepositSettings, type BankDepositSettingsShape } from './bankDepositSettings.service.js';
+import { leadersOnDuty } from './bankDepositCancel.logic.js';
 import { isTeamAskDeposit, openAlertDrift } from './bankDepositSettings.logic.js';
 import {
   allLeadersDeclined,
@@ -46,6 +47,29 @@ async function activeTeamLeaders(db: Db, tenantId: string) {
     select: { id: true, name: true, hireDate: true, resignationDate: true },
   });
   return rows.filter((row) => isUserEmployedOnYmd(row.hireDate, row.resignationDate, today));
+}
+
+/** 오늘(한국 날짜) user_day_offs 에 줄이 있는 팀장. 승인 대기 상태는 없다. */
+async function dayOffLeaderIds(db: Db, tenantId: string, ymd: string) {
+  const rows = await db.userDayOff.findMany({
+    where: {
+      date: new Date(`${ymd}T12:00:00+09:00`),
+      teamLeader: { tenantId, isActive: true, role: 'TEAM_LEADER' },
+    },
+    select: { teamLeaderId: true },
+  });
+  return new Set(rows.map((row) => row.teamLeaderId));
+}
+
+/** 주인 없는 입금을 묻는 팀장. 휴무 제외가 켜져 있으면 오늘 휴무는 뺀다. */
+async function openAlertLeaders(db: Db, tenantId: string) {
+  const [leaders, settings] = await Promise.all([
+    activeTeamLeaders(db, tenantId),
+    readBankDepositSettings(db, tenantId),
+  ]);
+  if (!settings.skipDayOffLeaders) return leaders;
+  const off = await dayOffLeaderIds(db, tenantId, kstTodayYmd());
+  return leadersOnDuty(leaders, off, true);
 }
 
 async function amountBook(db: Db, tenantId: string, now: Date, settings?: BankDepositSettingsShape) {
@@ -199,14 +223,16 @@ async function notifyOpen(
   },
   now: Date,
 ) {
-  const leaders = await activeTeamLeaders(db, input.tenantId);
+  const leaders = await openAlertLeaders(db, input.tenantId);
+  const duty = new Set(leaders.map((leader) => leader.id));
   const declined = await db.bankDepositTeamResponse.findMany({
     where: { tenantId: input.tenantId, depositId: input.depositId },
     select: { teamLeaderId: true },
   });
-  const skipped = new Set([...declined.map((row) => row.teamLeaderId), ...(input.exceptLeaderIds ?? [])]);
+  const declinedOnDuty = declined.filter((row) => duty.has(row.teamLeaderId));
+  const skipped = new Set([...declinedOnDuty.map((row) => row.teamLeaderId), ...(input.exceptLeaderIds ?? [])]);
   const pending = leaders.filter((leader) => !skipped.has(leader.id));
-  if (allLeadersDeclined(declined.length, leaders.length)) {
+  if (allLeadersDeclined(declinedOnDuty.length, leaders.length)) {
     await markNoOwner(db, input.tenantId, input.depositId, now);
     return;
   }
@@ -1060,12 +1086,11 @@ export async function decorateStaffDeposits<
   const inquiryIds = [...new Set(items.map((item) => item.linkedInquiryId).filter((id): id is string => Boolean(id)))];
   const now = new Date();
   const [declines, leaders, expectations, flags, book] = await Promise.all([
-    db.bankDepositTeamResponse.groupBy({
-      by: ['depositId'],
+    db.bankDepositTeamResponse.findMany({
       where: { tenantId, depositId: { in: ids } },
-      _count: { _all: true },
+      select: { depositId: true, teamLeaderId: true },
     }),
-    activeTeamLeaders(db, tenantId),
+    openAlertLeaders(db, tenantId),
     inquiryIds.length
       ? db.bankDepositExpectation.findMany({
           where: { tenantId, status: 'WAITING', inquiryId: { in: inquiryIds } },
@@ -1078,7 +1103,12 @@ export async function decorateStaffDeposits<
     }),
     amountBook(db, tenantId, now),
   ]);
-  const declinedByDeposit = new Map(declines.map((row) => [row.depositId, row._count._all]));
+  const duty = new Set(leaders.map((leader) => leader.id));
+  const declinedByDeposit = new Map<string, number>();
+  for (const row of declines) {
+    if (!duty.has(row.teamLeaderId)) continue;
+    declinedByDeposit.set(row.depositId, (declinedByDeposit.get(row.depositId) ?? 0) + 1);
+  }
   const expectationByInquiry = new Map(expectations.map((row) => [row.inquiryId, row]));
   const flagById = new Map(flags.map((row) => [row.id, row]));
   return items.map((item) => {

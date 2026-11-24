@@ -9,6 +9,7 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { bankDepositFeatureDisabledBody } from './bankDepositGuard.js';
 import { readBankDepositSettings, saveBankDepositSettings } from './bankDepositSettings.service.js';
 import { applyOpenSettings } from './bankDepositTeam.service.js';
+import { cancelBankDeposit, uncancelBankDeposit } from './bankDepositCancel.service.js';
 import { DEPOSIT_KINDS, type DepositKind } from './bankDepositMatch.js';
 import {
   createBankAccount,
@@ -38,7 +39,8 @@ import {
   updateBankAccount,
 } from './bankDeposit.service.js';
 
-const STATUSES = ['AUTO_LINKED', 'NEEDS_REVIEW', 'LINKED', 'IGNORED'];
+const STATUSES = ['AUTO_LINKED', 'NEEDS_REVIEW', 'LINKED', 'IGNORED', 'CANCELLED'];
+const KINDS = ['DEPOSIT', 'BALANCE', 'TOTAL', 'OTHER'];
 
 function userOf(req: Request): AuthPayload | undefined {
   return (req as Request & { user?: AuthPayload }).user;
@@ -309,12 +311,18 @@ bankDepositRouter.get('/', requireStaffPermission('inquiry.view'), async (req, r
     res.status(400).json({ error: '상태 구분이 올바르지 않아요.' });
     return;
   }
+  const kind = typeof req.query.kind === 'string' ? req.query.kind : null;
+  if (kind && !KINDS.includes(kind)) {
+    res.status(400).json({ error: '금액 종류가 올바르지 않아요.' });
+    return;
+  }
   const limitRaw = Number.parseInt(String(req.query.limit ?? '50'), 10);
   const offsetRaw = Number.parseInt(String(req.query.offset ?? '0'), 10);
   const page = await listBankDeposits(prisma, {
     tenantId,
     range,
     status,
+    kind,
     operatingCompanyId: typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId : null,
     q: typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 40) : null,
     limit: Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, limitRaw)) : 50,
@@ -421,8 +429,7 @@ bankDepositRouter.get('/by-inquiries', requireStaffPermission('inquiry.view'), a
 bankDepositRouter.get('/by-inquiry/:inquiryId', requireStaffPermission('inquiry.view'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, userOf(req));
   if (!tenantId) return;
-  const items = await depositsForInquiry(prisma, tenantId, req.params.inquiryId);
-  res.json({ items });
+  res.json(await depositsForInquiry(prisma, tenantId, req.params.inquiryId));
 });
 
 bankDepositRouter.get('/:id/search', requireStaffPermission('inquiry.view'), async (req, res) => {
@@ -499,6 +506,39 @@ bankDepositRouter.delete('/:id', async (req, res) => {
   const removed = await deleteBankDeposit(prisma, tenantId, req.params.id, user!.userId);
   if ('error' in removed) {
     res.status(404).json({ error: '입금을 찾지 못했어요.' });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+bankDepositRouter.post('/:id/cancel', requireStaffPermission('inquiry.edit.basic'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const noteGiven = 'note' in body;
+  const updated = await cancelBankDeposit(
+    prisma,
+    tenantId,
+    req.params.id,
+    userOf(req)!.userId,
+    noteGiven ? clip(body.note, 200) || null : null,
+    noteGiven,
+  );
+  if ('error' in updated) {
+    res.status(404).json({ error: '입금을 찾지 못했어요.' });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+bankDepositRouter.post('/:id/uncancel', requireStaffPermission('inquiry.edit.basic'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const updated = await uncancelBankDeposit(prisma, tenantId, req.params.id);
+  if ('error' in updated) {
+    res.status(updated.error === 'missing' ? 404 : 400).json({
+      error: updated.error === 'missing' ? '입금을 찾지 못했어요.' : '예약취소된 입금이 아니에요.',
+    });
     return;
   }
   res.json({ ok: true });
