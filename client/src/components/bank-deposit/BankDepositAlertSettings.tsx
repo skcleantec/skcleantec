@@ -228,6 +228,13 @@ export function BankDepositAlertSettings({ token, onSaved }: { token: string; on
           <OnOffSwitch checked={form.staffToastEnabled} onChange={(v: boolean) => set('staffToastEnabled', v)} title="사무실 화면 알림" />
         </Row>
       </div>
+      <p className="mt-1.5 text-fluid-2xs leading-relaxed text-slate-500">
+        청소비서 앱으로 가는 「입금 알림」(관리자·마케터 전원, 입금 한 건에 한 번)은{' '}
+        <a href="/admin/team-leaders/notification-policy" className="font-semibold text-violet-700 underline">
+          관리자 전용 › 알림 설정
+        </a>
+        에서 켜고 끕니다. 각자 받을지는 본인 알림 설정에서 정해요.
+      </p>
       {hoursBad ? <p className="mt-1.5 text-fluid-2xs text-rose-700">알림 끝 시각이 시작 시각보다 늦어야 해요.</p> : null}
       {depositsBad ? <p className="mt-1.5 text-fluid-2xs text-rose-700">계약금 금액을 하나 이상 적어 주세요.</p> : null}
       {error ? <p className="mt-1.5 text-fluid-2xs text-rose-700">{error}</p> : null}
