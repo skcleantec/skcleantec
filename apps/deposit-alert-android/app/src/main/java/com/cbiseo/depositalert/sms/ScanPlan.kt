@@ -37,3 +37,19 @@ fun chooseScan(
     }
     return ScanChoice(scanned, picks, drops)
 }
+
+/** 본문이 입금이면 본문만 쓴다. 제목에만 내용이 있을 때만 제목을 쓴다. */
+fun mmsScanText(subject: String, parts: List<String>): String {
+    val body = parts.map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+    if (body.isNotEmpty() && dropReason(body) == null) return body
+    val title = subject.trim()
+    val joined = listOf(title, body).filter { it.isNotEmpty() }.joinToString("\n")
+    if (joined.isNotEmpty() && dropReason(joined) == null) return joined
+    return body.ifEmpty { title }
+}
+
+/** 멀티미디어 문자 시각은 초인 폰과 밀리초인 폰이 있다. */
+fun mmsDateMillis(raw: Long): Long {
+    if (raw <= 0L) return 0L
+    return if (raw < 10_000_000_000L) raw * 1000 else raw
+}
