@@ -9,10 +9,21 @@ import { notifyMessageInboxRefresh } from '../notifications/staffAppPushDispatch
 import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { canMessagePair } from './canMessagePair.js';
+import { readAttachmentIds, registerMessageAttachmentRoutes } from './messageAttachment.routes.js';
+import {
+  attachmentCountsFor,
+  attachmentsByMessage,
+  linkAttachments,
+  prepareThread,
+  previewForMessage,
+  requireOwnedAttachmentIds,
+} from './messageAttachment.service.js';
+import { messageBodyError } from './messageAttachment.logic.js';
 
 const router = Router();
 
 router.use(authMiddleware);
+registerMessageAttachmentRoutes(router);
 
 type PartnerRow = { id: string; name: string; role: string; staffIdCardUrl: string | null };
 
@@ -153,7 +164,7 @@ async function buildConversationList(
       where: messageWhere,
       orderBy: { createdAt: 'desc' },
       take: 1000,
-      select: { content: true, createdAt: true, senderId: true, receiverId: true },
+      select: { id: true, content: true, createdAt: true, senderId: true, receiverId: true, batchId: true },
     }),
     prisma.message.groupBy({
       by: ['senderId'],
@@ -162,7 +173,7 @@ async function buildConversationList(
     }),
   ]);
   const unreadMap = new Map(unreadBySender.map((u) => [u.senderId, u._count.id]));
-  const lastByPartner = new Map<string, { content: string; createdAt: Date; senderId: string }>();
+  const lastByPartner = new Map<string, { id: string; batchId: string | null; content: string; createdAt: Date; senderId: string }>();
   for (const m of allMessages) {
     let partnerId: string | null = null;
     if (useMerge) {
@@ -178,11 +189,18 @@ async function buildConversationList(
     }
     if (partnerId && !lastByPartner.has(partnerId)) lastByPartner.set(partnerId, m);
   }
-  const list = partners.map((u) => ({
-    ...u,
-    lastMessage: lastByPartner.get(u.id) ?? null,
-    unreadCount: unreadMap.get(u.id) ?? 0,
-  }));
+  const counts = await attachmentCountsFor(tenantId, [...lastByPartner.values()]);
+  const list = partners.map((u) => {
+    const last = lastByPartner.get(u.id);
+    const count = last ? counts.get(last.id) : undefined;
+    return {
+      ...u,
+      lastMessage: last
+        ? { ...last, imageCount: count?.imageCount ?? 0, fileCount: count?.fileCount ?? 0 }
+        : null,
+      unreadCount: unreadMap.get(u.id) ?? 0,
+    };
+  });
   /** 최근 대화가 위로 (새 메시지 온 팀장이 상단에 오도록) */
   list.sort((a, b) => {
     const ta = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
@@ -328,7 +346,7 @@ router.get('/team-office', async (req, res) => {
     senderId: string;
     receiverId: string;
     batchId: string | null;
-    sender: MessageSenderDto;
+    sender: MessageSenderDto & { role: string };
   };
   const raw = (await prisma.message.findMany({
     where: {
@@ -350,9 +368,16 @@ router.get('/team-office', async (req, res) => {
       sender: { select: messageSenderSelect },
     },
   })) as unknown as TeamOfficeRow[];
+  const prepared = await prepareThread(tenantId, role, myId, raw);
   const readNow = new Date();
   const markedIncoming = await prisma.message.updateMany({
-    where: { tenantId, senderId: { in: staffIds }, receiverId: myId, readAt: null },
+    where: {
+      tenantId,
+      senderId: { in: staffIds },
+      receiverId: myId,
+      readAt: null,
+      ...(prepared.deferIds.length > 0 ? { id: { notIn: prepared.deferIds } } : {}),
+    },
     data: { readAt: readNow },
   });
   if (markedIncoming.count > 0) {
@@ -379,12 +404,14 @@ router.get('/team-office', async (req, res) => {
     collapsed.push(m);
   }
   /** 응답 readAt을 DB와 동일하게(방금 읽음 처리된 행 반영) — 클라이언트가 즉시 미읽음 표시를 끌 수 있음 */
+  const defer = new Set(prepared.deferIds);
   const out = collapsed.map((m) =>
-    staffIds.includes(m.senderId) && m.receiverId === myId && m.readAt == null
+    staffIds.includes(m.senderId) && m.receiverId === myId && m.readAt == null && !defer.has(m.id)
       ? { ...m, readAt: readNow }
       : m
   );
-  res.json(out);
+  const decorated = await prepareThread(tenantId, role, myId, out);
+  res.json(decorated.messages);
 });
 
 /** 팀장: 운영 전체(재직 관리자·마케터)에게 동일 내용 전송 — batchId로 묶음 */
@@ -477,13 +504,21 @@ router.post('/broadcast-to-leaders', async (req, res) => {
   }
   const body = req.body as {
     content?: string;
+    attachmentIds?: unknown;
     toTeamLeaders?: boolean;
     toExternalPartners?: boolean;
     toCrew?: boolean;
     toMarketers?: boolean;
   };
-  if (!body.content?.trim()) {
+  const attachmentIds = readAttachmentIds(body);
+  if (!attachmentIds) {
     res.status(400).json({ error: '내용을 입력해주세요.' });
+    return;
+  }
+  const text = (body.content ?? '').trim();
+  const empty = messageBodyError(text, attachmentIds);
+  if (empty) {
+    res.status(400).json({ error: empty });
     return;
   }
   const toTeamLeaders = body.toTeamLeaders === true;
@@ -512,8 +547,14 @@ router.post('/broadcast-to-leaders', async (req, res) => {
     return;
   }
 
+  try {
+    await requireOwnedAttachmentIds(tenantId, attachmentIds);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : '첨부 파일을 찾을 수 없습니다.' });
+    return;
+  }
+
   const batchId = randomUUID();
-  const text = body.content.trim();
 
   await prisma.$transaction(async (tx) => {
     for (const receiverId of uniqueReceivers) {
@@ -537,6 +578,7 @@ router.post('/broadcast-to-leaders', async (req, res) => {
         })),
       });
     }
+    await linkAttachments(tx, tenantId, attachmentIds, { batchId });
   });
 
   const senderRow = await prisma.user.findFirst({
@@ -548,13 +590,16 @@ router.post('/broadcast-to-leaders', async (req, res) => {
     select: { id: true },
     orderBy: { createdAt: 'asc' },
   });
+  const attachmentKey = sampleMsg?.id ?? batchId;
+  const grouped = await attachmentsByMessage(tenantId, [{ id: attachmentKey, batchId }]);
+  const attachments = grouped.get(attachmentKey) ?? [];
   void notifyMessageInboxRefresh({
     senderId: userId,
     senderName: senderRow?.name?.trim() || '관리자',
     senderRole: role,
     receiverIds: uniqueReceivers,
     messageId: sampleMsg?.id ?? '',
-    preview: text,
+    preview: previewForMessage(text, attachments),
     title: '현장 공지',
   });
   if (crewGroupIds.length > 0) {
@@ -565,6 +610,7 @@ router.post('/broadcast-to-leaders', async (req, res) => {
     batchId,
     recipientCount: uniqueReceivers.length,
     crewNoticeCount: crewGroupIds.length,
+    attachments,
   });
 });
 
@@ -614,7 +660,7 @@ router.get('/:userId', async (req, res) => {
     senderId: string;
     receiverId: string;
     batchId: string | null;
-    sender: MessageSenderDto;
+    sender: MessageSenderDto & { role: string };
   };
 
   let messages: MsgRow[];
@@ -674,18 +720,29 @@ router.get('/:userId', async (req, res) => {
     })) as unknown as MsgRow[];
   }
 
+  const prepared = await prepareThread(tenantId, role, myId, messages);
   const readNow = new Date();
   const markedIncoming = await prisma.message.updateMany({
-    where: { tenantId, senderId: otherId, receiverId: myId, readAt: null },
+    where: {
+      tenantId,
+      senderId: otherId,
+      receiverId: myId,
+      readAt: null,
+      ...(prepared.deferIds.length > 0 ? { id: { notIn: prepared.deferIds } } : {}),
+    },
     data: { readAt: readNow },
   });
   if (markedIncoming.count > 0) {
     notifyInboxRefresh([otherId]);
   }
+  const defer = new Set(prepared.deferIds);
   const messagesOut = messages.map((m) =>
-    m.senderId === otherId && m.receiverId === myId && m.readAt == null ? { ...m, readAt: readNow } : m
+    m.senderId === otherId && m.receiverId === myId && m.readAt == null && !defer.has(m.id)
+      ? { ...m, readAt: readNow }
+      : m
   );
-  res.json(messagesOut);
+  const decorated = await prepareThread(tenantId, role, myId, messagesOut);
+  res.json(decorated.messages);
 });
 
 router.post('/', async (req, res) => {
@@ -696,11 +753,19 @@ router.post('/', async (req, res) => {
     return;
   }
   const { userId, role } = user;
-  const { receiverId, content } = req.body as { receiverId?: string; content?: string };
-  if (!receiverId || !content?.trim()) {
+  const body = req.body as { receiverId?: string; content?: string; attachmentIds?: unknown };
+  const attachmentIds = readAttachmentIds(body);
+  if (!body.receiverId || !attachmentIds) {
     res.status(400).json({ error: '수신자와 내용을 입력해주세요.' });
     return;
   }
+  const text = (body.content ?? '').trim();
+  const empty = messageBodyError(text, attachmentIds);
+  if (empty) {
+    res.status(400).json({ error: empty });
+    return;
+  }
+  const receiverId = body.receiverId;
   const receiver = await findEmployedUser(receiverId, tenantId);
   if (!receiver) {
     res.status(400).json({ error: '수신자를 찾을 수 없습니다.' });
@@ -710,26 +775,40 @@ router.post('/', async (req, res) => {
     res.status(403).json({ error: '해당 수신자에게 메시지를 보낼 수 없습니다.' });
     return;
   }
-  const msg = await prisma.message.create({
-    data: {
-      tenantId,
-      senderId: userId,
-      receiverId,
-      content: content.trim(),
-    },
-    include: {
-      sender: { select: messageSenderSelect },
-      receiver: { select: { id: true, name: true } },
-    },
+  try {
+    await requireOwnedAttachmentIds(tenantId, attachmentIds);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : '첨부 파일을 찾을 수 없습니다.' });
+    return;
+  }
+  const msg = await prisma.$transaction(async (tx) => {
+    const created = await tx.message.create({
+      data: {
+        tenantId,
+        senderId: userId,
+        receiverId,
+        content: text,
+      },
+      include: {
+        sender: { select: messageSenderSelect },
+        receiver: { select: { id: true, name: true } },
+      },
+    });
+    await linkAttachments(tx, tenantId, attachmentIds, { messageId: created.id });
+    return created;
   });
-  res.status(201).json(msg);
+  const prepared = await prepareThread(tenantId, role, userId, [
+    { ...msg, sender: msg.sender, receiverId: msg.receiverId, batchId: msg.batchId },
+  ]);
+  const attachments = prepared.messages[0]?.attachments ?? [];
+  res.status(201).json({ ...msg, attachments, isNotice: false });
   void notifyMessageInboxRefresh({
     senderId: userId,
     senderName: msg.sender.name,
     senderRole: msg.sender.role,
     receiverIds: [receiverId],
     messageId: msg.id,
-    preview: msg.content,
+    preview: previewForMessage(text, attachments),
   });
 });
 
