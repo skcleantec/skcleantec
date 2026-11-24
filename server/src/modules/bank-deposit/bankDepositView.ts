@@ -166,6 +166,7 @@ export function attachLinkedSummaries<
     inquiries: Map<string, Omit<LinkedSummary, 'target'>>;
     followups: Map<string, Omit<LinkedSummary, 'target'>>;
     users: Map<string, string>;
+    roles?: Map<string, string>;
   },
 ) {
   return items.map((item) => {
@@ -181,6 +182,10 @@ export function attachLinkedSummaries<
       ...rest,
       linked,
       linkedByName: linkedByUserId ? lookups.users.get(linkedByUserId) ?? null : null,
+      claimedByTeamLeaderName:
+        linkedByUserId && lookups.roles?.get(linkedByUserId) === 'TEAM_LEADER'
+          ? lookups.users.get(linkedByUserId) ?? null
+          : null,
     };
   });
 }

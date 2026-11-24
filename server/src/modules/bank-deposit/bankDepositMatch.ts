@@ -14,6 +14,8 @@ export type InquiryAmountRow = {
   orderBalanceWon: number | null;
   orderTotalWon: number | null;
   blockedKinds: DepositKind[];
+  /** 발주서 「입금자」칸. 고객명·닉네임과 같이 본다. */
+  extraNames?: string[] | null;
 };
 
 export type FollowupNameRow = {
@@ -46,10 +48,15 @@ export function normalizeDepositorName(value: string): string {
     .toLowerCase();
 }
 
-function sameName(depositor: string, customerName: string, nickname: string | null): boolean {
+function sameName(
+  depositor: string,
+  customerName: string,
+  nickname: string | null,
+  extraNames?: string[] | null,
+): boolean {
   if (!depositor) return false;
-  if (normalizeDepositorName(customerName) === depositor) return true;
-  return nickname != null && normalizeDepositorName(nickname) === depositor;
+  const names = [customerName, nickname, ...(extraNames ?? [])];
+  return names.some((name) => name != null && normalizeDepositorName(name) === depositor);
 }
 
 function positiveEqual(value: number | null, amount: number): boolean {
@@ -82,7 +89,7 @@ export function matchBankDeposit(input: {
   const candidates: DepositMatchCandidate[] = [];
 
   for (const row of input.inquiries) {
-    const nameOk = sameName(depositor, row.customerName, row.nickname);
+    const nameOk = sameName(depositor, row.customerName, row.nickname, row.extraNames);
     const kinds = amountKinds(row, input.amountWon);
     const single = kinds.length === 1 ? kinds[0] : null;
     const blocked = single != null && row.blockedKinds.includes(single);
@@ -113,7 +120,7 @@ export function matchBankDeposit(input: {
   }
 
   for (const row of input.followups) {
-    if (!sameName(depositor, row.customerName, row.nickname)) continue;
+    if (!sameName(depositor, row.customerName, row.nickname, null)) continue;
     const waiting = row.status === 'DEPOSIT_PENDING';
     candidates.push({
       target: 'followup',
