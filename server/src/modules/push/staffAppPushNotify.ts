@@ -30,6 +30,7 @@ export async function notifyStaffAppFcmRefresh(
   userIds: string[],
   tenantByUser: Map<string, string | undefined>,
   pushByUserId?: Record<string, StaffAppPushPayload>,
+  options?: { skipKindPolicy?: boolean },
 ): Promise<void> {
   const fcm = getStaffAppFcmMessaging();
   if (!fcm) return;
@@ -95,7 +96,7 @@ export async function notifyStaffAppFcmRefresh(
         const userRole = filterCtx.userRolesById.get(row.userId);
         if (kind === 'happy_call' && !canReceiveHappyCallPush(userRole)) continue;
         const userPref = filterCtx.userPrefsById.get(row.userId) ?? null;
-        if (!shouldSendPushToUser(kind, filterCtx.tenantPolicy, userPref)) continue;
+        if (!options?.skipKindPolicy && !shouldSendPushToUser(kind, filterCtx.tenantPolicy, userPref)) continue;
         messages.push({
           token: row.token,
           data: staffAppPushDataRecord(payload),

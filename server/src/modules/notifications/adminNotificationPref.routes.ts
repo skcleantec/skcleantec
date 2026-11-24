@@ -56,7 +56,9 @@ router.get('/', async (req, res) => {
     getUserNotificationPreferences(tenantId, userId),
     getEffectiveEnabledModules(tenantId),
   ]);
-  const items = buildTeamNotificationSettingsView(tenantPolicy, userPref);
+  const items = buildTeamNotificationSettingsView(tenantPolicy, userPref, {
+    includeBankDeposit: enabledModules.includes('mod_bank_deposit'),
+  });
   res.json({
     items:
       role === 'ADMIN' && isSoloOperatorTenant(enabledModules)
@@ -81,7 +83,9 @@ router.patch('/', async (req, res) => {
     getTenantNotificationPolicy(tenantId),
     getEffectiveEnabledModules(tenantId),
   ]);
-  const items = buildTeamNotificationSettingsView(tenantPolicy, saved);
+  const items = buildTeamNotificationSettingsView(tenantPolicy, saved, {
+    includeBankDeposit: enabledModules.includes('mod_bank_deposit'),
+  });
   res.json({
     items:
       role === 'ADMIN' && isSoloOperatorTenant(enabledModules)

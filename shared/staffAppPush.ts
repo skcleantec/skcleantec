@@ -8,6 +8,7 @@ export type StaffAppPushKind =
   | 'cs'
   | 'db_marketplace'
   | 'happy_call'
+  | 'bank_deposit'
   | 'generic';
 
 export type StaffAppPushPayload = {

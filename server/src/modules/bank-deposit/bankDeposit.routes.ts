@@ -7,6 +7,7 @@ import { kstDayRangeYmd, kstTodayYmd } from '../inquiries/inquiryListDateRange.j
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { bankDepositFeatureDisabledBody } from './bankDepositGuard.js';
+import { sendStaffBankDepositPushTest } from './bankDepositStaff.push.js';
 import { readBankDepositSettings, saveBankDepositSettings } from './bankDepositSettings.service.js';
 import { applyOpenSettings } from './bankDepositTeam.service.js';
 import { cancelBankDeposit, uncancelBankDeposit } from './bankDepositCancel.service.js';
@@ -183,6 +184,22 @@ bankDepositRouter.use(async (req, res, next) => {
     return;
   }
   next();
+});
+
+bankDepositRouter.post('/push-test', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const user = userOf(req);
+  if (!user || !(await userHasStaffAdminAccess(user))) {
+    res.status(403).json({ error: '시험 알림은 관리자만 보낼 수 있어요.' });
+    return;
+  }
+  const sent = await sendStaffBankDepositPushTest(user.userId, tenantId);
+  if (sent === 'rate') {
+    res.status(429).json({ error: '시험 알림은 1분에 3번까지예요.' });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 bankDepositRouter.post('/devices/link-code', async (req, res) => {
