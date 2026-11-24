@@ -12,7 +12,10 @@ import {
   displayWon,
   firstPhoneTail,
   followupCard,
+  followupMarketerName,
   groupDepositsByInquiry,
+  inquiryMarketerName,
+  teamLeaderNameList,
   preferredDateYmd,
   rowMatchesSearch,
   searchParts,
@@ -28,6 +31,82 @@ export function hashBankSecret(value: string): string {
 
 function newDeviceToken(): string {
   return `bd_${randomBytes(32).toString('base64url')}`;
+}
+
+async function depositNotifyNames(
+  db: Db,
+  tenantId: string,
+  input: { operatingCompanyId: string | null; linkedInquiryId: string | null; linkedFollowupId: string | null },
+) {
+  const [brand, inquiry, followup] = await Promise.all([
+    input.operatingCompanyId
+      ? db.operatingCompany.findFirst({
+          where: { id: input.operatingCompanyId, tenantId },
+          select: { name: true },
+        })
+      : null,
+    input.linkedInquiryId
+      ? db.inquiry.findFirst({
+          where: { id: input.linkedInquiryId, tenantId },
+          select: {
+            customerName: true,
+            createdBy: { select: { name: true } },
+            orderForm: { select: { createdBy: { select: { name: true } } } },
+          },
+        })
+      : null,
+    !input.linkedInquiryId && input.linkedFollowupId
+      ? db.orderFollowup.findFirst({
+          where: { id: input.linkedFollowupId, tenantId },
+          select: {
+            customerName: true,
+            createdBy: { select: { name: true } },
+            handledBy: { select: { name: true } },
+          },
+        })
+      : null,
+  ]);
+  return {
+    operatingCompanyName: brand?.name?.trim() || null,
+    customerName: inquiry?.customerName?.trim() || followup?.customerName?.trim() || null,
+    marketerName: inquiry
+      ? inquiryMarketerName(inquiry.createdBy?.name, inquiry.orderForm?.createdBy?.name)
+      : followup
+        ? followupMarketerName(followup.handledBy?.name, followup.createdBy?.name)
+        : null,
+  };
+}
+
+async function pushDepositNotice(
+  db: Db,
+  row: {
+    tenantId: string;
+    event: 'new' | 'changed';
+    id: string;
+    status: string;
+    amountWon: number;
+    depositorName: string;
+    operatingCompanyId: string | null;
+    linkedInquiryId: string | null;
+    linkedFollowupId: string | null;
+    linkedKind: string | null;
+  },
+) {
+  const names = await depositNotifyNames(db, row.tenantId, row);
+  notifyBankDeposit({
+    tenantId: row.tenantId,
+    event: row.event,
+    id: row.id,
+    status: row.status,
+    amountWon: row.amountWon,
+    depositorName: row.depositorName,
+    operatingCompanyId: row.operatingCompanyId,
+    operatingCompanyName: names.operatingCompanyName,
+    customerName: names.customerName,
+    marketerName: names.marketerName,
+    linkedInquiryId: row.linkedInquiryId,
+    linkedKind: row.linkedKind,
+  });
 }
 
 function newLinkCode(): string {
@@ -207,7 +286,7 @@ export async function ingestBankDeposits(
         }
       }
       results.push({ dedupeKey, result: 'stored', status });
-      notifyBankDeposit({
+      await pushDepositNotice(db, {
         tenantId: device.tenantId,
         event: 'new',
         id: created.id,
@@ -216,6 +295,7 @@ export async function ingestBankDeposits(
         depositorName: parsed.depositorName,
         operatingCompanyId,
         linkedInquiryId,
+        linkedFollowupId: null,
         linkedKind,
       });
     } catch (error) {
@@ -304,7 +384,17 @@ async function withLinkedSummaries<
     inquiryIds.length
       ? db.inquiry.findMany({
           where: { tenantId, id: { in: inquiryIds } },
-          select: { id: true, customerName: true, nickname: true, preferredDate: true, status: true, inquiryNumber: true },
+          select: {
+            id: true,
+            customerName: true,
+            nickname: true,
+            preferredDate: true,
+            status: true,
+            inquiryNumber: true,
+            createdBy: { select: { name: true } },
+            orderForm: { select: { createdBy: { select: { name: true } } } },
+            assignments: { orderBy: { sortOrder: 'asc' }, select: { teamLeader: { select: { name: true } } } },
+          },
         })
       : [],
     followupIds.length
@@ -317,6 +407,8 @@ async function withLinkedSummaries<
             preferredMoveInCleaningDate: true,
             status: true,
             inquiry: { select: { inquiryNumber: true } },
+            createdBy: { select: { name: true } },
+            handledBy: { select: { name: true } },
           },
         })
       : [],
@@ -335,6 +427,8 @@ async function withLinkedSummaries<
           preferredDate: preferredDateYmd(row.preferredDate),
           status: row.status,
           inquiryNumber: row.inquiryNumber,
+          marketerName: inquiryMarketerName(row.createdBy?.name, row.orderForm?.createdBy?.name),
+          teamLeaderNames: teamLeaderNameList(row.assignments.map((item) => item.teamLeader?.name)),
         },
       ]),
     ),
@@ -348,6 +442,8 @@ async function withLinkedSummaries<
           preferredDate: preferredDateYmd(row.preferredMoveInCleaningDate),
           status: row.status,
           inquiryNumber: row.inquiry?.inquiryNumber ?? null,
+          marketerName: followupMarketerName(row.handledBy?.name, row.createdBy?.name),
+          teamLeaderNames: [],
         },
       ]),
     ),
@@ -423,7 +519,7 @@ export async function linkBankDeposit(
       linkedAt: now,
     },
   });
-  notifyBankDeposit({
+  await pushDepositNotice(db, {
     tenantId: params.tenantId,
     event: 'changed',
     id: row.id,
@@ -432,6 +528,7 @@ export async function linkBankDeposit(
     depositorName: row.depositorName,
     operatingCompanyId: row.operatingCompanyId,
     linkedInquiryId: params.inquiryId,
+    linkedFollowupId: params.followupId,
     linkedKind: params.kind,
   });
   return { ok: true as const };
@@ -451,7 +548,7 @@ export async function unlinkBankDeposit(db: Db, tenantId: string, id: string) {
       linkedAt: null,
     },
   });
-  notifyBankDeposit({
+  await pushDepositNotice(db, {
     tenantId,
     event: 'changed',
     id: row.id,
@@ -460,6 +557,7 @@ export async function unlinkBankDeposit(db: Db, tenantId: string, id: string) {
     depositorName: row.depositorName,
     operatingCompanyId: row.operatingCompanyId,
     linkedInquiryId: null,
+    linkedFollowupId: null,
     linkedKind: null,
   });
   return { ok: true as const };
@@ -480,7 +578,7 @@ export async function ignoreBankDeposit(db: Db, tenantId: string, id: string, no
       linkedAt: null,
     },
   });
-  notifyBankDeposit({
+  await pushDepositNotice(db, {
     tenantId,
     event: 'changed',
     id: row.id,
@@ -489,6 +587,7 @@ export async function ignoreBankDeposit(db: Db, tenantId: string, id: string, no
     depositorName: row.depositorName,
     operatingCompanyId: row.operatingCompanyId,
     linkedInquiryId: null,
+    linkedFollowupId: null,
     linkedKind: null,
   });
   return { ok: true as const };
@@ -544,7 +643,16 @@ export async function searchDepositTargets(db: Db, tenantId: string, id: string,
         serviceDepositAmount: true,
         serviceBalanceAmount: true,
         serviceTotalAmount: true,
-        orderForm: { select: { depositAmount: true, balanceAmount: true, totalAmount: true } },
+        createdBy: { select: { name: true } },
+        orderForm: {
+          select: {
+            depositAmount: true,
+            balanceAmount: true,
+            totalAmount: true,
+            createdBy: { select: { name: true } },
+          },
+        },
+        assignments: { orderBy: { sortOrder: 'asc' }, select: { teamLeader: { select: { name: true } } } },
       },
     }),
     db.orderFollowup.findMany({
@@ -562,6 +670,8 @@ export async function searchDepositTargets(db: Db, tenantId: string, id: string,
         address: true,
         status: true,
         inquiry: { select: { inquiryNumber: true } },
+        createdBy: { select: { name: true } },
+        handledBy: { select: { name: true } },
       },
     }),
   ]);
@@ -636,6 +746,8 @@ export async function searchDepositTargets(db: Db, tenantId: string, id: string,
       balanceWon: displayWon(row.serviceBalanceAmount, row.orderForm?.balanceAmount ?? null),
       totalWon: displayWon(row.serviceTotalAmount, row.orderForm?.totalAmount ?? null),
       linkedKinds: inquiryKinds.get(row.id) ?? [],
+      marketerName: inquiryMarketerName(row.createdBy?.name, row.orderForm?.createdBy?.name),
+      teamLeaderNames: teamLeaderNameList(row.assignments.map((item) => item.teamLeader?.name)),
     })),
     ...pickedFollowups.map((row) => ({
       target: 'followup' as const,
@@ -652,6 +764,7 @@ export async function searchDepositTargets(db: Db, tenantId: string, id: string,
         status: row.status,
         inquiryNumber: row.inquiry?.inquiryNumber ?? null,
         linkedKinds: followupKinds.get(row.id) ?? [],
+        marketerName: followupMarketerName(row.handledBy?.name, row.createdBy?.name),
       }),
     })),
   ];

@@ -6,7 +6,17 @@ import {
   type FollowupNameRow,
   type InquiryAmountRow,
 } from './bankDepositMatch.js';
-import { displayWon, firstPhoneTail, followupCard, addressShort, preferredDateYmd, type CandidateCard } from './bankDepositView.js';
+import {
+  addressShort,
+  displayWon,
+  firstPhoneTail,
+  followupCard,
+  followupMarketerName,
+  inquiryMarketerName,
+  preferredDateYmd,
+  teamLeaderNameList,
+  type CandidateCard,
+} from './bankDepositView.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -51,7 +61,16 @@ export async function matchStoredDeposit(
         serviceDepositAmount: true,
         serviceBalanceAmount: true,
         serviceTotalAmount: true,
-        orderForm: { select: { depositAmount: true, balanceAmount: true, totalAmount: true } },
+        createdBy: { select: { name: true } },
+        orderForm: {
+          select: {
+            depositAmount: true,
+            balanceAmount: true,
+            totalAmount: true,
+            createdBy: { select: { name: true } },
+          },
+        },
+        assignments: { orderBy: { sortOrder: 'asc' }, select: { teamLeader: { select: { name: true } } } },
       },
     }),
     db.orderFollowup.findMany({
@@ -68,6 +87,8 @@ export async function matchStoredDeposit(
         address: true,
         status: true,
         inquiry: { select: { inquiryNumber: true } },
+        createdBy: { select: { name: true } },
+        handledBy: { select: { name: true } },
       },
     }),
   ]);
@@ -124,6 +145,8 @@ export async function matchStoredDeposit(
       balanceWon: displayWon(row.serviceBalanceAmount, row.orderForm?.balanceAmount ?? null),
       totalWon: displayWon(row.serviceTotalAmount, row.orderForm?.totalAmount ?? null),
       linkedKinds: blocked.get(row.id) ?? [],
+      marketerName: inquiryMarketerName(row.createdBy?.name, row.orderForm?.createdBy?.name),
+      teamLeaderNames: teamLeaderNameList(row.assignments.map((item) => item.teamLeader?.name)),
     });
   }
   for (const row of followups) {
@@ -138,6 +161,7 @@ export async function matchStoredDeposit(
         status: row.status,
         inquiryNumber: row.inquiry?.inquiryNumber ?? null,
         linkedKinds: followupKinds.get(row.id) ?? [],
+        marketerName: followupMarketerName(row.handledBy?.name, row.createdBy?.name),
       }),
     );
   }
@@ -189,5 +213,7 @@ function emptyCard(): CandidateCard {
     balanceWon: null,
     totalWon: null,
     linkedKinds: [],
+    marketerName: null,
+    teamLeaderNames: [],
   };
 }

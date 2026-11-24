@@ -14,7 +14,8 @@ const staffBroadcastByTenant = new Map<string, Set<WebSocket>>();
 /** 플랫폼 운영자 탭. 테넌트 소켓과 키를 섞지 않는다. */
 const platformSockets = new Map<string, Set<WebSocket>>();
 
-function isStaffRole(role: string): boolean {
+/** 입금 알림 등 직원 방송 대상. 팀장·크루·고객은 여기 없다. */
+export function isStaffBroadcastRole(role: string): boolean {
   return role === 'ADMIN' || role === 'MARKETER';
 }
 
@@ -44,7 +45,7 @@ export function registerUserSocket(
   const key = userSocketKey(userId, tenantId);
   const entry: RegisteredSocket = { ws, platform };
   addSocketToUser(key, entry);
-  if (isStaffRole(role) && tenantId) {
+  if (isStaffBroadcastRole(role) && tenantId) {
     let staffSet = staffBroadcastByTenant.get(tenantId);
     if (!staffSet) {
       staffSet = new Set();
