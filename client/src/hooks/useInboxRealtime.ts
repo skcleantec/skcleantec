@@ -365,6 +365,9 @@ function connectBucket(bucket: Bucket) {
       if (data?.type === 'tenant:capabilities') {
         window.dispatchEvent(new Event('cbiseo:tenant-capabilities'));
       }
+      if (data?.type === 'bank_deposit') {
+        window.dispatchEvent(new CustomEvent('cbiseo:bank-deposit', { detail: data }));
+      }
       if (data?.type === 'inbox:refresh') {
         for (const fn of bucket.refreshListeners) {
           try {

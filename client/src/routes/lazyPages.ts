@@ -270,6 +270,9 @@ export const PublicReceiptPage = lazyWithRetry(() =>
 export const AdminReviewPaybackPage = lazyWithRetry(() =>
   import('../pages/admin/AdminReviewPaybackPage').then((m) => ({ default: m.AdminReviewPaybackPage }))
 );
+export const AdminBankDepositPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminBankDepositPage').then((m) => ({ default: m.AdminBankDepositPage }))
+);
 export const AdminCsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminCsPage').then((m) => ({ default: m.AdminCsPage }))
 );

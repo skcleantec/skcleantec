@@ -110,6 +110,7 @@ import { QuotationInquiryLinkPanel } from '../quotations/QuotationInquiryLinkPan
 import { InquiryConsultationPhotosPanel } from '../inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../inquiry/InquirySettlementPanel';
+import { InquiryBankDepositsNote } from '../bank-deposit/InquiryBankDepositsNote';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
@@ -3110,6 +3111,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             <InquiryReceiptShelf inquiryId={item.id} />
           </AdminScheduleDetailSection>
         ) : null}
+
+        {!isCreate && item ? <InquiryBankDepositsNote token={token} inquiryId={item.id} /> : null}
 
         {!isCreate && item ? (
           <AdminScheduleDetailSection

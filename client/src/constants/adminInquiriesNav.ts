@@ -4,6 +4,7 @@ import type { AdminSideNavItem } from '../components/layout/AdminSectionSideNav'
 export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
   { type: 'link', to: '/admin/inquiries', end: true, label: '접수목록' },
   { type: 'link', to: '/admin/inquiries/followup', label: '부재·보류' },
+  { type: 'link', to: '/admin/inquiries/deposits', label: '입금 확인', title: '통장 입금 문자로 들어온 입금을 접수와 맞춰 봅니다' },
   { type: 'link', to: '/admin/inquiries/review-payback', label: '페이백/리뷰' },
   { type: 'link', to: '/admin/inquiries/cs', label: 'C/S 관리' },
   { type: 'link', to: '/admin/inquiries/leads', label: '문의내역' },

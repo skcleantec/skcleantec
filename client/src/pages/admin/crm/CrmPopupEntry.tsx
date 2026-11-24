@@ -9,6 +9,7 @@ import { arrangeCrmPopupLeftHalf, fitCrmPopupWindow } from '../../../utils/crmSo
 import { StaffAppPcOnlyScreen } from '../../../components/auth/StaffAppPcOnlyScreen';
 import { isCbiseoStaffNativeApp } from '../../../utils/cbiseoNativeApp';
 import { registerTelecrmPopupWindow } from '../../../utils/openTelecrmWindow';
+import { BankDepositLiveToast } from '../../../components/bank-deposit/BankDepositLiveToast';
 import { CrmPage } from './CrmPage';
 
 /**
@@ -62,6 +63,13 @@ export function CrmPopupEntry() {
   return (
     <TenantCapabilitiesProvider value={tenantCapabilities}>
       <CrmPage />
+      {/* PC CRM 전용 — 통화 중에도 입금이 들어오면 바로 안다 */}
+      <BankDepositLiveToast
+        token={token}
+        enabled
+        className="max-lg:hidden"
+        onOpen={() => window.open('/admin/inquiries/deposits', '_blank', 'noopener')}
+      />
     </TenantCapabilitiesProvider>
   );
 }

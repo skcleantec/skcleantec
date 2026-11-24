@@ -22,6 +22,7 @@ export type AdminSideNavIconId =
 
 const PATH_ICON_RULES: { prefix: string; icon: AdminSideNavIconId }[] = [
   { prefix: '/admin/inquiries/review-payback', icon: 'gift' },
+  { prefix: '/admin/inquiries/deposits', icon: 'wallet' },
   { prefix: '/admin/inquiries/followup', icon: 'clock' },
   { prefix: '/admin/inquiries/order-forms', icon: 'document' },
   { prefix: '/admin/inquiries/order-issue', icon: 'link' },

@@ -33,6 +33,7 @@ import { performStaffLogout } from '../../utils/staffLogout';
 import { clearTeamPreviewSession } from '../../utils/teamPreviewSession';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import { CardPaymentApprovedAlert } from '../card-payment/CardPaymentApprovedAlert';
+import { BankDepositLiveToast } from '../bank-deposit/BankDepositLiveToast';
 import {
   useInboxRealtime,
   useInquiryCelebrateRealtime,
@@ -924,6 +925,11 @@ export function AdminLayout() {
     <NavFavoritesProvider app="admin" tenantSlug={tenantSlug} userId={meUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
       <CardPaymentApprovedAlert token={adminToken} enabled={Boolean(adminToken)} />
+      <BankDepositLiveToast
+        token={adminToken}
+        enabled={Boolean(adminToken && (meRole === 'ADMIN' || meRole === 'MARKETER'))}
+        onOpen={() => navigate('/admin/inquiries/deposits')}
+      />
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 max-lg:bg-[#edf0f5]" aria-hidden="true">
         {/* 좌상단 퍼플-인디고 조명 — lg 이상에서만 blur 오브 (모바일 GPU 부담) */}

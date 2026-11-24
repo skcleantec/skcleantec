@@ -1,0 +1,518 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  fetchBankDepositSummary,
+  ignoreBankDeposit,
+  listBankDepositDevices,
+  listBankDeposits,
+  unlinkBankDeposit,
+  type BankDepositCounts,
+  type BankDepositItem,
+  type BankDepositSummary,
+} from '../../api/bankDeposits';
+import { useBankDepositRealtime } from '../../hooks/useBankDepositRealtime';
+import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
+import { addDaysToKstYmd, kstTodayYmd } from '../../utils/dateFormat';
+import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
+import { Button } from '../ui/Button';
+import { StatusChip } from '../ui/StatusChip';
+import { BankDepositLinkDialog } from './BankDepositLinkDialog';
+import { BankDepositSetupDialog } from './BankDepositSetupDialog';
+import { notifyBankDepositNavBadgeRefresh } from './bankDepositNavBadge';
+import {
+  DEPOSIT_KIND_LABEL,
+  DEPOSIT_STATUS_LABEL,
+  DEPOSIT_STATUS_TONE,
+  deviceSeen,
+  kstDayLabel,
+  kstTime,
+  targetStatusLabel,
+  won,
+} from './bankDepositFormat';
+
+type Filter = 'ALL' | 'REVIEW' | 'LINKED' | 'IGNORED';
+const PAGE = 100;
+
+function isLinked(row: BankDepositItem): boolean {
+  return row.status === 'AUTO_LINKED' || row.status === 'LINKED';
+}
+
+function LinkedCell({ row }: { row: BankDepositItem }) {
+  if (!isLinked(row)) {
+    if (row.status === 'IGNORED') return <span className="text-fluid-2xs text-slate-400">{row.note?.trim() || '연결하지 않음'}</span>;
+    return <span className="text-fluid-2xs text-amber-800">누구 입금인지 골라 주세요</span>;
+  }
+  const kind = row.linkedKind ? DEPOSIT_KIND_LABEL[row.linkedKind] : '';
+  const linked = row.linked ?? null;
+  const target = linked?.target ?? (row.linkedFollowupId ? 'followup' : 'inquiry');
+  const name = linked?.customerName?.trim() || (target === 'followup' ? '부재·보류 고객' : '접수 고객');
+  const sub = [
+    kind,
+    linked?.preferredDate ? `청소 ${kstDayLabel(linked.preferredDate)}` : '',
+    targetStatusLabel(target, linked?.status),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <span className="block min-w-0">
+      <span className="block truncate text-fluid-xs font-semibold text-slate-900">{name}</span>
+      {sub ? <span className="block truncate text-fluid-2xs text-slate-500">{sub}</span> : null}
+    </span>
+  );
+}
+
+function RowButtons({
+  row,
+  busy,
+  canEdit,
+  onFind,
+  onIgnore,
+  onUnlink,
+}: {
+  row: BankDepositItem;
+  busy: boolean;
+  canEdit: boolean;
+  onFind: () => void;
+  onIgnore: () => void;
+  onUnlink: () => void;
+}) {
+  if (!canEdit) return null;
+  if (row.status === 'NEEDS_REVIEW') {
+    return (
+      <span className="flex justify-end gap-1">
+        <Button size="sm" variant="primary" onClick={onFind} disabled={busy}>
+          고객 찾기
+        </Button>
+        <Button size="sm" variant="quiet" onClick={onIgnore} disabled={busy} title="청소와 상관없는 입금이면 목록에서 접어 둡니다">
+          청소와 무관
+        </Button>
+      </span>
+    );
+  }
+  if (row.status === 'IGNORED') {
+    return (
+      <span className="flex justify-end">
+        <Button size="sm" variant="quiet" onClick={onUnlink} disabled={busy}>
+          되돌리기
+        </Button>
+      </span>
+    );
+  }
+  return (
+    <span className="flex justify-end gap-1">
+      <Button size="sm" onClick={onFind} disabled={busy}>
+        바꾸기
+      </Button>
+      <Button size="sm" variant="quiet" onClick={onUnlink} disabled={busy}>
+        연결 끊기
+      </Button>
+    </span>
+  );
+}
+
+/** 서비스접수 › 입금 확인 — 은행 입금 문자로 들어온 입금과 접수를 맞춰 본다. */
+export function BankDepositPanel({ token }: { token: string }) {
+  const brands = useOperatingCompanies(token);
+  const brandOptions = useMemo(
+    () => brands.filter((b) => b.isActive).map((b) => ({ id: b.id, name: b.displayName || b.name })),
+    [brands],
+  );
+  const [date, setDate] = useState(() => kstTodayYmd());
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [query, setQuery] = useState('');
+  const [items, setItems] = useState<BankDepositItem[]>([]);
+  const [counts, setCounts] = useState<BankDepositCounts>({ today: 0, autoLinked: 0, needsReview: 0, ignored: 0 });
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [linkTarget, setLinkTarget] = useState<BankDepositItem | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [summary, setSummary] = useState<BankDepositSummary | null>(null);
+  const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
+  const [now, setNow] = useState(() => Date.now());
+  const dateRef = useRef(date);
+  dateRef.current = date;
+
+  const load = useCallback(
+    async (opts?: { more?: boolean; quiet?: boolean }) => {
+      const ymd = dateRef.current;
+      if (!opts?.quiet) setLoading(true);
+      setError(null);
+      try {
+        const offset = opts?.more ? items.length : 0;
+        const r = await listBankDeposits(token, { date: ymd, limit: PAGE, offset });
+        if (dateRef.current !== ymd) return;
+        setItems((prev) => (opts?.more ? [...prev, ...r.items] : r.items));
+        setCounts(r.counts);
+        setHasMore(r.items.length === PAGE);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '입금 내역을 불러오지 못했어요.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    // items.length 는 더 보기에서만 쓴다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [token, items.length],
+  );
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
+  const loadStatus = useCallback(async () => {
+    try {
+      setSummary(await fetchBankDepositSummary(token));
+    } catch {
+      /* 요약이 없어도 목록은 쓴다 */
+    }
+    try {
+      const d = await listBankDepositDevices(token);
+      setIsAdmin(true);
+      const active = d.items.filter((x) => x.isActive && !x.revokedAt);
+      const last = active
+        .map((x) => x.lastSeenAt)
+        .filter((x): x is string => Boolean(x))
+        .sort()
+        .pop();
+      setSummary((prev) => ({
+        needsReviewCount: prev?.needsReviewCount ?? 0,
+        devices: { total: active.length, lastSeenAt: last ?? null },
+      }));
+    } catch {
+      /* 관리자가 아니면 기기 목록을 볼 수 없다 */
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadRef.current();
+  }, [date, token]);
+
+  useEffect(() => {
+    void loadStatus();
+    const t = setInterval(() => {
+      setNow(Date.now());
+      void loadStatus();
+    }, 60000);
+    return () => clearInterval(t);
+  }, [loadStatus]);
+
+  useBankDepositRealtime(
+    token,
+    (p) => {
+      if (dateRef.current === kstTodayYmd()) {
+        void loadRef.current({ quiet: true });
+        setFreshIds((prev) => new Set(prev).add(p.id));
+        setTimeout(() => {
+          setFreshIds((prev) => {
+            const next = new Set(prev);
+            next.delete(p.id);
+            return next;
+          });
+        }, 6000);
+      }
+      notifyBankDepositNavBadgeRefresh();
+    },
+    true,
+  );
+
+  const afterChange = async () => {
+    await loadRef.current({ quiet: true });
+    notifyBankDepositNavBadgeRefresh();
+  };
+
+  const act = async (row: BankDepositItem, fn: () => Promise<unknown>) => {
+    setBusyId(row.id);
+    setError(null);
+    try {
+      await fn();
+      await afterChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '처리하지 못했어요.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const linkedCount = Math.max(0, counts.today - counts.needsReview - counts.ignored);
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return items.filter((row) => {
+      if (filter === 'REVIEW' && row.status !== 'NEEDS_REVIEW') return false;
+      if (filter === 'LINKED' && !isLinked(row)) return false;
+      if (filter === 'IGNORED' && row.status !== 'IGNORED') return false;
+      if (!q) return true;
+      return (
+        row.depositorName.toLowerCase().includes(q) ||
+        (row.linked?.customerName ?? '').toLowerCase().includes(q) ||
+        String(row.amountWon).includes(q.replace(/[^\d]/g, '') || '\u0000')
+      );
+    });
+  }, [items, filter, query]);
+
+  const today = kstTodayYmd();
+  const device = summary?.devices ?? null;
+  const seen = device && device.total > 0 ? deviceSeen(device.lastSeenAt, now) : null;
+  const sum = shown.reduce((acc, row) => acc + (row.status === 'IGNORED' ? 0 : row.amountWon), 0);
+  const brandName = (id: string | null) => (id ? brandOptions.find((b) => b.id === id)?.name ?? '' : '');
+  const showBrand = brandOptions.length > 1;
+
+  const FILTERS: Array<{ id: Filter; label: string; count: number }> = [
+    { id: 'ALL', label: '전체', count: counts.today },
+    { id: 'REVIEW', label: '확인 필요', count: counts.needsReview },
+    { id: 'LINKED', label: '연결됨', count: linkedCount },
+    { id: 'IGNORED', label: '청소와 무관', count: counts.ignored },
+  ];
+
+  return (
+    <div className="min-w-0 space-y-4">
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <PageTitleWithFavorite label="입금 확인">
+            <h1 className="text-fluid-lg font-semibold text-slate-900">입금 확인</h1>
+          </PageTitleWithFavorite>
+          <p className="mt-1 text-fluid-xs text-slate-500">
+            통장에 들어온 입금을 문자로 받아 접수와 맞춰 보여 줘요. 이름과 금액이 한 고객과 딱 맞으면 자동으로 잇고, 아니면 「확인 필요」로 남깁니다.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {seen ? (
+            <span
+              className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-fluid-2xs font-semibold ${
+                seen.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'
+              }`}
+              title="입금 문자를 받는 폰이 마지막으로 서버와 연결된 때"
+            >
+              <span className={`size-1.5 rounded-full ${seen.ok ? 'bg-emerald-500' : 'bg-rose-500'}`} aria-hidden />
+              폰 {seen.ok ? '연결됨' : '연결 끊김'} · {seen.text}
+            </span>
+          ) : null}
+          {isAdmin ? (
+            <Button size="sm" onClick={() => setSetupOpen(true)}>
+              폰·통장 설정
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      {seen && !seen.ok ? (
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs leading-relaxed text-rose-900">
+          입금 문자를 받는 폰이 {seen.text}부터 연결되지 않았어요. 그동안 들어온 입금은 여기에 안 보일 수 있습니다. 폰이 켜져 있는지, 앱이 실행 중인지 확인해 주세요.
+        </p>
+      ) : null}
+
+      {device && device.total === 0 ? (
+        <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
+          <p className="text-fluid-sm font-bold text-violet-950">아직 연결된 폰이 없어요</p>
+          <p className="mt-1 text-fluid-xs leading-relaxed text-violet-900">
+            은행 입금 문자를 받는 폰에 「청소비서 입금 알림」 앱을 깔고 연결하면, 입금이 들어올 때마다 여기에 바로 나타납니다.
+          </p>
+          {isAdmin ? (
+            <Button size="md" variant="primary" className="mt-2" onClick={() => setSetupOpen(true)}>
+              폰 연결하기
+            </Button>
+          ) : (
+            <p className="mt-1 text-fluid-2xs text-violet-800">연결은 관리자가 할 수 있어요.</p>
+          )}
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 px-4 py-3">
+          <div className="flex items-center gap-1">
+            <Button size="sm" icon aria-label="전날" onClick={() => setDate(addDaysToKstYmd(date, -1))}>
+              ‹
+            </Button>
+            <label className="relative inline-flex h-7 items-center rounded-[7px] border border-[#dde3ea] px-2.5 text-fluid-xs font-semibold tabular-nums text-slate-900">
+              {kstDayLabel(date)}
+              {date === today ? <span className="ml-1 text-fluid-2xs font-medium text-slate-500">오늘</span> : null}
+              <input
+                type="date"
+                value={date}
+                max={today}
+                onChange={(e) => e.target.value && setDate(e.target.value)}
+                aria-label="날짜 고르기"
+                className="absolute inset-0 cursor-pointer opacity-0"
+              />
+            </label>
+            <Button size="sm" icon aria-label="다음 날" disabled={date >= today} onClick={() => setDate(addDaysToKstYmd(date, 1))}>
+              ›
+            </Button>
+            {date !== today ? (
+              <Button size="sm" variant="quiet" onClick={() => setDate(today)}>
+                오늘로
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-1" role="tablist" aria-label="입금 구분">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={filter === f.id}
+                onClick={() => setFilter(f.id)}
+                className={`inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-fluid-2xs font-semibold ${
+                  filter === f.id
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : f.id === 'REVIEW' && f.count > 0
+                      ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {f.label}
+                <span className="tabular-nums">{f.count}</span>
+              </button>
+            ))}
+          </div>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="입금자·고객 이름, 금액"
+            aria-label="목록에서 찾기"
+            className="ml-auto h-7 w-full rounded-[7px] border border-slate-300 px-2.5 text-fluid-xs text-slate-900 placeholder:text-slate-400 sm:w-48"
+          />
+        </div>
+
+        {error ? <p className="border-b border-rose-100 bg-rose-50 px-4 py-2 text-fluid-xs text-rose-800">{error}</p> : null}
+
+        {loading && items.length === 0 ? (
+          <p className="px-4 py-10 text-center text-fluid-xs text-slate-500">불러오는 중이에요.</p>
+        ) : shown.length === 0 ? (
+          <p className="px-4 py-10 text-center text-fluid-xs leading-relaxed text-slate-500">
+            {items.length === 0
+              ? date === today
+                ? '오늘 들어온 입금이 아직 없어요. 입금 문자가 오면 바로 여기에 나타납니다.'
+                : '이날 들어온 입금이 없어요.'
+              : '조건에 맞는 입금이 없어요.'}
+          </p>
+        ) : (
+          <>
+            {/* PC */}
+            <div className="hidden lg:block">
+              <table className="w-full table-fixed text-left">
+                <thead>
+                  <tr className="border-b border-slate-100 text-fluid-2xs font-semibold text-slate-500">
+                    <th className="w-[84px] px-4 py-2">시각</th>
+                    <th className="w-[120px] px-2 py-2 text-right">금액</th>
+                    <th className="w-[150px] px-4 py-2">입금자</th>
+                    <th className="w-[104px] px-2 py-2">상태</th>
+                    <th className="px-2 py-2">연결된 고객</th>
+                    <th className="w-[190px] px-4 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((row) => (
+                    <tr
+                      key={row.id}
+                      className={`border-b border-slate-100 align-middle transition-colors duration-700 last:border-b-0 ${
+                        freshIds.has(row.id) ? 'bg-emerald-50' : row.status === 'IGNORED' ? 'bg-slate-50/60' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-2.5 text-fluid-xs tabular-nums text-slate-600">{kstTime(row.depositedAt)}</td>
+                      <td
+                        className={`px-2 py-2.5 text-right text-fluid-sm font-bold tabular-nums ${
+                          row.status === 'IGNORED' ? 'text-slate-400' : 'text-slate-900'
+                        }`}
+                      >
+                        {won(row.amountWon)}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="block truncate text-fluid-xs font-semibold text-slate-900">{row.depositorName || '입금자명 없음'}</span>
+                        <span className="block truncate text-fluid-2xs tabular-nums text-slate-500">
+                          {[row.bankName, row.accountMask, showBrand ? brandName(row.operatingCompanyId) : ''].filter(Boolean).join(' ')}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <StatusChip tone={DEPOSIT_STATUS_TONE[row.status]}>{DEPOSIT_STATUS_LABEL[row.status]}</StatusChip>
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <LinkedCell row={row} />
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <RowButtons
+                          row={row}
+                          busy={busyId === row.id}
+                          canEdit
+                          onFind={() => setLinkTarget(row)}
+                          onIgnore={() => void act(row, () => ignoreBankDeposit(token, row.id))}
+                          onUnlink={() => void act(row, () => unlinkBankDeposit(token, row.id))}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 모바일 */}
+            <ul className="divide-y divide-slate-100 lg:hidden">
+              {shown.map((row) => (
+                <li key={row.id} className={`px-4 py-3 ${freshIds.has(row.id) ? 'bg-emerald-50' : ''}`}>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-fluid-base font-bold tabular-nums ${row.status === 'IGNORED' ? 'text-slate-400' : 'text-slate-900'}`}>
+                      {won(row.amountWon)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-fluid-xs font-semibold text-slate-800">{row.depositorName || '입금자명 없음'}</span>
+                    <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">{kstTime(row.depositedAt)}</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <StatusChip tone={DEPOSIT_STATUS_TONE[row.status]}>{DEPOSIT_STATUS_LABEL[row.status]}</StatusChip>
+                    <span className="min-w-0 flex-1">
+                      <LinkedCell row={row} />
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <RowButtons
+                      row={row}
+                      busy={busyId === row.id}
+                      canEdit
+                      onFind={() => setLinkTarget(row)}
+                      onIgnore={() => void act(row, () => ignoreBankDeposit(token, row.id))}
+                      onUnlink={() => void act(row, () => unlinkBankDeposit(token, row.id))}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-fluid-2xs text-slate-500">
+              <span>
+                {shown.length}건 · 합계 <span className="font-bold tabular-nums text-slate-800">{won(sum)}</span>
+                {filter === 'ALL' && counts.ignored > 0 ? ' (청소와 무관한 입금 제외)' : ''}
+              </span>
+              {hasMore ? (
+                <Button size="sm" className="ml-auto" onClick={() => void load({ more: true, quiet: true })}>
+                  더 보기
+                </Button>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+
+      <p className="text-fluid-2xs leading-relaxed text-slate-500">
+        입금이 연결돼도 접수 상태는 저절로 바뀌지 않아요. 통장 잔액은 폰에서 지우고 보내므로 여기에 저장되지 않습니다.
+      </p>
+
+      {linkTarget ? (
+        <BankDepositLinkDialog
+          token={token}
+          deposit={linkTarget}
+          onClose={() => setLinkTarget(null)}
+          onLinked={() => {
+            setLinkTarget(null);
+            void afterChange();
+          }}
+        />
+      ) : null}
+      {setupOpen ? (
+        <BankDepositSetupDialog
+          token={token}
+          brands={brandOptions}
+          onClose={() => setSetupOpen(false)}
+          onChanged={() => void loadStatus()}
+        />
+      ) : null}
+    </div>
+  );
+}
