@@ -1,5 +1,6 @@
 import '../env.js';
 import { PrismaClient } from '@prisma/client';
+import { withInquiryDepositHook } from './prismaInquiryDepositHook.js';
 
 /** Railway 단일 컨테이너 기본 — URL에 없을 때만 pool 파라미터 추가 */
 function resolveDatabaseUrl(): string | undefined {
@@ -24,6 +25,8 @@ function resolveDatabaseUrl(): string | undefined {
 
 const datasourceUrl = resolveDatabaseUrl();
 
-export const prisma = new PrismaClient(
+const prismaBase = new PrismaClient(
   datasourceUrl ? { datasources: { db: { url: datasourceUrl } } } : undefined,
 );
+
+export const prisma = withInquiryDepositHook(prismaBase);

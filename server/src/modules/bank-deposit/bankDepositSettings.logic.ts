@@ -19,6 +19,7 @@ export type BankDepositSettingsShape = {
   depositAmountsMode: DepositAmountsMode;
   depositAmountsWon: number[];
   staffToastEnabled: boolean;
+  skipDayOffLeaders: boolean;
 };
 
 export const DEFAULT_BANK_DEPOSIT_SETTINGS: BankDepositSettingsShape = {
@@ -32,6 +33,7 @@ export const DEFAULT_BANK_DEPOSIT_SETTINGS: BankDepositSettingsShape = {
   depositAmountsMode: 'auto',
   depositAmountsWon: [],
   staffToastEnabled: true,
+  skipDayOffLeaders: true,
 };
 
 function asInt(value: unknown): number | null {
@@ -66,6 +68,10 @@ export function applySettingsPatch(
   if ('staffToastEnabled' in patch) {
     if (typeof patch.staffToastEnabled !== 'boolean') return { ok: false, error: '사무실 화면 알림은 켜기 또는 끄기로 보내 주세요.' };
     next.staffToastEnabled = patch.staffToastEnabled;
+  }
+  if ('skipDayOffLeaders' in patch) {
+    if (typeof patch.skipDayOffLeaders !== 'boolean') return { ok: false, error: '휴무 팀장 제외는 켜기 또는 끄기로 보내 주세요.' };
+    next.skipDayOffLeaders = patch.skipDayOffLeaders;
   }
   if ('teamAlertMinAmountWon' in patch) {
     const n = asInt(patch.teamAlertMinAmountWon);
