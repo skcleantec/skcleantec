@@ -32,7 +32,9 @@ export function AdminInquiriesLayout() {
   const { features, plan } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
   const { badges } = useInquiriesSubNavBadges(ready && Boolean(token));
-  const depositReviewCount = useBankDepositNavBadge(ready && Boolean(token));
+  const depositReviewCount = useBankDepositNavBadge(
+    ready && Boolean(token) && Boolean(features?.includes('mod_bank_deposit')),
+  );
 
   const navItems = useMemo(() => {
     const withBadge = ADMIN_INQUIRIES_NAV_ITEMS.map((item) => {
