@@ -15,6 +15,7 @@ export const DEPOSIT_STATUS_LABEL: Record<BankDepositStatus, string> = {
   LINKED: '연결함',
   NEEDS_REVIEW: '확인 필요',
   IGNORED: '청소와 무관',
+  CANCELLED: '예약취소',
 };
 
 export const DEPOSIT_STATUS_TONE: Record<BankDepositStatus, StatusTone> = {
@@ -22,6 +23,7 @@ export const DEPOSIT_STATUS_TONE: Record<BankDepositStatus, StatusTone> = {
   LINKED: 'green',
   NEEDS_REVIEW: 'amber',
   IGNORED: 'gray',
+  CANCELLED: 'red',
 };
 
 const TARGET_STATUS_LABEL: Record<string, string> = {

@@ -9,7 +9,7 @@ async function readError(res: Response): Promise<string> {
   return typeof data.error === 'string' && data.error.trim() ? data.error : '요청에 실패했습니다.';
 }
 
-export type BankDepositStatus = 'AUTO_LINKED' | 'NEEDS_REVIEW' | 'LINKED' | 'IGNORED';
+export type BankDepositStatus = 'AUTO_LINKED' | 'NEEDS_REVIEW' | 'LINKED' | 'IGNORED' | 'CANCELLED';
 export type BankDepositKind = 'DEPOSIT' | 'BALANCE' | 'TOTAL' | 'OTHER';
 /** sms 실시간, scan 뒤늦게 가져옴, notification 알림창 */
 export type BankDepositSource = 'sms' | 'scan' | 'notification' | 'manual';
@@ -69,7 +69,7 @@ export type BankDepositLinkedSummary = {
   teamLeaderNames?: string[];
 };
 
-export type BankDepositCounts = { today: number; autoLinked: number; needsReview: number; ignored: number };
+export type BankDepositCounts = { today: number; autoLinked: number; needsReview: number; ignored: number; cancelled?: number };
 
 export type BankDepositCandidate = {
   target: 'inquiry' | 'followup';
@@ -404,6 +404,8 @@ export type BankDepositSettings = {
   depositAmountsWon: number[];
   /** 관리자·마케터 화면 오른쪽 아래 알림 */
   staffToastEnabled: boolean;
+  /** 그날 휴무인 팀장에게는 주인 없는 입금을 묻지 않는다 */
+  skipDayOffLeaders?: boolean;
 };
 
 export async function fetchBankDepositSettings(token: string): Promise<{ settings: BankDepositSettings }> {
@@ -453,6 +455,24 @@ export async function createManualBankDeposit(
 /** 입금 한 줄을 완전히 지운다(관리자). 되돌릴 수 없다. */
 export async function deleteBankDeposit(token: string, id: string): Promise<{ ok: true }> {
   const res = await fetch(`${base}/${encodeURIComponent(id)}`, { method: 'DELETE', headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 예약취소 — 입금은 들어왔지만 고객이 예약을 취소했다. 연결은 그대로 둔다. */
+export async function cancelBankDeposit(token: string, id: string, note?: string): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(note != null ? { note } : {}),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+/** 예약취소를 되돌린다 — 연결돼 있었으면 연결 상태로, 아니면 확인 필요로. */
+export async function uncancelBankDeposit(token: string, id: string): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/${encodeURIComponent(id)}/uncancel`, { method: 'POST', headers: headers(token) });
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }

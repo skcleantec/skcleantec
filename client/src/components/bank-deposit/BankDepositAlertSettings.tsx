@@ -114,6 +114,13 @@ export function BankDepositAlertSettings({ token, onSaved }: { token: string; on
           />
         </Row>
         <div className={teamOff ? 'pointer-events-none opacity-45' : ''} aria-disabled={teamOff}>
+          <Row title="휴무인 팀장에게는 묻지 않기" hint="그날 휴무일로 등록된 팀장은 주인 없는 입금 알림을 받지 않아요. 자기 고객의 잔금 입금 알림은 그대로 갑니다.">
+            <OnOffSwitch
+              checked={form.skipDayOffLeaders !== false}
+              onChange={(v: boolean) => set('skipDayOffLeaders', v)}
+              title="휴무 팀장 제외"
+            />
+          </Row>
           <Row title="이 금액 미만은 팀장에게 묻지 않기" hint="10원 같은 시험 입금이나 소액은 사무실에서만 봅니다. 0이면 금액 제한 없음.">
             <span className="inline-flex items-center gap-1">
               <input

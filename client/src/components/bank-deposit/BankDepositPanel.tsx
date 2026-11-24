@@ -5,7 +5,10 @@ import {
   ignoreBankDeposit,
   listBankDepositDevices,
   listBankDeposits,
+  cancelBankDeposit,
   listUnparsedBankDeposits,
+  uncancelBankDeposit,
+  type BankDepositKind,
   resolveUnparsedBankDeposit,
   unlinkBankDeposit,
   type BankDepositUnparsedItem,
@@ -34,7 +37,51 @@ import {
   won,
 } from './bankDepositFormat';
 
-type Filter = 'ALL' | 'REVIEW' | 'LINKED' | 'IGNORED';
+type Filter = 'ALL' | 'REVIEW' | 'LINKED' | 'CANCELLED' | 'IGNORED';
+type Range = 'day' | '7d' | '30d' | 'month';
+type KindFilter = 'ALL' | BankDepositKind;
+
+const RANGE_LABEL: Record<Range, string> = { day: '하루씩', '7d': '최근 7일', '30d': '최근 30일', month: '이번 달' };
+const PREF_KEY = 'cbiseo.bankDeposit.filters.v1';
+
+type Prefs = { range: Range; filter: Filter; brandId: string; kind: KindFilter };
+const DEFAULT_PREFS: Prefs = { range: 'day', filter: 'ALL', brandId: '', kind: 'ALL' };
+
+/** 마지막에 쓰던 필터를 이 브라우저에 기억한다. 못 읽으면 기본값. */
+function readPrefs(): Prefs {
+  try {
+    const raw = localStorage.getItem(PREF_KEY);
+    if (!raw) return DEFAULT_PREFS;
+    const o = JSON.parse(raw) as Partial<Prefs>;
+    return {
+      range: o.range && o.range in RANGE_LABEL ? o.range : 'day',
+      filter: ['ALL', 'REVIEW', 'LINKED', 'CANCELLED', 'IGNORED'].includes(String(o.filter)) ? (o.filter as Filter) : 'ALL',
+      brandId: typeof o.brandId === 'string' ? o.brandId : '',
+      kind: ['ALL', 'DEPOSIT', 'BALANCE', 'TOTAL', 'OTHER'].includes(String(o.kind)) ? (o.kind as KindFilter) : 'ALL',
+    };
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
+function writePrefs(p: Prefs): void {
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify(p));
+  } catch {
+    /* 기억하지 못해도 화면은 쓴다 */
+  }
+}
+
+function rangeBounds(range: Range, day: string, today: string): { date?: string; from?: string; to?: string } {
+  if (range === '7d') return { from: addDaysToKstYmd(today, -6), to: today };
+  if (range === '30d') return { from: addDaysToKstYmd(today, -29), to: today };
+  if (range === 'month') return { from: `${today.slice(0, 7)}-01`, to: today };
+  return { date: day };
+}
+
+function ymdOf(iso: string): string {
+  return new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
 const PAGE = 100;
 
 function isLinked(row: BankDepositItem): boolean {
@@ -42,6 +89,15 @@ function isLinked(row: BankDepositItem): boolean {
 }
 
 function LinkedCell({ row }: { row: BankDepositItem }) {
+  if (row.status === 'CANCELLED') {
+    const who = row.linked?.customerName?.trim();
+    return (
+      <span className="block min-w-0">
+        <span className="block truncate text-fluid-xs font-semibold text-slate-700">{who || '예약 취소된 입금'}</span>
+        <span className="block truncate text-fluid-2xs text-rose-700">{row.note?.trim() || '예약취소 · 환불 여부를 확인해 주세요'}</span>
+      </span>
+    );
+  }
   if (!isLinked(row)) {
     if (row.status === 'IGNORED') return <span className="text-fluid-2xs text-slate-400">{row.note?.trim() || '연결하지 않음'}</span>;
     if (row.noOwner) {
@@ -114,6 +170,8 @@ function RowButtons({
   onUnlink,
   onArmDelete,
   onDelete,
+  onCancel,
+  onUncancel,
 }: {
   row: BankDepositItem;
   busy: boolean;
@@ -125,6 +183,8 @@ function RowButtons({
   onUnlink: () => void;
   onArmDelete: (armed: boolean) => void;
   onDelete: () => void;
+  onCancel: () => void;
+  onUncancel: () => void;
 }) {
   if (!canEdit) return null;
   if (deleteArmed) {
@@ -154,6 +214,21 @@ function RowButtons({
       </svg>
     </button>
   ) : null;
+  if (row.status === 'CANCELLED') {
+    return (
+      <span className="flex justify-end gap-1">
+        <Button size="sm" variant="quiet" onClick={onUncancel} disabled={busy}>
+          취소 되돌리기
+        </Button>
+        {del}
+      </span>
+    );
+  }
+  const cancelBtn = (
+    <Button size="sm" variant="quiet" onClick={onCancel} disabled={busy} title="입금은 됐지만 고객이 예약을 취소한 건으로 표시합니다">
+      예약취소
+    </Button>
+  );
   if (row.status === 'NEEDS_REVIEW') {
     return (
       <span className="flex justify-end gap-1">
@@ -163,6 +238,7 @@ function RowButtons({
         <Button size="sm" variant="quiet" onClick={onIgnore} disabled={busy} title="청소와 상관없는 입금이면 목록에서 접어 둡니다">
           청소와 무관
         </Button>
+        {cancelBtn}
         {del}
       </span>
     );
@@ -185,6 +261,7 @@ function RowButtons({
       <Button size="sm" variant="quiet" onClick={onUnlink} disabled={busy}>
         연결 끊기
       </Button>
+      {cancelBtn}
       {del}
     </span>
   );
@@ -198,7 +275,15 @@ export function BankDepositPanel({ token }: { token: string }) {
     [brands],
   );
   const [date, setDate] = useState(() => kstTodayYmd());
-  const [filter, setFilter] = useState<Filter>('ALL');
+  const [prefs, setPrefs] = useState<Prefs>(() => readPrefs());
+  const { range, filter, brandId: brandFilter, kind: kindFilter } = prefs;
+  const patchPrefs = (patch: Partial<Prefs>) =>
+    setPrefs((prev) => {
+      const next = { ...prev, ...patch };
+      writePrefs(next);
+      return next;
+    });
+  const setFilter = (f: Filter) => patchPrefs({ filter: f });
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<BankDepositItem[]>([]);
   const [counts, setCounts] = useState<BankDepositCounts>({ today: 0, autoLinked: 0, needsReview: 0, ignored: 0 });
@@ -216,17 +301,24 @@ export function BankDepositPanel({ token }: { token: string }) {
   const [unparsed, setUnparsed] = useState<BankDepositUnparsedItem[]>([]);
   const [unparsedOpen, setUnparsedOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const dateRef = useRef(date);
-  dateRef.current = date;
+  const viewKey = `${range}|${date}|${brandFilter}`;
+  const dateRef = useRef(viewKey);
+  dateRef.current = viewKey;
 
   const load = useCallback(
     async (opts?: { more?: boolean; quiet?: boolean }) => {
       const ymd = dateRef.current;
+      const [r0, d0, b0] = ymd.split('|') as [Range, string, string];
       if (!opts?.quiet) setLoading(true);
       setError(null);
       try {
         const offset = opts?.more ? items.length : 0;
-        const r = await listBankDeposits(token, { date: ymd, limit: PAGE, offset });
+        const r = await listBankDeposits(token, {
+          ...rangeBounds(r0, d0, kstTodayYmd()),
+          ...(b0 ? { operatingCompanyId: b0 } : {}),
+          limit: PAGE,
+          offset,
+        });
         if (dateRef.current !== ymd) return;
         setItems((prev) => (opts?.more ? [...prev, ...r.items] : r.items));
         setCounts(r.counts);
@@ -278,7 +370,7 @@ export function BankDepositPanel({ token }: { token: string }) {
 
   useEffect(() => {
     void loadRef.current();
-  }, [date, token]);
+  }, [viewKey, token]);
 
   useEffect(() => {
     void loadStatus();
@@ -292,7 +384,7 @@ export function BankDepositPanel({ token }: { token: string }) {
   useBankDepositRealtime(
     token,
     (p) => {
-      if (dateRef.current === kstTodayYmd()) {
+      if (range !== 'day' || date === kstTodayYmd()) {
         void loadRef.current({ quiet: true });
         if (p.event !== 'changed') setFreshIds((prev) => new Set(prev).add(p.id));
         setTimeout(() => {
@@ -326,13 +418,16 @@ export function BankDepositPanel({ token }: { token: string }) {
     }
   };
 
-  const linkedCount = Math.max(0, counts.today - counts.needsReview - counts.ignored);
+  const cancelledCount = counts.cancelled ?? 0;
+  const linkedCount = Math.max(0, counts.today - counts.needsReview - counts.ignored - cancelledCount);
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((row) => {
       if (filter === 'REVIEW' && row.status !== 'NEEDS_REVIEW') return false;
       if (filter === 'LINKED' && !isLinked(row)) return false;
       if (filter === 'IGNORED' && row.status !== 'IGNORED') return false;
+      if (filter === 'CANCELLED' && row.status !== 'CANCELLED') return false;
+      if (kindFilter !== 'ALL' && row.linkedKind !== kindFilter) return false;
       if (!q) return true;
       return (
         row.depositorName.toLowerCase().includes(q) ||
@@ -341,12 +436,12 @@ export function BankDepositPanel({ token }: { token: string }) {
         String(row.amountWon).includes(q.replace(/[^\d]/g, '') || '\u0000')
       );
     });
-  }, [items, filter, query]);
+  }, [items, filter, kindFilter, query]);
 
   const today = kstTodayYmd();
   const device = summary?.devices ?? null;
   const seen = device && device.total > 0 ? deviceSeen(device.lastSeenAt, now) : null;
-  const sum = shown.reduce((acc, row) => acc + (row.status === 'IGNORED' ? 0 : row.amountWon), 0);
+  const sum = shown.reduce((acc, row) => acc + (row.status === 'IGNORED' || row.status === 'CANCELLED' ? 0 : row.amountWon), 0);
   const brandName = (id: string | null) => (id ? brandOptions.find((b) => b.id === id)?.name ?? '' : '');
   const showBrand = brandOptions.length > 1;
 
@@ -354,6 +449,7 @@ export function BankDepositPanel({ token }: { token: string }) {
     { id: 'ALL', label: '전체', count: counts.today },
     { id: 'REVIEW', label: '확인 필요', count: counts.needsReview },
     { id: 'LINKED', label: '연결됨', count: linkedCount },
+    { id: 'CANCELLED', label: '예약취소', count: cancelledCount },
     { id: 'IGNORED', label: '청소와 무관', count: counts.ignored },
   ];
 
@@ -455,7 +551,19 @@ export function BankDepositPanel({ token }: { token: string }) {
 
       <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 px-4 py-3">
-          <div className="flex items-center gap-1">
+          <select
+            value={range}
+            onChange={(e) => patchPrefs({ range: e.target.value as Range })}
+            aria-label="보는 기간"
+            className="h-7 rounded-[7px] border border-[#dde3ea] bg-white px-1.5 text-fluid-xs font-semibold text-slate-900"
+          >
+            {(Object.keys(RANGE_LABEL) as Range[]).map((r) => (
+              <option key={r} value={r}>
+                {RANGE_LABEL[r]}
+              </option>
+            ))}
+          </select>
+          <div className={`items-center gap-1 ${range === 'day' ? 'flex' : 'hidden'}`}>
             <Button size="sm" icon aria-label="전날" onClick={() => setDate(addDaysToKstYmd(date, -1))}>
               ‹
             </Button>
@@ -501,12 +609,54 @@ export function BankDepositPanel({ token }: { token: string }) {
               </button>
             ))}
           </div>
+          <span className="ml-auto flex flex-wrap items-center gap-1.5">
+            {showBrand ? (
+              <select
+                value={brandFilter}
+                onChange={(e) => patchPrefs({ brandId: e.target.value })}
+                aria-label="브랜드"
+                className="h-7 rounded-[7px] border border-slate-300 bg-white px-1.5 text-fluid-xs text-slate-900"
+              >
+                <option value="">브랜드 전체</option>
+                {brandOptions.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <select
+              value={kindFilter}
+              onChange={(e) => patchPrefs({ kind: e.target.value as KindFilter })}
+              aria-label="입금 종류"
+              className="h-7 rounded-[7px] border border-slate-300 bg-white px-1.5 text-fluid-xs text-slate-900"
+            >
+              <option value="ALL">종류 전체</option>
+              <option value="DEPOSIT">계약금</option>
+              <option value="BALANCE">잔금</option>
+              <option value="TOTAL">총액</option>
+              <option value="OTHER">기타</option>
+            </select>
+            {filter !== 'ALL' || kindFilter !== 'ALL' || brandFilter || range !== 'day' ? (
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => {
+                  setPrefs(DEFAULT_PREFS);
+                  writePrefs(DEFAULT_PREFS);
+                  setDate(kstTodayYmd());
+                }}
+              >
+                필터 처음으로
+              </Button>
+            ) : null}
+          </span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="입금자·고객·담당 이름, 금액"
             aria-label="목록에서 찾기"
-            className="ml-auto h-7 w-full rounded-[7px] border border-slate-300 px-2.5 text-fluid-xs text-slate-900 placeholder:text-slate-400 sm:w-48"
+            className="h-7 w-full rounded-[7px] border border-slate-300 px-2.5 text-fluid-xs text-slate-900 placeholder:text-slate-400 sm:w-48"
           />
         </div>
 
@@ -517,9 +667,11 @@ export function BankDepositPanel({ token }: { token: string }) {
         ) : shown.length === 0 ? (
           <p className="px-4 py-10 text-center text-fluid-xs leading-relaxed text-slate-500">
             {items.length === 0
-              ? date === today
-                ? '오늘 들어온 입금이 아직 없어요. 입금 문자가 오면 바로 여기에 나타납니다.'
-                : '이날 들어온 입금이 없어요.'
+              ? range !== 'day'
+                ? '이 기간에 들어온 입금이 없어요.'
+                : date === today
+                  ? '오늘 들어온 입금이 아직 없어요. 입금 문자가 오면 바로 여기에 나타납니다.'
+                  : '이날 들어온 입금이 없어요.'
               : '조건에 맞는 입금이 없어요.'}
           </p>
         ) : (
@@ -535,7 +687,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                     <th className="w-[104px] px-2 py-2">상태</th>
                     <th className="px-2 py-2">연결된 고객</th>
                     <th className="w-[150px] px-2 py-2">담당 · 팀장</th>
-                    <th className="w-[236px] px-4 py-2" />
+                    <th className="w-[290px] px-4 py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -543,10 +695,12 @@ export function BankDepositPanel({ token }: { token: string }) {
                     <tr
                       key={row.id}
                       className={`border-b border-slate-100 align-middle transition-colors duration-700 last:border-b-0 ${
-                        freshIds.has(row.id) ? 'bg-emerald-50' : row.status === 'IGNORED' ? 'bg-slate-50/60' : ''
+                        freshIds.has(row.id) ? 'bg-emerald-50' : row.status === 'IGNORED' || row.status === 'CANCELLED' ? 'bg-slate-50/60' : ''
                       }`}
                     >
-                      <td className="whitespace-nowrap px-4 py-2.5 text-fluid-xs tabular-nums text-slate-600">{kstTime(row.depositedAt)}
+                      <td className="whitespace-nowrap px-4 py-2.5 text-fluid-xs tabular-nums text-slate-600">
+                        {range !== 'day' ? <span className="block text-fluid-2xs text-slate-500">{kstDayLabel(ymdOf(row.depositedAt))}</span> : null}
+                        {kstTime(row.depositedAt)}
                         {row.source === 'manual' ? (
                           <span className="mt-0.5 block" title="사람이 직접 넣은 입금이에요">
                             <Tag>직접 추가</Tag>
@@ -560,7 +714,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                       </td>
                       <td
                         className={`px-2 py-2.5 text-right text-fluid-sm font-bold tabular-nums ${
-                          row.status === 'IGNORED' ? 'text-slate-400' : 'text-slate-900'
+                          row.status === 'IGNORED' ? 'text-slate-400' : row.status === 'CANCELLED' ? 'text-slate-400 line-through' : 'text-slate-900'
                         }`}
                       >
                         {won(row.amountWon)}
@@ -587,6 +741,8 @@ export function BankDepositPanel({ token }: { token: string }) {
                           canEdit
                           canDelete={isAdmin}
                           deleteArmed={armedDeleteId === row.id}
+                          onCancel={() => void act(row, () => cancelBankDeposit(token, row.id))}
+                          onUncancel={() => void act(row, () => uncancelBankDeposit(token, row.id))}
                           onArmDelete={(armed) => setArmedDeleteId(armed ? row.id : null)}
                           onDelete={() => void act(row, () => deleteBankDeposit(token, row.id)).then(() => setArmedDeleteId(null))}
                           onFind={() => setLinkTarget(row)}
@@ -610,6 +766,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                     </span>
                     <span className="min-w-0 flex-1 truncate text-fluid-xs font-semibold text-slate-800">{row.depositorName || '입금자명 없음'}</span>
                     <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">
+                      {range !== 'day' ? `${kstDayLabel(ymdOf(row.depositedAt))} ` : ''}
                       {kstTime(row.depositedAt)}
                       {row.source === 'scan' ? ' · 뒤늦게 가져옴' : row.source === 'manual' ? ' · 직접 추가' : ''}
                     </span>
@@ -628,6 +785,8 @@ export function BankDepositPanel({ token }: { token: string }) {
                       canEdit
                       canDelete={isAdmin}
                       deleteArmed={armedDeleteId === row.id}
+                      onCancel={() => void act(row, () => cancelBankDeposit(token, row.id))}
+                      onUncancel={() => void act(row, () => uncancelBankDeposit(token, row.id))}
                       onArmDelete={(armed) => setArmedDeleteId(armed ? row.id : null)}
                       onDelete={() => void act(row, () => deleteBankDeposit(token, row.id)).then(() => setArmedDeleteId(null))}
                       onFind={() => setLinkTarget(row)}
@@ -642,7 +801,7 @@ export function BankDepositPanel({ token }: { token: string }) {
             <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-fluid-2xs text-slate-500">
               <span>
                 {shown.length}건 · 합계 <span className="font-bold tabular-nums text-slate-800">{won(sum)}</span>
-                {filter === 'ALL' && counts.ignored > 0 ? ' (청소와 무관한 입금 제외)' : ''}
+                {filter === 'ALL' && counts.ignored + cancelledCount > 0 ? ' (청소와 무관·예약취소 제외)' : ''}
               </span>
               {hasMore ? (
                 <Button size="sm" className="ml-auto" onClick={() => void load({ more: true, quiet: true })}>
