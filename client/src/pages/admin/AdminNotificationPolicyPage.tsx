@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { getToken } from '../../stores/auth';
 import {
   getAdminNotificationPolicy,
@@ -10,7 +11,7 @@ import {
   NOTIFICATION_KIND_DESCRIPTIONS,
   NOTIFICATION_KIND_LABELS,
   NOTIFICATION_KIND_ORDER,
-  NOTIFICATION_KIND_ORDER_VISIBLE,
+  companyNotificationKinds,
   defaultTenantNotificationPolicy,
   type NotificationKindRule,
 } from '@shared/notificationPolicy';
@@ -30,6 +31,8 @@ function formatRemindMinutes(values: number[]): string {
 
 export function AdminNotificationPolicyPage() {
   const token = getToken();
+  const bankDepositOn = useHasTenantFeature('mod_bank_deposit');
+  const visibleKinds = companyNotificationKinds(bankDepositOn);
   const [policy, setPolicy] = useState<TenantNotificationPolicyDto>(defaultTenantNotificationPolicy());
   const [remindDraft, setRemindDraft] = useState<Record<StaffAppPushKind, string>>({} as Record<StaffAppPushKind, string>);
   const [loading, setLoading] = useState(true);
@@ -114,7 +117,7 @@ export function AdminNotificationPolicyPage() {
       ) : null}
 
       <div className="space-y-3">
-        {NOTIFICATION_KIND_ORDER_VISIBLE.map((kind) => {
+        {visibleKinds.map((kind) => {
           const rule = policy.kinds[kind];
           const showRepeat = kind === 'happy_call';
           return (

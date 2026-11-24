@@ -6352,6 +6352,8 @@ model BankDeposit {
   teamRemindedAt     DateTime? @map("team_reminded_at")
   /// 연결·무시·전원 거절 뒤 다시 알리지 않음. 연결 해제 시 비운다.
   openReminderStoppedAt DateTime? @map("open_reminder_stopped_at")
+  /// 업무 앱 입금 알림을 한 번만 보내려고 선점한 시각. 문구·계좌는 넣지 않는다.
+  staffPushClaimedAt DateTime? @map("staff_push_claimed_at")
   noOwnerNotifiedAt  DateTime? @map("no_owner_notified_at")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")

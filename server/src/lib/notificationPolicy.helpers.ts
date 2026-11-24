@@ -12,6 +12,7 @@ export const NOTIFICATION_KIND_ORDER: StaffAppPushKind[] = [
   'message',
   'cs',
   'db_marketplace',
+  'bank_deposit',
   'generic',
 ];
 
@@ -19,6 +20,11 @@ export const NOTIFICATION_KIND_ORDER: StaffAppPushKind[] = [
 export const NOTIFICATION_KIND_ORDER_VISIBLE: StaffAppPushKind[] = NOTIFICATION_KIND_ORDER.filter(
   (k) => k !== 'generic',
 );
+
+/** 업체 알림 설정. 입금 알림은 입금 확인을 쓰는 업체만. */
+export function companyNotificationKinds(bankDepositFeatureOn: boolean): StaffAppPushKind[] {
+  return NOTIFICATION_KIND_ORDER_VISIBLE.filter((kind) => kind !== 'bank_deposit' || bankDepositFeatureOn);
+}
 
 export type NotificationKindRule = {
   enabled: boolean;
@@ -64,6 +70,9 @@ function defaultKindRule(kind: StaffAppPushKind): NotificationKindRule {
   }
   if (kind === 'generic') {
     return { ...base, mandatory: false, defaultPush: false, enabled: false };
+  }
+  if (kind === 'bank_deposit') {
+    return { ...base, enabled: true, mandatory: false, defaultPush: true, repeatEnabled: false };
   }
   if (kind === 'assignment' || kind === 'schedule_alert') {
     return { ...base, mandatory: true, repeatEnabled: false };
@@ -151,6 +160,7 @@ export function mergeUserNotificationPreferences(raw: unknown): UserNotification
 export function buildTeamNotificationSettingsView(
   tenantPolicy: TenantNotificationPolicyDto,
   userPref: UserNotificationPreferencesDto,
+  options?: { includeBankDeposit?: boolean },
 ): Array<{
   kind: StaffAppPushKind;
   label: string;
@@ -167,6 +177,7 @@ export function buildTeamNotificationSettingsView(
     message: '메시지',
     cs: 'C/S',
     db_marketplace: '정보공유(DB)',
+    bank_deposit: '입금 알림',
     generic: '기타 알림',
   };
   const descriptions: Record<StaffAppPushKind, string> = {
@@ -177,9 +188,14 @@ export function buildTeamNotificationSettingsView(
     message: '메시지·현장 공지 수신 시. 보낸 사람과 내용 미리보기가 표시됩니다.',
     cs: 'C/S 접수·상태 변경 시',
     db_marketplace: '정보공유(DB) 인계·승인 등',
+    bank_deposit: '통장에 입금이 들어올 때 한 번. 관리자·마케터 모두에게 갑니다',
     generic: '화면 맞춤용. 휴대폰 알림은 보내지 않습니다.',
   };
-  return NOTIFICATION_KIND_ORDER_VISIBLE.filter((k) => tenantPolicy.kinds[k]?.enabled).map((kind) => {
+  return NOTIFICATION_KIND_ORDER_VISIBLE.filter((k) => {
+    if (!tenantPolicy.kinds[k]?.enabled) return false;
+    if (k === 'bank_deposit' && !options?.includeBankDeposit) return false;
+    return true;
+  }).map((kind) => {
     const rule = tenantPolicy.kinds[kind];
     const mandatory = Boolean(rule?.mandatory);
     const push = shouldSendPushToUser(kind, tenantPolicy, userPref);

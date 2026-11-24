@@ -159,6 +159,7 @@ node scripts/probe-staff-push-status.mjs --base https://www.cbiseo.com --tenant 
 | `happy_call` | 동일 | 해피콜 대상 접수 상세 |
 | `message` (관리→팀) | `/admin/messages?openUser=<senderId>&openMessage=<msgId>` | 대화 선택 후 해당 메시지 스크롤 |
 | `message` (팀→관리) | `/team/messages?openMessage=<msgId>` | 해당 메시지 스크롤 |
+| `bank_deposit` | `/admin/inquiries/deposits` | 입금 확인 목록. 관리자·마케터. 앱은 kind 를 가리지 않고 path 로 이동 |
 
 - 접수 변경(일반 changelog)은 `schedule_alert` kind + `openInquiry` path
 - 웹: `useStaffAppPushNavigation` (`cbiseo:navigate`) · 접수: `useTeamOpenInquiryDeepLink` / `AdminInquiriesPage`

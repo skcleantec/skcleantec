@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { notifyBankDeposit } from './bankDepositNotify.js';
+import { notifyStaffOfNewBankDeposit } from './bankDepositStaffPush.service.js';
 import { followupMarketerName, inquiryMarketerName } from './bankDepositView.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -67,7 +68,7 @@ export async function publishBankDeposit(
 ) {
   const stored = await db.bankDeposit.findFirst({
     where: { id: row.id, tenantId: row.tenantId },
-    select: { source: true },
+    select: { source: true, depositedAt: true },
   });
   const names = await depositNotifyNames(db, row.tenantId, row);
   notifyBankDeposit({
@@ -87,4 +88,24 @@ export async function publishBankDeposit(
     claimedByTeamLeaderName: row.claimedByTeamLeaderName,
     source: stored?.source === 'scan' || stored?.source === 'notification' ? stored.source : 'sms',
   });
+  if (row.event === 'new' && stored) {
+    try {
+      await notifyStaffOfNewBankDeposit(db, {
+        tenantId: row.tenantId,
+        depositId: row.id,
+        event: 'new',
+        source: stored.source,
+        depositedAt: stored.depositedAt,
+        status: row.status,
+        amountWon: row.amountWon,
+        depositorName: row.depositorName,
+        brandName: names.operatingCompanyName,
+        customerName: names.customerName,
+        marketerName: names.marketerName,
+        linkedKind: row.linkedKind,
+      });
+    } catch {
+      console.warn('[bank-deposit] staff push skipped');
+    }
+  }
 }
