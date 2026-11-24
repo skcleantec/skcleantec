@@ -4,6 +4,14 @@ export function sameTenant(rowTenantId: string, actorTenantId: string): boolean 
   return rowTenantId === actorTenantId;
 }
 
+export function bankDepositFeatureDisabledBody() {
+  return {
+    error: '이 업체에서 사용하지 않는 기능입니다.',
+    code: 'feature_disabled' as const,
+    moduleId: 'mod_bank_deposit' as const,
+  };
+}
+
 export function deviceCanIngest(device: { isActive: boolean; revokedAt: Date | null }): boolean {
   return device.isActive && device.revokedAt == null;
 }

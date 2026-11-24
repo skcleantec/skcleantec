@@ -3,6 +3,16 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { accountMasksMatch, parseBankDeposit } from './bankDepositParse.js';
 import { consumeDeviceRate, deviceCanIngest } from './bankDepositGuard.js';
+import {
+  depositFingerprint,
+  normalizeContentHash,
+  normalizeDepositSource,
+  pickDuplicate,
+  rescanBody,
+  resolveUnparsedWhere,
+  unparsedListSince,
+  unparsedRecord,
+} from './bankDepositIngest.logic.js';
 import { matchStoredDeposit } from './bankDepositMatch.service.js';
 import { publishBankDeposit } from './bankDepositPublish.js';
 import {
@@ -104,7 +114,17 @@ export async function listBankDevices(db: Db, tenantId: string) {
   const rows = await db.bankDepositDevice.findMany({
     where: { tenantId },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, name: true, lastSeenAt: true, appVersion: true, isActive: true, createdAt: true, revokedAt: true },
+    select: {
+      id: true,
+      name: true,
+      lastSeenAt: true,
+      appVersion: true,
+      isActive: true,
+      createdAt: true,
+      revokedAt: true,
+      lastScanAt: true,
+      lastScanFound: true,
+    },
   });
   return rows;
 }
@@ -131,7 +151,44 @@ export async function touchBankDevice(db: Db, token: string, now = new Date()) {
     where: { id: device.id, tenantId: device.tenantId },
     data: { lastSeenAt: now },
   });
-  return { serverTime: now.toISOString() };
+  const rescan = await consumeRescan(db, device);
+  return { serverTime: now.toISOString(), ...rescan };
+}
+
+async function consumeRescan(db: Db, device: { id: string; tenantId: string }) {
+  const taken = await db.bankDepositDevice.updateMany({
+    where: { id: device.id, tenantId: device.tenantId, rescanRequestedAt: { not: null } },
+    data: { rescanRequestedAt: null },
+  });
+  return rescanBody(taken.count === 1);
+}
+
+export async function requestBankDepositRescan(db: Db, tenantId: string, id: string, now = new Date()) {
+  const updated = await db.bankDepositDevice.updateMany({
+    where: { id, tenantId, revokedAt: null },
+    data: { rescanRequestedAt: now },
+  });
+  return updated.count > 0;
+}
+
+export async function reportBankDepositScan(
+  db: Db,
+  token: string,
+  input: { scanned: number; found: number },
+  now = new Date(),
+) {
+  const device = await deviceByToken(db, token);
+  if (!device) return { error: 'unauthorized' as const };
+  if (!(await isFeatureEnabled(device.tenantId, 'mod_bank_deposit'))) return { error: 'disabled' as const };
+  if (!Number.isInteger(input.scanned) || !Number.isInteger(input.found) || input.scanned < 0 || input.found < 0) {
+    return { error: 'bad' as const };
+  }
+  if (input.scanned > 100_000 || input.found > 100_000) return { error: 'bad' as const };
+  await db.bankDepositDevice.updateMany({
+    where: { id: device.id, tenantId: device.tenantId },
+    data: { lastScanAt: now, lastScanFound: input.found, lastSeenAt: now },
+  });
+  return { ok: true as const };
 }
 
 async function resolveBrand(db: Db, tenantId: string, accountMask: string) {
@@ -144,10 +201,40 @@ async function resolveBrand(db: Db, tenantId: string, accountMask: string) {
   return brands.length === 1 ? brands[0] : null;
 }
 
+async function keepUnparsed(
+  db: Db,
+  input: { tenantId: string; deviceId: string; dedupeKey: string; text: string; receivedAt: Date },
+) {
+  const kept = unparsedRecord(input.text);
+  if (!kept.keep) return;
+  try {
+    await db.bankDepositUnparsed.create({
+      data: {
+        tenantId: input.tenantId,
+        deviceId: input.deviceId,
+        dedupeKey: input.dedupeKey,
+        text: kept.text,
+        reason: kept.reason,
+        receivedAt: input.receivedAt,
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConflict(error)) throw error;
+  }
+}
+
+export type IngestBankDepositItem = {
+  dedupeKey: string;
+  text: string;
+  receivedAt: string;
+  contentHash?: string | null;
+  source?: string | null;
+};
+
 export async function ingestBankDeposits(
   db: Db,
   token: string,
-  items: { dedupeKey: string; text: string; receivedAt: string }[],
+  items: IngestBankDepositItem[],
   now = new Date(),
 ) {
   const device = await deviceByToken(db, token);
@@ -166,16 +253,51 @@ export async function ingestBankDeposits(
       continue;
     }
     const receivedAt = new Date(item.receivedAt);
-    const parsed = Number.isNaN(receivedAt.getTime()) ? null : parseBankDeposit(item.text, receivedAt);
-    if (!parsed || parsed.rawText.includes('잔액')) {
+    if (Number.isNaN(receivedAt.getTime())) {
       results.push({ dedupeKey, result: 'skipped' });
       continue;
     }
-    const existing = await db.bankDeposit.findFirst({
-      where: { tenantId: device.tenantId, dedupeKey },
-      select: { id: true },
+    const contentHash = normalizeContentHash(item.contentHash);
+    const source = normalizeDepositSource(item.source);
+    const parsed = parseBankDeposit(item.text, receivedAt);
+    if (!parsed || parsed.rawText.includes('잔액')) {
+      await keepUnparsed(db, { tenantId: device.tenantId, deviceId: device.id, dedupeKey, text: item.text, receivedAt });
+      results.push({ dedupeKey, result: 'skipped' });
+      continue;
+    }
+    const fingerprint = depositFingerprint({
+      accountMask: parsed.accountMask,
+      amountWon: parsed.amountWon,
+      depositorName: parsed.depositorName,
+      depositedAt: parsed.depositedAt,
     });
-    if (existing) {
+    const keySelect = { id: true, dedupeKey: true, contentHash: true, fingerprint: true } as const;
+    const [byDedupe, byHash, byFingerprint] = await Promise.all([
+      db.bankDeposit.findFirst({ where: { tenantId: device.tenantId, dedupeKey }, select: keySelect }),
+      contentHash
+        ? db.bankDeposit.findFirst({ where: { tenantId: device.tenantId, contentHash }, select: keySelect })
+        : Promise.resolve(null),
+      db.bankDeposit.findFirst({
+        where: { tenantId: device.tenantId, fingerprint, contentHash: null },
+        orderBy: { createdAt: 'asc' },
+        select: keySelect,
+      }),
+    ]);
+    const decision = pickDuplicate(
+      { dedupeKey, contentHash, fingerprint },
+      [byDedupe, byHash, byFingerprint].filter((row): row is NonNullable<typeof row> => row != null),
+    );
+    if (decision.duplicate) {
+      if (decision.fillHashOnId && contentHash) {
+        try {
+          await db.bankDeposit.updateMany({
+            where: { id: decision.fillHashOnId, tenantId: device.tenantId, contentHash: null },
+            data: { contentHash },
+          });
+        } catch (error) {
+          if (!isUniqueConflict(error)) throw error;
+        }
+      }
       results.push({ dedupeKey, result: 'duplicate' });
       continue;
     }
@@ -187,6 +309,9 @@ export async function ingestBankDeposits(
           operatingCompanyId,
           deviceId: device.id,
           dedupeKey,
+          contentHash,
+          source,
+          fingerprint,
           bankName: parsed.bankName,
           amountWon: parsed.amountWon,
           depositorName: parsed.depositorName,
@@ -285,7 +410,8 @@ export async function ingestBankDeposits(
       throw error;
     }
   }
-  return { results };
+  const rescan = await consumeRescan(db, device);
+  return { results, ...rescan };
 }
 
 const DEPOSIT_LIST_SELECT = {
@@ -306,6 +432,7 @@ const DEPOSIT_LIST_SELECT = {
   rawText: true,
   linkedByUserId: true,
   mismatchReason: true,
+  source: true,
 } satisfies Prisma.BankDepositSelect;
 
 export async function listBankDeposits(
@@ -796,8 +923,9 @@ export async function searchDepositTargets(db: Db, tenantId: string, id: string,
 
 export async function bankDepositSummary(db: Db, tenantId: string, now = new Date()) {
   const since = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-  const [needsReviewCount, devices] = await Promise.all([
+  const [needsReviewCount, unparsedCount, devices] = await Promise.all([
     db.bankDeposit.count({ where: { tenantId, status: 'NEEDS_REVIEW', receivedAt: { gte: since } } }),
+    db.bankDepositUnparsed.count({ where: { tenantId, resolvedAt: null, receivedAt: { gte: since } } }),
     db.bankDepositDevice.findMany({
       where: { tenantId, isActive: true, revokedAt: null },
       select: { lastSeenAt: true },
@@ -809,7 +937,38 @@ export async function bankDepositSummary(db: Db, tenantId: string, now = new Dat
     const iso = device.lastSeenAt.toISOString();
     if (!lastSeenAt || iso > lastSeenAt) lastSeenAt = iso;
   }
-  return { needsReviewCount, devices: { total: devices.length, lastSeenAt } };
+  return { needsReviewCount, unparsedCount, devices: { total: devices.length, lastSeenAt } };
+}
+
+export async function listUnparsedBankDeposits(db: Db, tenantId: string, now = new Date()) {
+  const rows = await db.bankDepositUnparsed.findMany({
+    where: { tenantId, resolvedAt: null, receivedAt: { gte: unparsedListSince(now) } },
+    orderBy: { receivedAt: 'desc' },
+    take: 100,
+    select: { id: true, reason: true, text: true, receivedAt: true, resolvedAt: true },
+  });
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      reason: row.reason,
+      text: row.text,
+      receivedAt: row.receivedAt.toISOString(),
+      resolvedAt: row.resolvedAt?.toISOString() ?? null,
+    })),
+  };
+}
+
+export async function resolveUnparsedBankDeposit(db: Db, tenantId: string, id: string, now = new Date()) {
+  const updated = await db.bankDepositUnparsed.updateMany({
+    where: { ...resolveUnparsedWhere(tenantId, id), resolvedAt: null },
+    data: { resolvedAt: now },
+  });
+  if (updated.count === 1) return { ok: true as const };
+  const existing = await db.bankDepositUnparsed.findFirst({
+    where: { id, tenantId },
+    select: { id: true },
+  });
+  return existing ? { ok: true as const } : { error: 'missing' as const };
 }
 
 export async function depositsForInquiries(db: Db, tenantId: string, rawIds: string[]) {
