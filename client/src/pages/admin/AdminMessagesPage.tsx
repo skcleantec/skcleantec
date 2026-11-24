@@ -563,7 +563,7 @@ export function AdminMessagesPage() {
             role="tab"
             aria-selected={view === key}
             onClick={() => setView(key)}
-            className={`rounded-[7px] px-3.5 py-1.5 text-[13px] font-bold ${
+            className={`rounded-[7px] px-3 py-1 text-[12.5px] font-bold ${
               view === key ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -582,7 +582,7 @@ export function AdminMessagesPage() {
           boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
           overflow: 'hidden',
         }}
-        className={mobileChatActive ? 'max-md:hidden' : undefined}
+        className={view === 'archive' ? 'hidden' : mobileChatActive ? 'max-md:hidden' : undefined}
       >
         <button
           type="button"
@@ -596,14 +596,14 @@ export function AdminMessagesPage() {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 12,
-            padding: '12px 16px',
+            padding: '8px 14px',
             textAlign: 'left',
             background: 'none',
             border: 'none',
             cursor: 'pointer',
           }}
         >
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span>📢</span>
             현장 공지(일괄 발송)
           </span>
@@ -617,20 +617,13 @@ export function AdminMessagesPage() {
             id="admin-broadcast-panel"
             role="region"
             aria-labelledby="admin-broadcast-toggle"
-            style={{ borderTop: '1px solid #f1f5f9', padding: '16px', background: '#f8fafc' }}
+            style={{ borderTop: '1px solid #f1f5f9', padding: '10px 14px 12px', background: '#f8fafc' }}
           >
-            <form onSubmit={handleBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <fieldset
-                style={{
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 10,
-                  padding: 12,
-                  background: '#fff',
-                }}
-              >
+            <form onSubmit={handleBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 1040 }}>
+              <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 <legend className="sr-only">공지 수신 대상</legend>
-                <p style={{ fontSize: 13, color: '#64748b', fontWeight: 500, marginBottom: 8 }}>수신 대상을 1개 이상 선택하세요.</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px' }}>
+                <span style={{ fontSize: 12.5, color: '#64748b', fontWeight: 600 }}>받는 사람</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
                   {[
                     { label: '팀장', value: toTeamLeaders, set: setToTeamLeaders },
                     { label: '외부업체', value: toExternalPartners, set: setToExternalPartners },
@@ -639,13 +632,13 @@ export function AdminMessagesPage() {
                       ? [{ label: '마케터', value: toMarketers, set: setToMarketers }]
                       : []),
                   ].map(({ label, value, set }) => (
-                    <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                    <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={value}
                         onChange={(e) => set(e.target.checked)}
                         disabled={broadcasting}
-                        className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
                       />
                       {label}
                     </label>
@@ -670,7 +663,7 @@ export function AdminMessagesPage() {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: 8,
                   borderRadius: 12,
                   outline: dropOver === 'broadcast' ? '2px dashed #7c3aed' : 'none',
                   outlineOffset: 4,
@@ -691,10 +684,11 @@ export function AdminMessagesPage() {
                     width: '100%',
                     maxHeight: 160,
                     resize: 'vertical',
-                    borderRadius: 10,
+                    borderRadius: 8,
                     border: '1px solid #cbd5e1',
-                    padding: '10px 14px',
-                    fontSize: 15,
+                    padding: '7px 11px',
+                    fontSize: 13.5,
+                    lineHeight: 1.5,
                     outline: 'none',
                   }}
                   disabled={broadcasting}
@@ -703,8 +697,8 @@ export function AdminMessagesPage() {
                   draft={broadcastDraft}
                   disabled={broadcasting}
                   onPickFromArchive={() => setArchivePick(true)}
-                />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  trailing={
+                    <>
                   {broadcastText || broadcastDraft.items.length > 0 ? (
                     <button
                       type="button"
@@ -715,13 +709,13 @@ export function AdminMessagesPage() {
                         setBroadcastError(null);
                       }}
                       style={{
-                        height: 36,
-                        padding: '0 14px',
+                        height: 28,
+                        padding: '0 10px',
                         borderRadius: 8,
                         background: '#fff',
                         color: '#334155',
-                        fontWeight: 700,
-                        fontSize: 13,
+                        fontWeight: 600,
+                        fontSize: 12,
                         border: '1px solid #cbd5e1',
                         cursor: 'pointer',
                       }}
@@ -733,13 +727,13 @@ export function AdminMessagesPage() {
                     type="submit"
                     disabled={!canBroadcast}
                     style={{
-                      height: 36,
-                      padding: '0 16px',
+                      height: 28,
+                      padding: '0 12px',
                       borderRadius: 8,
                       background: '#6d28d9',
                       color: '#fff',
                       fontWeight: 700,
-                      fontSize: 13,
+                      fontSize: 12.5,
                       border: 'none',
                       cursor: canBroadcast ? 'pointer' : 'default',
                       opacity: canBroadcast ? 1 : 0.5,
@@ -748,7 +742,9 @@ export function AdminMessagesPage() {
                   >
                     {broadcasting ? '보내는 중…' : '공지 발송'}
                   </button>
-                </div>
+                    </>
+                  }
+                />
               </div>
             </form>
             {broadcastError && (
@@ -768,9 +764,6 @@ export function AdminMessagesPage() {
             display: 'flex',
             flexDirection: 'column',
             borderRadius: 12,
-            border: '1px solid #e2e8f0',
-            background: '#f8fafc',
-            padding: 14,
           }}
         >
           <NoticeArchivePanel

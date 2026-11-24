@@ -18,6 +18,14 @@ function when(iso: string): string {
   return d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
+function whenShort(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (x: number) => String(x).padStart(2, '0');
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return `${sameYear ? '' : `${String(d.getFullYear()).slice(2)}.`}${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function targetsText(t: NoticeArchiveItem['targets']): string {
   if (!t) return '';
   const parts: string[] = [];
@@ -68,7 +76,7 @@ export function NoticeArchivePanel({ token, onReuse, pickMode }: Props) {
       type="button"
       onClick={() => setFilter(key)}
       aria-pressed={filter === key}
-      className={`rounded-full px-3 py-1 text-[12.5px] font-bold ${
+      className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${
         filter === key ? 'bg-violet-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
       }`}
     >
@@ -77,7 +85,7 @@ export function NoticeArchivePanel({ token, onReuse, pickMode }: Props) {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 md:max-w-[1120px] md:rounded-xl md:border md:border-slate-200 md:bg-white md:p-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1.5">
           {chip('all', '전체')}
@@ -90,7 +98,7 @@ export function NoticeArchivePanel({ token, onReuse, pickMode }: Props) {
           onChange={(e) => setQ(e.target.value)}
           placeholder="공지 찾기"
           aria-label="공지 찾기"
-          className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:max-w-[260px]"
+          className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:h-7 md:max-w-[240px] md:px-2.5 md:text-[12.5px]"
         />
       </div>
 
@@ -106,75 +114,90 @@ export function NoticeArchivePanel({ token, onReuse, pickMode }: Props) {
             {q || filter !== 'all' ? '조건에 맞는 공지가 없습니다.' : '아직 보낸 공지가 없습니다.'}
           </p>
         ) : null}
-        <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
+        {items.length > 0 ? (
+          <div className="hidden grid-cols-[104px_minmax(0,1fr)_110px_170px_96px] gap-3 border-b border-slate-200 px-3 pb-1.5 text-[11.5px] font-semibold text-slate-500 md:grid">
+            <span>보낸 때</span>
+            <span>내용</span>
+            <span>붙인 것</span>
+            <span>받는 사람</span>
+            <span className="text-right">읽음</span>
+          </div>
+        ) : null}
+        <ul className="grid grid-cols-[minmax(0,1fr)] max-md:gap-2">
           {items.map((n) => {
             const { images, files } = splitAttachments(n.attachments);
             const open = openId === n.batchId;
+            const title = n.content?.trim() || attachmentSummary(images.length, files.length);
+            const attach = attachmentSummary(images.length, files.length);
+            const allRead = n.read ? n.read.readCount >= n.read.totalCount : false;
             return (
-              <li key={n.batchId} className="min-w-0 rounded-xl border border-slate-200 bg-white">
+              <li
+                key={n.batchId}
+                className={`min-w-0 bg-white max-md:rounded-xl max-md:border max-md:border-slate-200 md:border-b md:border-slate-100 ${
+                  open ? 'md:bg-violet-50/40' : 'md:hover:bg-slate-50'
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => setOpenId(open ? null : n.batchId)}
                   aria-expanded={open}
-                  className="flex w-full items-center gap-3 px-3 py-3 text-left md:px-4"
+                  className="w-full text-left"
                 >
-                  {images.length > 0 ? (
-                    <span className="flex shrink-0 gap-0.5">
-                      {images.slice(0, 3).map((img, i) => (
-                        <img
-                          key={img.id}
-                          src={imageThumb(img)}
-                          alt=""
-                          className={`h-12 w-12 rounded-md object-cover ${i > 0 ? 'max-md:hidden' : ''}`}
-                        />
+                  {/* PC: 한 줄 */}
+                  <span className="hidden h-9 grid-cols-[104px_minmax(0,1fr)_110px_170px_96px] items-center gap-3 px-3 text-[12.5px] md:grid">
+                    <span className="tabular-nums text-slate-500">{whenShort(n.createdAt)}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {images.slice(0, 3).map((img) => (
+                        <img key={img.id} src={imageThumb(img)} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
                       ))}
+                      <span className="truncate font-semibold text-slate-900">{title}</span>
                     </span>
-                  ) : files.length > 0 ? (
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-red-100 text-[11px] font-black text-red-700">
-                      PDF
+                    <span className="truncate text-slate-600">{attach || '—'}</span>
+                    <span className="truncate text-slate-600">
+                      {n.senderName}
+                      {targetsText(n.targets) ? ` → ${targetsText(n.targets)}` : ''}
                     </span>
-                  ) : null}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-bold text-slate-900">
-                      {n.content?.trim() || attachmentSummary(images.length, files.length)}
+                    <span className={`text-right font-bold tabular-nums ${allRead ? 'text-slate-400' : 'text-violet-700'}`}>
+                      {!pickMode && n.read ? `${n.read.readCount}/${n.read.totalCount}` : ''}
                     </span>
-                    <span className="mt-0.5 block truncate text-[12.5px] text-slate-500">
-                      {when(n.createdAt)} · {n.senderName}
-                      {targetsText(n.targets) ? ` · ${targetsText(n.targets)}` : ''}
+                  </span>
+                  {/* 모바일: 두 줄 카드 */}
+                  <span className="flex items-center gap-2.5 px-3 py-2.5 md:hidden">
+                    {images.length > 0 ? (
+                      <img src={imageThumb(images[0])} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                    ) : files.length > 0 ? (
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100 text-[10px] font-black text-red-700">
+                        PDF
+                      </span>
+                    ) : null}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13.5px] font-bold text-slate-900">{title}</span>
+                      <span className="mt-0.5 block truncate text-[12px] text-slate-500">
+                        {whenShort(n.createdAt)} · {n.senderName}
+                        {attach ? ` · ${attach}` : ''}
+                      </span>
                     </span>
-                    {images.length + files.length > 0 ? (
-                      <span className="mt-1 block text-[12px] font-semibold text-slate-600">
-                        {attachmentSummary(images.length, files.length)}
+                    {!pickMode && n.read ? (
+                      <span className={`shrink-0 text-[13px] font-extrabold tabular-nums ${allRead ? 'text-slate-400' : 'text-violet-700'}`}>
+                        {n.read.readCount}/{n.read.totalCount}
                       </span>
                     ) : null}
                   </span>
-                  {!pickMode && n.read ? (
-                    <span className="shrink-0 text-right">
-                      <span className="block text-[13.5px] font-extrabold tabular-nums text-violet-700">
-                        읽음 {n.read.readCount}/{n.read.totalCount}
-                      </span>
-                      {n.crew && n.crew.totalCount > 0 ? (
-                        <span className="block text-[12px] tabular-nums text-slate-500">
-                          팀원 그룹 {n.crew.readCount}/{n.crew.totalCount}
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : null}
                 </button>
                 {open ? (
-                  <div className="border-t border-slate-100 px-3 pb-3 pt-3 md:px-4">
+                  <div className="border-t border-slate-100 px-3 pb-3 pt-2 md:pl-[128px]">
                     {n.content?.trim() ? (
-                      <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed text-slate-800">{n.content}</p>
+                      <p className="max-w-[720px] whitespace-pre-wrap break-words text-[13px] leading-relaxed text-slate-800">{n.content}</p>
                     ) : null}
                     {images.length > 0 ? (
-                      <div className="mt-2 grid grid-cols-4 gap-1 md:grid-cols-8">
+                      <div className="mt-2 flex flex-wrap gap-1">
                         {images.map((img, i) => (
                           <button
                             key={img.id}
                             type="button"
                             aria-label={`사진 ${i + 1} 크게 보기`}
                             onClick={() => setViewer({ images, index: i, caption: `${n.senderName} · ${when(n.createdAt)}` })}
-                            className="aspect-square overflow-hidden rounded-md bg-slate-200"
+                            className="h-16 w-16 overflow-hidden rounded-lg bg-slate-200"
                           >
                             <img src={imageThumb(img)} alt={img.fileName} className="h-full w-full object-cover" loading="lazy" />
                           </button>
@@ -187,19 +210,24 @@ export function NoticeArchivePanel({ token, onReuse, pickMode }: Props) {
                         href={f.originalUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-[13px] no-underline hover:bg-slate-50"
+                        className="mt-1.5 flex max-w-[420px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12.5px] no-underline hover:bg-slate-50"
                       >
                         <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-700">PDF</span>
                         <span className="min-w-0 flex-1 truncate font-semibold text-slate-900">{f.fileName}</span>
-                        <span className="shrink-0 text-[12px] text-slate-500">{formatFileSize(f.sizeBytes)}</span>
+                        <span className="shrink-0 text-[11.5px] text-slate-500">{formatFileSize(f.sizeBytes)}</span>
                       </a>
                     ))}
-                    <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {!pickMode && n.crew && n.crew.totalCount > 0 ? (
+                        <span className="mr-1 text-[12px] tabular-nums text-slate-500">
+                          팀원 그룹 {n.crew.readCount}/{n.crew.totalCount}
+                        </span>
+                      ) : null}
                       {!pickMode ? (
                         <button
                           type="button"
                           onClick={() => setReaders(n)}
-                          className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-3 text-[12.5px] font-bold text-slate-700 hover:bg-slate-50"
+                          className="inline-flex h-7 items-center rounded-lg border border-slate-300 bg-white px-2.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
                         >
                           누가 읽었나 보기
                         </button>
@@ -208,7 +236,7 @@ export function NoticeArchivePanel({ token, onReuse, pickMode }: Props) {
                         <button
                           type="button"
                           onClick={() => onReuse(n.attachments)}
-                          className="inline-flex h-8 items-center rounded-lg bg-violet-700 px-3 text-[12.5px] font-bold text-white hover:bg-violet-800"
+                          className="inline-flex h-7 items-center rounded-lg bg-violet-700 px-2.5 text-[12px] font-semibold text-white hover:bg-violet-800"
                         >
                           이 사진·파일 다시 붙이기
                         </button>
