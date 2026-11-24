@@ -29,13 +29,13 @@ function ymdKst(iso: string): string {
 function Sheet({ children, label, onBackdrop }: { children: React.ReactNode; label: string; onBackdrop?: () => void }) {
   return createPortal(
     <div
-      className="fixed inset-0 z-[139] flex items-end justify-center bg-slate-900/45 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[139] flex items-center justify-center bg-slate-900/55 p-4"
       role="dialog"
       aria-modal="true"
       aria-label={label}
     >
       {onBackdrop ? <button type="button" aria-label="닫기" onClick={onBackdrop} className="absolute inset-0 cursor-default" /> : null}
-      <div className="relative flex max-h-[88dvh] w-full max-w-[420px] flex-col rounded-t-[20px] border border-slate-200 bg-white shadow-xl sm:rounded-[20px]">
+      <div className="relative flex max-h-[88dvh] w-full max-w-[400px] flex-col rounded-[20px] border border-slate-200 bg-white shadow-2xl">
         {children}
       </div>
     </div>,
@@ -265,7 +265,7 @@ function ClaimFlow({
         {error ? <p className="text-fluid-xs text-rose-700">{error}</p> : null}
       </div>
 
-      <div className="grid gap-2 border-t border-slate-100 px-5 pt-4" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))' }}>
+      <div className="grid gap-2 border-t border-slate-100 px-5 py-4">
         {step === 'ask' ? (
           <>
             <Button variant="primary" size="lg" className="h-[52px] w-full rounded-[14px]" onClick={() => void openPick()} disabled={busy}>
@@ -274,9 +274,11 @@ function ClaimFlow({
             <Button size="lg" className="h-[52px] w-full rounded-[14px]" onClick={() => setStep('decline')} disabled={busy}>
               내 건 아니에요
             </Button>
-            <Button variant="quiet" size="md" className="w-full" onClick={onLater} disabled={busy}>
-              나중에 볼게요
-            </Button>
+            {error ? (
+              <Button variant="quiet" size="md" className="w-full" onClick={onLater} disabled={busy}>
+                잠시 뒤에 다시 볼게요
+              </Button>
+            ) : null}
           </>
         ) : null}
         {step === 'decline' ? (
@@ -330,6 +332,8 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
   const [activeId, setActiveId] = useState<string | null>(null);
   const [paid, setPaid] = useState<Paid | null>(null);
   const [resolvedNote, setResolvedNote] = useState<string | null>(null);
+  /** 오류로 잠깐 미룬 입금 — 다음 새로 고침(1분) 때 다시 뜬다 */
+  const [snoozedId, setSnoozedId] = useState<string | null>(null);
   const on = enabled && Boolean(token);
 
   const load = useCallback(async () => {
@@ -340,6 +344,7 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
     try {
       const r = await fetchOpenTeamBankDeposits(token);
       setOpen(r.items);
+      setSnoozedId(null);
     } catch {
       /* 기능이 꺼졌거나 잠깐 실패 — 띠만 안 보인다 */
     }
@@ -403,30 +408,12 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
   }, [resolvedNote]);
 
   if (!on) return null;
-  const active = open.find((x) => x.id === activeId) ?? null;
+  // 확인할 입금이 있으면 가운데 창이 항상 떠 있다. 둘 중 하나를 눌러야 닫힌다.
+  const active = open.find((x) => x.id === activeId && x.id !== snoozedId) ?? open.find((x) => x.id !== snoozedId) ?? null;
   const activeIndex = active ? open.findIndex((x) => x.id === active.id) : -1;
 
   return (
     <>
-      {open.length > 0 && !active && !paid
-        ? createPortal(
-            <button
-              type="button"
-              onClick={() => setActiveId(open[0].id)}
-              className="staff-top-safe fixed inset-x-0 top-0 z-[60] flex items-center gap-2 bg-amber-400 px-4 py-2 text-left shadow-md"
-            >
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-amber-950 text-[12px] font-black tabular-nums text-amber-200">
-                {open.length}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-fluid-xs font-bold text-amber-950">
-                누구 고객 입금인지 확인해 주세요 · {won(open[0].amountWon)} {open[0].depositorName}
-              </span>
-              <span className="shrink-0 text-fluid-2xs font-bold text-amber-950 underline">확인하기</span>
-            </button>,
-            document.body,
-          )
-        : null}
-
       {resolvedNote
         ? createPortal(
             <div role="status" className="fixed inset-x-4 bottom-24 z-[141] mx-auto max-w-[360px] rounded-xl bg-slate-900 px-4 py-3 text-center text-fluid-xs font-semibold text-white shadow-lg">
@@ -441,7 +428,10 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
           token={token}
           item={active}
           position={open.length > 1 ? `${activeIndex + 1} / ${open.length}` : ''}
-          onLater={() => setActiveId(null)}
+          onLater={() => {
+            setSnoozedId(active.id);
+            setActiveId(null);
+          }}
           onDone={() => {
             const rest = open.filter((x) => x.id !== active.id);
             setOpen(rest);
@@ -453,10 +443,9 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
 
       {paid
         ? createPortal(
-            <div className="fixed inset-0 z-[140] flex items-end justify-center bg-slate-900/45 p-0 sm:items-center sm:p-4">
+            <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-900/55 p-4">
               <div
-                className="w-full max-w-[390px] rounded-t-[20px] border border-slate-200 bg-white p-5 shadow-xl sm:rounded-[20px]"
-                style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom, 0px))' }}
+                className="w-full max-w-[390px] rounded-[20px] border border-slate-200 bg-white p-5 shadow-2xl"
                 role="alertdialog"
                 aria-modal="true"
                 aria-labelledby="team-deposit-paid-title"
