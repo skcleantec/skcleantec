@@ -10,6 +10,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.cbiseo.depositalert.store.DeviceSettings
+import com.cbiseo.depositalert.store.NoticeLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,10 +43,12 @@ class MessageNoticeReader : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        accept(sbn, posted = true, rescan = false)
+        accept(sbn, posted = true, rescan = false, journal = true)
     }
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification) = Unit
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        accept(sbn, posted = false, rescan = true, journal = true)
+    }
 
     private fun readActive() {
         val active = try {
@@ -53,10 +56,10 @@ class MessageNoticeReader : NotificationListenerService() {
         } catch (_: Exception) {
             null
         } ?: return
-        for (sbn in active) accept(sbn, posted = false, rescan = true)
+        for (sbn in active) accept(sbn, posted = false, rescan = true, journal = false)
     }
 
-    private fun accept(sbn: StatusBarNotification, posted: Boolean, rescan: Boolean) {
+    private fun accept(sbn: StatusBarNotification, posted: Boolean, rescan: Boolean, journal: Boolean) {
         if (sbn.packageName !in MESSAGE_NOTICE_PACKAGES) return
         val settings = DeviceSettings(this)
         if (!settings.listening() || !settings.messageNotice()) return
@@ -67,23 +70,36 @@ class MessageNoticeReader : NotificationListenerService() {
         Log.i("DepositAlert", "notice methods=$letters pieces=${pieces.size}")
         val appContext = applicationContext
         val receivedAt = notice.`when`.takeIf { it > 0L } ?: sbn.postTime
+        val missed = noticeMissedBank(pieces)
+        val depositPieces = pieces.count { dropReason(it.text) == null }
         io.launch {
             gate.withLock {
                 val store = DeviceSettings(appContext)
                 if (posted) store.noteNoticePost(receivedAt)
-                store.noteNoticeExtracted(pieces.size)
-                if (noticeMissedBank(pieces)) store.noteNoticeMissed()
-                store.noteNoticeDeposits(pieces.count { dropReason(it.text) == null })
                 val source = if (rescan) IntakeSource.NoticeRescan else IntakeSource.Notice
+                val outcomes = ArrayList<IntakeOutcome>(pieces.size)
                 for (piece in pieces) {
-                    DepositIntake.accept(
-                        appContext,
-                        piece.sender,
-                        piece.text,
-                        piece.receivedAtMillis,
-                        source,
-                        piece.summary,
+                    outcomes.add(
+                        DepositIntake.accept(
+                            appContext,
+                            piece.sender,
+                            piece.text,
+                            piece.receivedAtMillis,
+                            source,
+                            piece.summary,
+                            countDup = journal,
+                        ),
                     )
+                }
+                val recovered = outcomes.any { it == IntakeOutcome.Queued }
+                if (journal || recovered) {
+                    store.noteNoticeExtracted(pieces.size)
+                    if (missed) store.noteNoticeMissed()
+                    store.noteNoticeDeposits(depositPieces)
+                    val result = classifyNoticeRecord(pieces.size, outcomes, missed)
+                    val shownAt = if (receivedAt > 0L) receivedAt else System.currentTimeMillis()
+                    NoticeLog(appContext).add(shownAt, pieces.size, result)
+                    Log.i("DepositAlert", "notice lines=${pieces.size} result=${noticeResultCode(result)}")
                 }
             }
         }
@@ -105,15 +121,27 @@ class MessageNoticeReader : NotificationListenerService() {
 
         fun maintain(context: Context) {
             val settings = DeviceSettings(context)
-            if (!settings.listening() || !settings.messageNotice()) return
-            if (!accessEnabled(context)) return
             val service = instance
-            if (!connected || service == null) {
-                requestRebind(ComponentName(context, MessageNoticeReader::class.java))
-                settings.noteNoticeRebind()
-                return
+            when (
+                chooseMaintain(
+                    listening = settings.listening(),
+                    messageNotice = settings.messageNotice(),
+                    accessEnabled = accessEnabled(context),
+                    listenerConnected = connected,
+                    listenerBound = service != null,
+                )
+            ) {
+                MaintainChoice.Skip -> return
+                MaintainChoice.Rebind -> {
+                    requestRebind(ComponentName(context, MessageNoticeReader::class.java))
+                    settings.noteNoticeRebind()
+                    Log.i("DepositAlert", "notice rebind")
+                }
+                MaintainChoice.Rescan -> {
+                    service?.readActive()
+                    Log.i("DepositAlert", "notice rescan")
+                }
             }
-            service.readActive()
         }
     }
 }

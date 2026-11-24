@@ -25,10 +25,13 @@ import com.cbiseo.depositalert.net.RegisterReply
 import com.cbiseo.depositalert.service.KeepAliveService
 import com.cbiseo.depositalert.sms.DropReason
 import com.cbiseo.depositalert.sms.InboxScan
+import com.cbiseo.depositalert.R
 import com.cbiseo.depositalert.sms.MessageNoticeReader
 import com.cbiseo.depositalert.sms.SAMPLE_NH_SMS
+import com.cbiseo.depositalert.sms.formatNoticeLine
 import com.cbiseo.depositalert.sms.previewDeposit
 import com.cbiseo.depositalert.store.DeviceSettings
+import com.cbiseo.depositalert.store.NoticeLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -226,6 +229,14 @@ class MainActivity : AppCompatActivity() {
         }
         binding.batteryWarning.visibility = if (batteryIgnored()) View.GONE else View.VISIBLE
         val noticeReady = settings.messageNotice() && messageNoticeAllowed() && MessageNoticeReader.connected
+        binding.listenHeadline.text = if (noticeReady) "알림 듣는 중" else "듣지 못하는 중"
+        binding.listenHeadline.setTextColor(ContextCompat.getColor(this, if (noticeReady) R.color.ink else R.color.danger))
+        val journal = NoticeLog(this).recent()
+        binding.noticeLog.text = if (journal.isEmpty()) {
+            "아직 없습니다."
+        } else {
+            journal.joinToString("\n") { formatNoticeLine(it, seoul) }
+        }
         binding.noticeWarning.visibility = if (noticeReady) View.GONE else View.VISIBLE
         val ago = minutesAgo(settings.lastNoticeAt())
         binding.noticeStatus.text = if (noticeReady) {

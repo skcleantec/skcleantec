@@ -53,7 +53,7 @@ object InboxScan {
         var found = 0
         for (line in choice.picks) {
             val queued = DepositIntake.accept(context, line.sender, line.body, line.receivedAtMillis, IntakeSource.Scan)
-            if (queued) found++
+            if (queued == IntakeOutcome.Queued) found++
         }
         settings.markScan(now, found)
         Log.i("DepositAlert", "scan done scanned=${choice.scanned} found=$found sms=${sms.size} mms=${mms.size}")

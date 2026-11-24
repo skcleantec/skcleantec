@@ -8,7 +8,8 @@ import com.cbiseo.depositalert.store.DeviceSettings
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        val action = intent.action
+        if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val settings = DeviceSettings(context)
         if (settings.listening() && settings.hasToken()) KeepAliveService.start(context)
     }
