@@ -367,6 +367,10 @@ model Tenant {
   telecrmSmsTemplates TelecrmSmsTemplate[]
   telecrmCallNotes    TelecrmCallNote[]
   telecrmWorkEntries  TelecrmWorkEntry[]
+  bankDepositDevices BankDepositDevice[]
+  bankDepositAccounts BankDepositAccount[]
+  bankDeposits BankDeposit[]
+  bankDepositLinkCodes BankDepositLinkCode[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
   telecrmAiQuoteRules TelecrmAiQuoteRule[]
@@ -1791,6 +1795,8 @@ model OperatingCompany {
   crmQuickScheduleLeads      CrmQuickScheduleLead[]
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
   telecrmWorkEntries         TelecrmWorkEntry[]
+  bankDepositAccounts        BankDepositAccount[]
+  bankDeposits               BankDeposit[]
   telecrmAiQuoteCorrections  TelecrmAiQuoteCorrection[]
   telecrmAiQuoteLoftSettings TelecrmAiQuoteLoftSetting[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
@@ -2276,6 +2282,8 @@ model User {
   telecrmSoomgoPresetUses TelecrmSoomgoPresetUse[]
   telecrmCallNotes             TelecrmCallNote[]
   telecrmWorkEntries           TelecrmWorkEntry[]
+  bankDepositsLinked           BankDeposit[] @relation("BankDepositLinkedBy")
+  bankDepositLinkCodesCreated  BankDepositLinkCode[]
   telecrmConsultationQuotesCreated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteCreatedBy")
   telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
   telecrmAiQuoteCorrections TelecrmAiQuoteCorrection[]
@@ -3149,6 +3157,7 @@ model Inquiry {
   landingContactInquiries   LandingContactInquiry[]
   householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
   cardPayments              CardPayment[]
+  bankDeposits              BankDeposit[]
   skHomepageInquiryMail     SkHomepageInquiryMail?
   cashBillIssues            CashBillIssue[]
   taxInvoiceIssues          TaxInvoiceIssue[]
@@ -4578,6 +4587,7 @@ model OrderFollowup {
   logs              OrderFollowupLog[]
   hotMarks          OrderFollowupHotMark[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
+  bankDeposits          BankDeposit[]
 
   @@index([tenantId, status, updatedAt])
   @@index([tenantId, operatingCompanyId, updatedAt])
@@ -6216,4 +6226,96 @@ model QuickQuoteLookupDay {
 
   @@id([tenantId, dayKey])
   @@map("quick_quote_lookup_days")
+}
+
+/// 사업자폰 등 입금 문자를 보내는 기기. 토큰 원문은 저장하지 않는다.
+model BankDepositDevice {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String    @db.VarChar(80)
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(64)
+  lastSeenAt DateTime? @map("last_seen_at")
+  appVersion String?   @map("app_version") @db.VarChar(40)
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  deposits BankDeposit[]
+
+  @@index([tenantId, isActive])
+  @@map("bank_deposit_devices")
+}
+
+/// 문자에 나온 계좌(가림)와 브랜드를 잇는다.
+model BankDepositAccount {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String   @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  bankName           String   @map("bank_name") @db.VarChar(32)
+  accountMask        String   @map("account_mask") @db.VarChar(40)
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, isActive])
+  @@map("bank_deposit_accounts")
+}
+
+/// 기기 연결용 6자리 코드. 원문 대신 해시만 10분 보관한다.
+model BankDepositLinkCode {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  codeHash        String    @map("code_hash") @db.VarChar(64)
+  expiresAt       DateTime  @map("expires_at")
+  consumedAt      DateTime? @map("consumed_at")
+  createdByUserId String    @map("created_by_user_id")
+  createdBy       User      @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([codeHash, expiresAt])
+  @@index([tenantId, createdAt])
+  @@map("bank_deposit_link_codes")
+}
+
+/// 통장 입금 한 건. 잔액은 넣지 않는다. 접수·부재와는 끊겨도 남도록 연결만 선택.
+model BankDeposit {
+  id                 String    @id @default(uuid())
+  tenantId           String    @map("tenant_id")
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String?   @map("operating_company_id")
+  operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
+  deviceId           String?   @map("device_id")
+  device             BankDepositDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  dedupeKey          String    @map("dedupe_key") @db.VarChar(128)
+  bankName           String    @map("bank_name") @db.VarChar(32)
+  amountWon          Int       @map("amount_won")
+  depositorName      String    @map("depositor_name") @db.VarChar(80)
+  accountMask        String    @map("account_mask") @db.VarChar(40)
+  depositedAt        DateTime  @map("deposited_at")
+  receivedAt         DateTime  @map("received_at")
+  rawText            String    @map("raw_text") @db.Text
+  /// AUTO_LINKED | NEEDS_REVIEW | LINKED | IGNORED
+  status             String    @db.VarChar(20)
+  linkedInquiryId    String?   @map("linked_inquiry_id")
+  linkedInquiry      Inquiry?  @relation(fields: [linkedInquiryId], references: [id], onDelete: SetNull)
+  linkedFollowupId   String?   @map("linked_followup_id")
+  linkedFollowup     OrderFollowup? @relation(fields: [linkedFollowupId], references: [id], onDelete: SetNull)
+  /// DEPOSIT | BALANCE | TOTAL | OTHER
+  linkedKind         String?   @map("linked_kind") @db.VarChar(16)
+  linkedByUserId     String?   @map("linked_by_user_id")
+  linkedBy           User?     @relation("BankDepositLinkedBy", fields: [linkedByUserId], references: [id], onDelete: SetNull)
+  linkedAt           DateTime? @map("linked_at")
+  note               String?   @db.VarChar(200)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, dedupeKey])
+  @@index([tenantId, depositedAt(sort: Desc)])
+  @@index([tenantId, status, depositedAt(sort: Desc)])
+  @@index([linkedInquiryId])
+  @@map("bank_deposits")
 }

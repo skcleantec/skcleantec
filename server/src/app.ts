@@ -26,6 +26,7 @@ import cashbillMemberPlatformRoutes from './modules/cashbill/cashbillMember.plat
 import cashbillStateCronRoutes from './modules/cashbill/cashbillState.cron.routes.js';
 import taxInvoiceRoutes from './modules/taxinvoice/taxInvoice.routes.js';
 import orderFollowupsRoutes from './modules/order-followups/orderFollowups.routes.js';
+import { bankDepositDeviceRouter, bankDepositRouter } from './modules/bank-deposit/bankDeposit.routes.js';
 import inquiryLeadSourceRoutes from './modules/inquiry-lead-sources/inquiryLeadSource.routes.js';
 import reviewPaybackPublicRoutes from './modules/review-payback/reviewPayback.public.routes.js';
 import reviewPaybackAdminRoutes from './modules/review-payback/reviewPayback.admin.routes.js';
@@ -209,6 +210,8 @@ app.use('/api/tax-invoices', taxInvoiceRoutes);
 app.use('/api/platform/barobill', cashbillMemberPlatformRoutes);
 app.use('/api/orderform-templates', orderFormTemplatesRoutes);
 app.use('/api/order-followups', orderFollowupsRoutes);
+app.use('/api/bank-deposits', bankDepositDeviceRouter);
+app.use('/api/bank-deposits', bankDepositRouter);
 app.use('/api/inquiry-lead-sources', inquiryLeadSourceRoutes);
 app.use('/api/public/review-payback', reviewPaybackPublicRoutes);
 app.use('/api/public/inspection', inquiryInspectionPublicRoutes);
