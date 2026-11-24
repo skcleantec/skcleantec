@@ -114,6 +114,19 @@ export interface CrewStaffNoticeItem {
   content: string;
   createdAt: string;
   sender: { id: string; name: string };
+  attachments?: import('./messages').MessageAttachment[];
+}
+
+/** 팀원 그룹이 공지의 사진·파일을 열어 봤음을 알린다(읽음 처리). */
+export async function markCrewStaffNoticeViewed(token: string, noticeId: string): Promise<void> {
+  try {
+    await fetch(`${API}/crew/notices/${encodeURIComponent(noticeId)}/viewed`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    /* 다음에 열 때 다시 보낸다 */
+  }
 }
 
 /** 운영(관리자·마케터)에서 보낸 공지 목록 — 크루 공유 로그인 */
