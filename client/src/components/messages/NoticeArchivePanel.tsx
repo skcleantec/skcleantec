@@ -106,12 +106,12 @@ export function NoticeArchivePanel({ token, onReuse, pickMode }: Props) {
             {q || filter !== 'all' ? '조건에 맞는 공지가 없습니다.' : '아직 보낸 공지가 없습니다.'}
           </p>
         ) : null}
-        <ul className="grid gap-2.5">
+        <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
           {items.map((n) => {
             const { images, files } = splitAttachments(n.attachments);
             const open = openId === n.batchId;
             return (
-              <li key={n.batchId} className="rounded-xl border border-slate-200 bg-white">
+              <li key={n.batchId} className="min-w-0 rounded-xl border border-slate-200 bg-white">
                 <button
                   type="button"
                   onClick={() => setOpenId(open ? null : n.batchId)}
