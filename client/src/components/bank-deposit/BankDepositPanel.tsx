@@ -52,9 +52,9 @@ function LinkedCell({ row }: { row: BankDepositItem }) {
     return (
       <span className="block text-fluid-2xs text-amber-800">
         누구 입금인지 골라 주세요
-        {row.teamLeaderCount && row.teamLeaderCount > 0 ? (
+        {row.teamLeaderCount && row.teamLeaderCount > 0 && (row.teamDeclinedCount ?? 0) > 0 ? (
           <span className="ml-1 text-slate-500">
-            · 팀장 확인 중 {row.teamDeclinedCount ?? 0}/{row.teamLeaderCount}명 아님
+            · 팀장 {row.teamLeaderCount}명 중 {row.teamDeclinedCount}명이 내 건 아니라고 했어요
           </span>
         ) : null}
       </span>
