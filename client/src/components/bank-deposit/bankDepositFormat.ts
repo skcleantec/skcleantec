@@ -80,3 +80,37 @@ export function deviceSeen(lastSeenAt: string | null | undefined, now = Date.now
     diffMin < 1 ? '방금' : diffMin < 60 ? `${diffMin}분 전` : diffMin < 1440 ? `${Math.floor(diffMin / 60)}시간 전` : `${Math.floor(diffMin / 1440)}일 전`;
   return { ok: diffMin <= 20, text: ago };
 }
+
+/** 사업자폰 경고 문구. SILENT(연결 끊김)는 기존 연결 끊김 안내가 맡는다. */
+export function phoneAlertText(
+  code: 'NOT_LISTENING' | 'NO_ACCESS' | 'KEEPALIVE_OFF' | 'SILENT' | 'OLD_APP',
+): { short: string; title: string; body: string } | null {
+  switch (code) {
+    case 'NOT_LISTENING':
+      return {
+        short: '폰이 알림을 못 듣는 중',
+        title: '사업자폰이 입금 알림을 못 듣고 있어요',
+        body: '폰은 켜져 있지만 앱이 문자 알림을 읽지 못하는 상태입니다. 지금 들어오는 입금이 빠질 수 있어요. 폰에서 「청소비서 입금 알림」 앱을 한 번 열어 주세요. 계속되면 폰을 껐다 켜 주세요.',
+      };
+    case 'NO_ACCESS':
+      return {
+        short: '폰 알림 권한 꺼짐',
+        title: '사업자폰의 알림 읽기 권한이 꺼져 있어요',
+        body: '이 권한이 꺼지면 입금 문자를 전혀 받지 못합니다. 폰에서 앱을 열고 안내에 따라 「알림 접근」을 다시 켜 주세요.',
+      };
+    case 'KEEPALIVE_OFF':
+      return {
+        short: '폰 앱이 대기 중 아님',
+        title: '사업자폰 앱이 계속 켜져 있는 상태가 아니에요',
+        body: '화면이 꺼지면 입금 알림을 놓칠 수 있습니다. 폰에서 앱을 한 번 열어 주세요.',
+      };
+    case 'OLD_APP':
+      return {
+        short: '폰 앱이 예전 버전',
+        title: '사업자폰 앱이 예전 버전이에요',
+        body: '예전 앱은 알림을 듣고 있는지 알려 주지 않아, 놓쳐도 여기에 표시되지 않습니다. 새 버전으로 바꿔 주세요.',
+      };
+    default:
+      return null;
+  }
+}

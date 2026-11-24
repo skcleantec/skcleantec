@@ -100,6 +100,14 @@ export type BankDepositSummary = {
   /** 최근 14일, 아직 닫지 않은 해석 실패 문자. 서버는 항상 보낸다. */
   unparsedCount?: number;
   devices: { total: number; lastSeenAt: string | null };
+  /** 사업자폰이 입금 알림을 못 받고 있을 때. 문제 없으면 null. */
+  phoneAlert?: BankDepositPhoneAlert | null;
+};
+
+export type BankDepositPhoneAlert = {
+  level: 'error' | 'warn';
+  code: 'NOT_LISTENING' | 'NO_ACCESS' | 'KEEPALIVE_OFF' | 'SILENT' | 'OLD_APP';
+  since?: string | null;
 };
 
 export type BankDepositInquiryBrief = {
@@ -121,6 +129,14 @@ export type BankDepositDeviceItem = {
   lastScanAt: string | null;
   /** 마지막 점검에서 새로 찾은 입금 수 */
   lastScanFound: number | null;
+  /** 앱 0.1.7부터 보내는 상태. 예전 앱은 비어 있다. */
+  listenerConnected?: boolean | null;
+  noticeAccessEnabled?: boolean | null;
+  keepAliveRunning?: boolean | null;
+  batteryUnrestricted?: boolean | null;
+  lastNoticeAt?: string | null;
+  counters?: { posts?: number; extracted?: number; deposits?: number; missed?: number; rebinds?: number; sent?: number } | null;
+  statusAt?: string | null;
 };
 
 export type BankDepositAccountItem = {
