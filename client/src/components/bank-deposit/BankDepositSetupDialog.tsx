@@ -6,6 +6,7 @@ import {
   deleteBankDepositAccount,
   listBankDepositAccounts,
   listBankDepositDevices,
+  requestBankDepositRescan,
   revokeBankDepositDevice,
   type BankDepositAccountItem,
   type BankDepositDeviceItem,
@@ -44,6 +45,7 @@ export function BankDepositSetupDialog({
   const [code, setCode] = useState<{ code: string; expiresAt: string } | null>(null);
   const [codeBusy, setCodeBusy] = useState(false);
   const [armedDeviceId, setArmedDeviceId] = useState<string | null>(null);
+  const [rescanAsked, setRescanAsked] = useState<Record<string, boolean>>({});
   const [armedAccountId, setArmedAccountId] = useState<string | null>(null);
   const [brandId, setBrandId] = useState(brands[0]?.id ?? '');
   const [bankName, setBankName] = useState('농협');
@@ -170,6 +172,12 @@ export function BankDepositSetupDialog({
                             마지막 연결 {seen.text}
                             {seen.ok ? '' : ' · 폰이 꺼졌거나 앱이 멈췄을 수 있어요'}
                           </span>
+                          <span className="block text-fluid-2xs text-slate-500">
+                            {d.lastScanAt
+                              ? `문자함 점검 ${deviceSeen(d.lastScanAt, now).text} · 새로 찾은 입금 ${d.lastScanFound ?? 0}건`
+                              : '문자함 점검 기록 없음'}
+                            {rescanAsked[d.id] ? ' · 다시 확인을 요청했어요(다음 연결 때 실행)' : ''}
+                          </span>
                         </span>
                         {armedDeviceId === d.id ? (
                           <span className="flex shrink-0 gap-1">
@@ -181,9 +189,23 @@ export function BankDepositSetupDialog({
                             </Button>
                           </span>
                         ) : (
-                          <Button size="sm" variant="quiet" onClick={() => setArmedDeviceId(d.id)}>
-                            연결 끊기
-                          </Button>
+                          <span className="flex shrink-0 gap-1">
+                            <Button
+                              size="sm"
+                              title="폰이 최근 이틀 문자함을 다시 훑어, 빠진 입금 문자가 있으면 가져옵니다"
+                              disabled={Boolean(rescanAsked[d.id])}
+                              onClick={() =>
+                                void requestBankDepositRescan(token, d.id)
+                                  .then(() => setRescanAsked((prev) => ({ ...prev, [d.id]: true })))
+                                  .catch((e) => setError(e instanceof Error ? e.message : '요청하지 못했어요.'))
+                              }
+                            >
+                              빠진 문자 다시 확인
+                            </Button>
+                            <Button size="sm" variant="quiet" onClick={() => setArmedDeviceId(d.id)}>
+                              연결 끊기
+                            </Button>
+                          </span>
                         )}
                       </li>
                     );

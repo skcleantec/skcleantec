@@ -4,7 +4,10 @@ import {
   ignoreBankDeposit,
   listBankDepositDevices,
   listBankDeposits,
+  listUnparsedBankDeposits,
+  resolveUnparsedBankDeposit,
   unlinkBankDeposit,
+  type BankDepositUnparsedItem,
   type BankDepositCounts,
   type BankDepositItem,
   type BankDepositSummary,
@@ -14,7 +17,7 @@ import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
 import { addDaysToKstYmd, kstTodayYmd } from '../../utils/dateFormat';
 import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import { Button } from '../ui/Button';
-import { StatusChip } from '../ui/StatusChip';
+import { StatusChip, Tag } from '../ui/StatusChip';
 import { BankDepositLinkDialog } from './BankDepositLinkDialog';
 import { BankDepositSetupDialog } from './BankDepositSetupDialog';
 import { notifyBankDepositNavBadgeRefresh } from './bankDepositNavBadge';
@@ -168,6 +171,8 @@ export function BankDepositPanel({ token }: { token: string }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [summary, setSummary] = useState<BankDepositSummary | null>(null);
   const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
+  const [unparsed, setUnparsed] = useState<BankDepositUnparsedItem[]>([]);
+  const [unparsedOpen, setUnparsedOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const dateRef = useRef(date);
   dateRef.current = date;
@@ -199,7 +204,14 @@ export function BankDepositPanel({ token }: { token: string }) {
 
   const loadStatus = useCallback(async () => {
     try {
-      setSummary(await fetchBankDepositSummary(token));
+      const s = await fetchBankDepositSummary(token);
+      setSummary(s);
+      if ((s.unparsedCount ?? 0) > 0) {
+        const u = await listUnparsedBankDeposits(token);
+        setUnparsed(u.items.filter((x) => !x.resolvedAt));
+      } else {
+        setUnparsed([]);
+      }
     } catch {
       /* 요약이 없어도 목록은 쓴다 */
     }
@@ -213,6 +225,7 @@ export function BankDepositPanel({ token }: { token: string }) {
         .sort()
         .pop();
       setSummary((prev) => ({
+        ...(prev ?? {}),
         needsReviewCount: prev?.needsReviewCount ?? 0,
         devices: { total: active.length, lastSeenAt: last ?? null },
       }));
@@ -355,6 +368,46 @@ export function BankDepositPanel({ token }: { token: string }) {
         </div>
       ) : null}
 
+      {unparsed.length > 0 ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="min-w-0 flex-1 text-fluid-xs leading-relaxed text-amber-950">
+              <span className="font-bold">읽지 못한 입금 문자 {unparsed.length}건</span> · 모양이 달라서 금액이나 입금자를 읽지 못했어요. 내용을 보고 통장과 맞춰 주세요.
+            </p>
+            <Button size="sm" onClick={() => setUnparsedOpen((v) => !v)}>
+              {unparsedOpen ? '접기' : '내용 보기'}
+            </Button>
+          </div>
+          {unparsedOpen ? (
+            <ul className="mt-2 space-y-1.5">
+              {unparsed.map((u) => (
+                <li key={u.id} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-fluid-2xs tabular-nums text-slate-500">
+                      {kstDayLabel(new Date(u.receivedAt).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10))} {kstTime(u.receivedAt)}
+                    </span>
+                    <span className="mt-0.5 block whitespace-pre-wrap break-words text-fluid-xs text-slate-900">
+                      {u.text ?? '잔액을 지우지 못해 내용을 저장하지 않았어요. 폰의 문자함에서 확인해 주세요.'}
+                    </span>
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    onClick={() =>
+                      void resolveUnparsedBankDeposit(token, u.id)
+                        .then(() => loadStatus())
+                        .catch((e) => setError(e instanceof Error ? e.message : '처리하지 못했어요.'))
+                    }
+                  >
+                    확인함
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 px-4 py-3">
           <div className="flex items-center gap-1">
@@ -448,7 +501,13 @@ export function BankDepositPanel({ token }: { token: string }) {
                         freshIds.has(row.id) ? 'bg-emerald-50' : row.status === 'IGNORED' ? 'bg-slate-50/60' : ''
                       }`}
                     >
-                      <td className="whitespace-nowrap px-4 py-2.5 text-fluid-xs tabular-nums text-slate-600">{kstTime(row.depositedAt)}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-fluid-xs tabular-nums text-slate-600">{kstTime(row.depositedAt)}
+                        {row.source === 'scan' ? (
+                          <span className="mt-0.5 block" title={`문자를 받은 순간에는 못 가져왔고, 점검에서 ${kstTime(row.receivedAt)}에 찾아왔어요`}>
+                            <Tag>뒤늦게 가져옴</Tag>
+                          </span>
+                        ) : null}
+                      </td>
                       <td
                         className={`px-2 py-2.5 text-right text-fluid-sm font-bold tabular-nums ${
                           row.status === 'IGNORED' ? 'text-slate-400' : 'text-slate-900'
@@ -496,7 +555,10 @@ export function BankDepositPanel({ token }: { token: string }) {
                       {won(row.amountWon)}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-fluid-xs font-semibold text-slate-800">{row.depositorName || '입금자명 없음'}</span>
-                    <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">{kstTime(row.depositedAt)}</span>
+                    <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">
+                      {kstTime(row.depositedAt)}
+                      {row.source === 'scan' ? ' · 뒤늦게 가져옴' : ''}
+                    </span>
                   </div>
                   <div className="mt-1.5 flex items-center gap-2">
                     <StatusChip tone={DEPOSIT_STATUS_TONE[row.status]}>{DEPOSIT_STATUS_LABEL[row.status]}</StatusChip>
