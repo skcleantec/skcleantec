@@ -58,9 +58,36 @@ export function validateUploadBatch(files: UploadFileMeta[]): string | null {
   return null;
 }
 
+const FILE_NAME_MAX = 255;
+
+/**
+ * multipart 는 한글 이름을 latin1 로 넘긴다.
+ * 이미 유니코드인 이름(한글이 그대로인 경우)은 다시 바꾸지 않는다.
+ */
+export function decodeUploadFileName(name: string): string {
+  if (/[^\u0000-\u00ff]/.test(name)) return name;
+  const decoded = Buffer.from(name, 'latin1').toString('utf8');
+  if (decoded.includes('\uFFFD')) return name;
+  if (Buffer.from(decoded, 'utf8').toString('latin1') !== name) return name;
+  return decoded;
+}
+
 export function safeFileName(name: string): string {
-  const base = (name.split(/[/\\]/).pop() ?? 'file').replace(/[\u0000-\u001f]/g, '').trim();
-  return (base || 'file').slice(0, 255);
+  const decoded = decodeUploadFileName(name);
+  const base = (decoded.split(/[/\\]/).pop() ?? '')
+    .replace(/[\u0000-\u001f]/g, '')
+    .replace(/[/\\]/g, '')
+    .trim();
+  return clipFileName(base || 'file', FILE_NAME_MAX);
+}
+
+function clipFileName(name: string, max: number): string {
+  if (name.length <= max) return name;
+  const dot = name.lastIndexOf('.');
+  const ext = dot > 0 && name.length - dot <= 16 ? name.slice(dot) : '';
+  const stem = ext ? name.slice(0, dot) : name;
+  const room = Math.max(1, max - ext.length);
+  return `${stem.slice(0, room)}${ext}`;
 }
 
 export function normalizeAttachmentIds(raw: unknown): string[] | null {
