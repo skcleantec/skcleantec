@@ -29,6 +29,7 @@ data class NoticeTally(
     var notNh: Int = 0,
     var noText: Int = 0,
     var balance: Int = 0,
+    var hiddenLost: Int = 0,
 )
 
 fun classifyNoticeRecord(
@@ -73,6 +74,7 @@ data class NoticeRecord(
     val tally: NoticeTally,
     val locked: Boolean,
     val summary: Boolean,
+    val maybeHidden: Boolean = false,
 )
 
 fun trimNoticeLog(rows: List<NoticeRecord>): List<NoticeRecord> = rows.takeLast(20)
@@ -96,12 +98,14 @@ fun encodeNoticeRecord(record: NoticeRecord): String {
         tally.balance.coerceAtLeast(0).toString(),
         if (record.locked) "1" else "0",
         if (record.summary) "1" else "0",
+        if (record.maybeHidden) "1" else "0",
+        tally.hiddenLost.coerceAtLeast(0).toString(),
     ).joinToString("|")
 }
 
 fun decodeNoticeRecord(line: String): NoticeRecord? {
     val part = line.split('|')
-    if (part.size != 15) return null
+    if (part.size != 15 && part.size != 17) return null
     if (!part[1].all { it == 'a' || it == 'b' || it == 'c' || it == 'd' }) return null
     val numbers = ArrayList<Int>(13)
     val at = part[0].toLongOrNull() ?: return null
@@ -121,6 +125,22 @@ fun decodeNoticeRecord(line: String): NoticeRecord? {
         "0" -> false
         else -> return null
     }
+    val maybeHidden = if (part.size == 15) {
+        false
+    } else {
+        when (part[15]) {
+            "1" -> true
+            "0" -> false
+            else -> return null
+        }
+    }
+    val hiddenLost = if (part.size == 15) {
+        0
+    } else {
+        val value = part[16].toIntOrNull() ?: return null
+        if (value < 0) return null
+        value
+    }
     return NoticeRecord(
         atMillis = at,
         methods = part[1],
@@ -136,9 +156,11 @@ fun decodeNoticeRecord(line: String): NoticeRecord? {
             notNh = numbers[8],
             noText = numbers[9],
             balance = numbers[10],
+            hiddenLost = hiddenLost,
         ),
         locked = locked,
         summary = summary,
+        maybeHidden = maybeHidden,
     )
 }
 
@@ -146,6 +168,7 @@ private val CLOCK = DateTimeFormatter.ofPattern("HH:mm")
 
 fun formatNoticeLine(record: NoticeRecord, zone: ZoneId): String {
     val time = Instant.ofEpochMilli(record.atMillis).atZone(zone).format(CLOCK)
+    if (record.tally.hiddenLost > 0) return "$time · 가려진 알림이 본문 없이 사라짐"
     val tally = record.tally
     val reasons = ArrayList<String>()
     if (tally.sent > 0) reasons.add("보냄${tally.sent}")
@@ -160,5 +183,6 @@ fun formatNoticeLine(record: NoticeRecord, zone: ZoneId): String {
     val lock = if (record.locked) "잠금" else "화면켜짐"
     val kind = if (record.summary) "요약" else "일반"
     val methods = record.methods.ifEmpty { "-" }
-    return "$time · $methods · ${record.pieces}조각 · 농협${record.nhPieces} · 입금꼴${record.depositShape} · $why · $lock · $kind"
+    val hidden = if (record.maybeHidden) " · 가려졌을 수 있음" else ""
+    return "$time · $methods · ${record.pieces}조각 · 농협${record.nhPieces} · 입금꼴${record.depositShape} · $why · $lock · $kind$hidden"
 }

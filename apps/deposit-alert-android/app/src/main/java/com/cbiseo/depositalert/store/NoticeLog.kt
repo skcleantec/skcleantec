@@ -17,9 +17,13 @@ class NoticeLog(context: Context) {
             val rows = load().toMutableList()
             rows.add(record)
             save(trimNoticeLog(rows))
-            addReasons(record.tally)
+            addReasons(record)
         }
     }
+
+    fun hiddenLostTotal(): Int = synchronized(lock) { prefs.getInt(KEY_HIDDEN_LOST, 0) }
+
+    fun lastHiddenLostAt(): Long = synchronized(lock) { prefs.getLong(KEY_HIDDEN_AT, 0L) }
 
     fun recent(): List<NoticeRecord> = synchronized(lock) { load().asReversed() }
 
@@ -38,7 +42,8 @@ class NoticeLog(context: Context) {
         )
     }
 
-    private fun addReasons(tally: NoticeTally) {
+    private fun addReasons(record: NoticeRecord) {
+        val tally = record.tally
         val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")).toString()
         val same = prefs.getString(KEY_DAY, "") == today
         val editor = prefs.edit().putString(KEY_DAY, today)
@@ -54,6 +59,10 @@ class NoticeLog(context: Context) {
         put(KEY_NH, tally.notNh)
         put(KEY_EMPTY, tally.noText)
         put(KEY_BAL, tally.balance)
+        if (tally.hiddenLost > 0) {
+            editor.putInt(KEY_HIDDEN_LOST, prefs.getInt(KEY_HIDDEN_LOST, 0) + tally.hiddenLost)
+            editor.putLong(KEY_HIDDEN_AT, record.atMillis)
+        }
         editor.commit()
     }
 
@@ -84,6 +93,8 @@ class NoticeLog(context: Context) {
         private const val KEY_NH = "reason_nh"
         private const val KEY_EMPTY = "reason_empty"
         private const val KEY_BAL = "reason_bal"
+        private const val KEY_HIDDEN_LOST = "hidden_lost_total"
+        private const val KEY_HIDDEN_AT = "hidden_lost_at"
         private val lock = Any()
     }
 }

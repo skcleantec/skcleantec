@@ -123,6 +123,8 @@ class KeepAlivePlanTest {
         assertEquals(0, counters.getInt("notNh"))
         assertEquals(0, counters.getInt("noText"))
         assertEquals(0, counters.getInt("balance"))
+        assertEquals(0, counters.getInt("hiddenLost"))
+        assertEquals(0L, json.getLong("lastHiddenLostAt"))
         assertFalse(body.contains("token"))
         assertFalse(body.contains("잔액"))
     }
