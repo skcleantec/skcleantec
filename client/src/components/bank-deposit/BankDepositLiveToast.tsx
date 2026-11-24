@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { fetchBankDepositSettings } from '../../api/bankDeposits';
 import { useBankDepositRealtime, type BankDepositRtPayload } from '../../hooks/useBankDepositRealtime';
 import { DEPOSIT_KIND_LABEL, won } from './bankDepositFormat';
 
@@ -24,6 +25,26 @@ export function BankDepositLiveToast({
   className?: string;
 }) {
   const [items, setItems] = useState<ToastItem[]>([]);
+  const [muted, setMuted] = useState(false);
+
+  // 업체 설정에서 사무실 화면 알림을 껐으면 띄우지 않는다. 설정을 못 읽으면 띄운다.
+  useEffect(() => {
+    if (!enabled || !token) return;
+    let cancelled = false;
+    const read = () =>
+      fetchBankDepositSettings(token)
+        .then((r) => {
+          if (!cancelled) setMuted(r.settings.staffToastEnabled === false);
+        })
+        .catch(() => {});
+    void read();
+    const onChanged = () => void read();
+    window.addEventListener('cbiseo:bank-deposit-settings', onChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('cbiseo:bank-deposit-settings', onChanged);
+    };
+  }, [enabled, token]);
   const seq = useRef(0);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
@@ -59,10 +80,10 @@ export function BankDepositLiveToast({
         setTimeout(() => dismiss(key), SHOW_MS),
       );
     },
-    enabled && Boolean(token),
+    enabled && Boolean(token) && !muted,
   );
 
-  if (items.length === 0) return null;
+  if (items.length === 0 || muted) return null;
 
   return createPortal(
     <div className={`fixed bottom-4 right-4 z-[70] flex w-[min(320px,calc(100vw-32px))] flex-col gap-2 ${className}`} role="status" aria-live="polite">

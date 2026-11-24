@@ -13,6 +13,7 @@ import {
 } from '../../api/bankDeposits';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { Button } from '../ui/Button';
+import { BankDepositAlertSettings } from './BankDepositAlertSettings';
 import { deviceSeen } from './bankDepositFormat';
 
 type Brand = { id: string; name: string };
@@ -140,9 +141,9 @@ export function BankDepositSetupDialog({
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="입금 확인 설정">
       <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 cursor-default bg-slate-900/40" />
-      <div className="relative flex max-h-[86vh] w-[min(560px,100%)] flex-col rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[86vh] w-[min(600px,100%)] flex-col rounded-2xl bg-white shadow-2xl">
         <div className="border-b border-slate-200 px-4 py-3 pr-14">
-          <p className="text-fluid-sm font-bold text-slate-900">폰·통장 설정</p>
+          <p className="text-fluid-sm font-bold text-slate-900">폰·통장·알림 설정</p>
           <p className="mt-0.5 text-fluid-2xs leading-relaxed text-slate-600">
             은행 입금 문자를 받는 폰에 「청소비서 입금 알림」 앱을 깔고 여기서 연결합니다.
           </p>
@@ -303,6 +304,8 @@ export function BankDepositSetupDialog({
           ) : null}
 
           {error ? <p className="text-fluid-2xs text-rose-700">{error}</p> : null}
+
+          {!loading ? <BankDepositAlertSettings token={token} onSaved={onChanged} /> : null}
         </div>
       </div>
     </div>,
