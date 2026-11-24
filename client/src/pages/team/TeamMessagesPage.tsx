@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { getTeamOfficeMessages, sendTeamToManagement } from '../../api/messages';
+import {
+  getTeamOfficeMessages,
+  markMessageAttachmentsViewed,
+  sendTeamToManagement,
+  type MessageAttachment,
+} from '../../api/messages';
+import { MessageAttachmentBundle } from '../../components/messages/MessageAttachmentBundle';
+import { MessagePhotoViewer } from '../../components/messages/MessagePhotoViewer';
+import { TeamNoticeArchive } from '../../components/messages/TeamNoticeArchive';
 import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
@@ -20,6 +28,8 @@ interface Message {
   receiverId: string;
   batchId?: string | null;
   sender: { id: string; name: string };
+  attachments?: MessageAttachment[];
+  isNotice?: boolean;
 }
 
 function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: ScrollBehavior = 'smooth') {
@@ -40,6 +50,8 @@ export function TeamMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ images: MessageAttachment[]; index: number; caption: string } | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
@@ -152,10 +164,17 @@ export function TeamMessagesPage() {
       )}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col flex-1 min-h-0 min-w-0">
-        <div className="border-b border-gray-200 bg-gray-50 p-2 shrink-0 sm:p-4">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 p-2 sm:p-4">
           <h2 className="font-medium text-gray-900">
             <TeamBiLine id="team.messages.opsTeam" koClassName="font-medium text-gray-900" />
           </h2>
+          <button
+            type="button"
+            onClick={() => setArchiveOpen(true)}
+            className="inline-flex min-h-[36px] items-center rounded-lg border border-violet-200 bg-white px-3 text-[13px] font-bold text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+          >
+            공지 모아보기
+          </button>
         </div>
         <div
           ref={chatScrollRef}
@@ -173,23 +192,67 @@ export function TeamMessagesPage() {
           ) : (
             messages.map((m) => {
               const isMine = myId != null && m.senderId === myId;
+              const hasText = Boolean(m.content?.trim());
+              const hasAttach = (m.attachments?.length ?? 0) > 0;
+              const openImage = (index: number, images: MessageAttachment[]) => {
+                if (!isMine && token) void markMessageAttachmentsViewed(token, m.id);
+                setViewer({
+                  images,
+                  index,
+                  caption: `${m.sender.name} · ${formatDateTimeCompactWithWeekday(m.createdAt)}`,
+                });
+              };
               return (
                 <div key={m.id} id={`team-msg-${m.id}`} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                      isMine ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'
-                    }`}
-                  >
-                    <div className="font-medium text-xs opacity-80 mb-0.5">{m.sender.name}</div>
-                    <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                    <div className="text-[12px] opacity-70 mt-1 flex items-center gap-2 tabular-nums">
-                      <span>{formatDateTimeCompactWithWeekday(m.createdAt)}</span>
-                      {isMine ? (
-                        <span className={m.readAt ? 'text-blue-200' : 'text-amber-200'}>
-                          {m.readAt ? teamBiPlain('team.messages.read') : teamBiPlain('team.messages.unread')}
-                        </span>
-                      ) : null}
-                    </div>
+                  <div className={`flex max-w-[80%] min-w-0 flex-col gap-1.5 ${isMine ? 'items-end' : 'items-start'}`}>
+                    {!hasText && hasAttach ? (
+                      <div className="px-0.5 text-xs font-medium text-gray-600">
+                        {m.isNotice && !isMine ? (
+                          <span className="mr-1 rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-extrabold text-violet-700">공지</span>
+                        ) : null}
+                        {m.sender.name}
+                      </div>
+                    ) : null}
+                    {hasText ? (
+                      <div
+                        className={`rounded-lg px-3 py-2 text-sm ${
+                          isMine ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'
+                        }`}
+                      >
+                        <div className="font-medium text-xs opacity-80 mb-0.5">
+                          {m.isNotice && !isMine ? (
+                            <span className="mr-1 rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-extrabold text-violet-700">공지</span>
+                          ) : null}
+                          {m.sender.name}
+                        </div>
+                        <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                        {!hasAttach ? (
+                          <div className="text-[12px] opacity-70 mt-1 flex items-center gap-2 tabular-nums">
+                            <span>{formatDateTimeCompactWithWeekday(m.createdAt)}</span>
+                            {isMine ? (
+                              <span className={m.readAt ? 'text-blue-200' : 'text-amber-200'}>
+                                {m.readAt ? teamBiPlain('team.messages.read') : teamBiPlain('team.messages.unread')}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {hasAttach ? (
+                      <>
+                        <MessageAttachmentBundle
+                          attachments={m.attachments}
+                          align={isMine ? 'right' : 'left'}
+                          onOpenImage={openImage}
+                          onOpenFile={() => {
+                            if (!isMine && token) void markMessageAttachmentsViewed(token, m.id);
+                          }}
+                        />
+                        <div className="px-0.5 text-[12px] tabular-nums text-gray-500">
+                          {formatDateTimeCompactWithWeekday(m.createdAt)}
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -208,6 +271,15 @@ export function TeamMessagesPage() {
           error={sendError}
         />
       </div>
+      {viewer ? (
+        <MessagePhotoViewer
+          images={viewer.images}
+          startIndex={viewer.index}
+          caption={viewer.caption}
+          onClose={() => setViewer(null)}
+        />
+      ) : null}
+      {archiveOpen && token ? <TeamNoticeArchive token={token} onClose={() => setArchiveOpen(false)} /> : null}
     </div>
   );
 }

@@ -1,6 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { broadcastToField, getConversations, getMessages, sendMessage } from '../../api/messages';
+import {
+  broadcastToField,
+  getConversations,
+  getMessages,
+  sendMessage,
+  type MessageAttachment,
+  type MessageNoticeRead,
+} from '../../api/messages';
+import { AttachmentDraftStrip } from '../../components/messages/AttachmentDraftStrip';
+import { MessageAttachmentBundle } from '../../components/messages/MessageAttachmentBundle';
+import { MessagePhotoViewer } from '../../components/messages/MessagePhotoViewer';
+import { NoticeArchivePanel } from '../../components/messages/NoticeArchivePanel';
+import { NoticeReadersDialog, NoticeSendConfirm } from '../../components/messages/NoticeDialogs';
+import { attachmentSummary } from '../../components/messages/messageAttachments';
+import { filesFromDataTransfer, useAttachmentDraft } from '../../components/messages/useAttachmentDraft';
 import {
   PLATFORM_SUPPORT_THREAD_KEY,
   getTenantSupportSummary,
@@ -22,7 +36,7 @@ interface Conversation {
   name: string;
   role: string;
   staffIdCardUrl?: string | null;
-  lastMessage: { content: string; createdAt: string; senderId: string } | null;
+  lastMessage: { content: string; createdAt: string; senderId: string; imageCount?: number; fileCount?: number } | null;
   unreadCount: number;
 }
 
@@ -35,6 +49,17 @@ interface Message {
   receiverId: string;
   batchId?: string | null;
   sender: { id: string; name: string; staffIdCardUrl?: string | null };
+  attachments?: MessageAttachment[];
+  isNotice?: boolean;
+  notice?: MessageNoticeRead | null;
+}
+
+/** 대화 목록 미리보기: 글이 없으면 「사진 7장 · 파일 1개」 */
+function listPreview(m: NonNullable<Conversation['lastMessage']>): string {
+  const text = flattenStaffChatPreview(m.content);
+  const extra = attachmentSummary(m.imageCount ?? 0, m.fileCount ?? 0);
+  if (text && extra) return `${text} · ${extra}`;
+  return text || extra;
 }
 
 function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: ScrollBehavior = 'smooth') {
@@ -186,10 +211,21 @@ function AvatarCircle({
   );
 }
 
-function MineMessageMeta({ message }: { message: Message }) {
+function MineMessageMeta({ message, onOpenReaders }: { message: Message; onOpenReaders?: (m: Message) => void }) {
+  const notice = message.notice;
   return (
     <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pb-0.5">
-      {message.readAt ? (
+      {notice && onOpenReaders ? (
+        <button
+          type="button"
+          onClick={() => onOpenReaders(message)}
+          className="kakaotalk-unread-indicator rounded px-0.5 underline decoration-dotted underline-offset-2 tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+          title="누가 읽었는지 보기"
+        >
+          읽음 {notice.readCount}/{notice.totalCount}
+        </button>
+      ) : message.readAt ? (
         <span className="kakaotalk-read-indicator">읽음</span>
       ) : (
         <span className="kakaotalk-unread-indicator">안 읽음</span>
@@ -219,6 +255,14 @@ export function AdminMessagesPage() {
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastError, setBroadcastError] = useState<string | null>(null);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [view, setView] = useState<'chat' | 'archive'>('chat');
+  const broadcastDraft = useAttachmentDraft();
+  const chatDraft = useAttachmentDraft();
+  const [confirmBroadcast, setConfirmBroadcast] = useState(false);
+  const [archivePick, setArchivePick] = useState(false);
+  const [dropOver, setDropOver] = useState<null | 'broadcast' | 'chat'>(null);
+  const [viewer, setViewer] = useState<{ images: MessageAttachment[]; index: number; caption: string } | null>(null);
+  const [readersFor, setReadersFor] = useState<Message | null>(null);
   const [toTeamLeaders, setToTeamLeaders] = useState(true);
   const [toExternalPartners, setToExternalPartners] = useState(false);
   const [toCrew, setToCrew] = useState(false);
@@ -364,21 +408,55 @@ export function AdminMessagesPage() {
   const { connected: wsConnected } = useInboxRealtime(token, pollInbox, Boolean(token));
   useMessageThreadPoll(Boolean(token) && !wsConnected, pollInbox, 10000);
 
-  const handleBroadcast = async (e: React.FormEvent) => {
+  const hasBroadcastTarget =
+    toTeamLeaders || toExternalPartners || toCrew || (canBroadcastToMarketers && toMarketers);
+  const canBroadcast =
+    !broadcasting && hasBroadcastTarget && (Boolean(broadcastText.trim()) || broadcastDraft.items.length > 0);
+
+  const broadcastTargetsText = (() => {
+    const countRole = (role: string) => conversations.filter((c) => c.role === role).length;
+    const parts: string[] = [];
+    if (toTeamLeaders) parts.push(`팀장 ${countRole('TEAM_LEADER')}명`);
+    if (toExternalPartners) parts.push(`외부업체 ${countRole('EXTERNAL_PARTNER')}명`);
+    if (canBroadcastToMarketers && toMarketers) parts.push(`마케터 ${countRole('MARKETER')}명`);
+    if (toCrew) parts.push('팀원(크루) 그룹');
+    return parts.join(' · ');
+  })();
+
+  /** 「공지 발송」을 누르면 먼저 확인 창을 띄운다. */
+  const handleBroadcast = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !broadcastText.trim() || broadcasting) return;
+    if (!token || !canBroadcast) return;
+    setBroadcastError(null);
+    setConfirmBroadcast(true);
+  };
+
+  const doBroadcast = async () => {
+    setConfirmBroadcast(false);
+    if (!token || !canBroadcast) return;
     setBroadcasting(true);
     setBroadcastError(null);
     try {
-      await broadcastToField(token, broadcastText.trim(), {
-        toTeamLeaders,
-        toExternalPartners,
-        toCrew,
-        toMarketers: canBroadcastToMarketers && toMarketers,
-      });
+      const attachmentIds = await broadcastDraft.uploadAll(token);
+      if (attachmentIds === null) {
+        setBroadcastError('올리지 못한 사진·파일이 있어 공지를 보내지 않았습니다.');
+        return;
+      }
+      await broadcastToField(
+        token,
+        broadcastText.trim(),
+        {
+          toTeamLeaders,
+          toExternalPartners,
+          toCrew,
+          toMarketers: canBroadcastToMarketers && toMarketers,
+        },
+        attachmentIds,
+      );
       setBroadcastText('');
+      broadcastDraft.clear();
       loadConversations();
-      if (selectedId) {
+      if (selectedId && selectedId !== PLATFORM_SUPPORT_THREAD_KEY) {
         const msgs = await getMessages(token, selectedId);
         setMessages(msgs);
         scrollToEnd(messagesEndRef, 'auto');
@@ -393,7 +471,8 @@ export function AdminMessagesPage() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !selectedId || !input.trim() || sending) return;
+    const withFiles = selectedId !== PLATFORM_SUPPORT_THREAD_KEY && chatDraft.items.length > 0;
+    if (!token || !selectedId || (!input.trim() && !withFiles) || sending) return;
     setSending(true);
     setSendError(null);
     try {
@@ -405,9 +484,19 @@ export function AdminMessagesPage() {
         scrollToEnd(messagesEndRef, 'smooth');
         return;
       }
-      const msg = await sendMessage(token, selectedId, input.trim());
+      let attachmentIds: string[] | undefined;
+      if (withFiles) {
+        const ids = await chatDraft.uploadAll(token);
+        if (ids === null) {
+          setSendError('올리지 못한 사진·파일이 있어 보내지 않았습니다.');
+          return;
+        }
+        attachmentIds = ids;
+      }
+      const msg = await sendMessage(token, selectedId, input.trim(), attachmentIds);
       setMessages((prev) => [...prev, { ...msg, readAt: null }]);
       setInput('');
+      chatDraft.clear();
       loadConversations();
       scrollToEnd(messagesEndRef, 'smooth');
     } catch (err) {
@@ -456,6 +545,32 @@ export function AdminMessagesPage() {
           메시지
         </StaffPageTitle>
       </PageTitleWithFavorite>
+
+      <div
+        role="tablist"
+        aria-label="메시지 보기"
+        className={`inline-flex shrink-0 gap-1 self-start rounded-[10px] bg-slate-200 p-[3px]${mobileChatActive ? ' max-md:hidden' : ''}`}
+      >
+        {(
+          [
+            ['chat', '대화'],
+            ['archive', '공지 모아보기'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={view === key}
+            onClick={() => setView(key)}
+            className={`rounded-[7px] px-3.5 py-1.5 text-[13px] font-bold ${
+              view === key ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {/* 일괄 공지 패널 - 모바일에서 채팅중일 때 숨김 */}
       <div
@@ -538,16 +653,43 @@ export function AdminMessagesPage() {
                 </div>
               </fieldset>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div
+                onDragOver={(e) => {
+                  if (!e.dataTransfer?.types?.includes('Files')) return;
+                  e.preventDefault();
+                  setDropOver('broadcast');
+                }}
+                onDragLeave={() => setDropOver(null)}
+                onDrop={(e) => {
+                  const files = filesFromDataTransfer(e.dataTransfer);
+                  setDropOver(null);
+                  if (files.length === 0) return;
+                  e.preventDefault();
+                  broadcastDraft.addFiles(files);
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  borderRadius: 12,
+                  outline: dropOver === 'broadcast' ? '2px dashed #7c3aed' : 'none',
+                  outlineOffset: 4,
+                }}
+              >
                 <textarea
                   value={broadcastText}
                   onChange={(e) => setBroadcastText(e.target.value)}
+                  onPaste={(e) => {
+                    const files = filesFromDataTransfer(e.clipboardData);
+                    if (files.length === 0) return;
+                    e.preventDefault();
+                    broadcastDraft.addFiles(files);
+                  }}
                   rows={2}
-                  placeholder="현장으로 공지할 내용을 입력하세요. 전송 시 대상의 채팅창에 일괄적으로 메시지가 남습니다."
+                  placeholder="현장으로 공지할 내용을 입력하세요. 받는 사람마다 따로 대화창에 남습니다."
                   style={{
-                    flex: 1,
-                    minWidth: 200,
-                    maxHeight: 120,
+                    width: '100%',
+                    maxHeight: 160,
                     resize: 'vertical',
                     borderRadius: 10,
                     border: '1px solid #cbd5e1',
@@ -557,26 +699,56 @@ export function AdminMessagesPage() {
                   }}
                   disabled={broadcasting}
                 />
-                <button
-                  type="submit"
-                  disabled={broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew && !(canBroadcastToMarketers && toMarketers))}
-                  style={{
-                    height: 44,
-                    padding: '0 20px',
-                    borderRadius: 10,
-                    background: '#fbbf24',
-                    color: '#0f172a',
-                    fontWeight: 700,
-                    fontSize: 15,
-                    border: 'none',
-                    cursor: 'pointer',
-                    opacity: (broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew && !(canBroadcastToMarketers && toMarketers))) ? 0.5 : 1,
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}
-                >
-                  {broadcasting ? '전송 중…' : '공지 발송'}
-                </button>
+                <AttachmentDraftStrip
+                  draft={broadcastDraft}
+                  disabled={broadcasting}
+                  onPickFromArchive={() => setArchivePick(true)}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  {broadcastText || broadcastDraft.items.length > 0 ? (
+                    <button
+                      type="button"
+                      disabled={broadcasting}
+                      onClick={() => {
+                        setBroadcastText('');
+                        broadcastDraft.clear();
+                        setBroadcastError(null);
+                      }}
+                      style={{
+                        height: 36,
+                        padding: '0 14px',
+                        borderRadius: 8,
+                        background: '#fff',
+                        color: '#334155',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        border: '1px solid #cbd5e1',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      비우기
+                    </button>
+                  ) : null}
+                  <button
+                    type="submit"
+                    disabled={!canBroadcast}
+                    style={{
+                      height: 36,
+                      padding: '0 16px',
+                      borderRadius: 8,
+                      background: '#6d28d9',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      border: 'none',
+                      cursor: canBroadcast ? 'pointer' : 'default',
+                      opacity: canBroadcast ? 1 : 0.5,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {broadcasting ? '보내는 중…' : '공지 발송'}
+                  </button>
+                </div>
               </div>
             </form>
             {broadcastError && (
@@ -587,6 +759,30 @@ export function AdminMessagesPage() {
           </div>
         )}
       </div>
+
+      {view === 'archive' && token ? (
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRadius: 12,
+            border: '1px solid #e2e8f0',
+            background: '#f8fafc',
+            padding: 14,
+          }}
+        >
+          <NoticeArchivePanel
+            token={token}
+            onReuse={(list) => {
+              broadcastDraft.addExisting(list);
+              setBroadcastOpen(true);
+              setView('chat');
+            }}
+          />
+        </div>
+      ) : null}
 
       {/* 메인 채팅 레이아웃: 대화목록(좌) + 채팅방(우) */}
       <div
@@ -602,6 +798,7 @@ export function AdminMessagesPage() {
           boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
           overflow: 'hidden',
           position: 'relative',
+          ...(view === 'archive' ? { display: 'none' } : {}),
         }}
       >
         {/* 좌측: 대화 목록 사이드바 */}
@@ -749,7 +946,7 @@ export function AdminMessagesPage() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
                         <span style={{ fontSize: 13, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                          {c.lastMessage ? flattenStaffChatPreview(c.lastMessage.content) : '대화 시작하기'}
+                          {c.lastMessage ? listPreview(c.lastMessage) : '대화 시작하기'}
                         </span>
                         {c.unreadCount > 0 && (
                           <span
@@ -877,7 +1074,17 @@ export function AdminMessagesPage() {
                         <div className="flex min-w-0 max-w-[calc(100%-50px)] flex-col gap-0.5">
                           <span className="ml-0.5 text-[12px] font-bold text-slate-700">{m.sender.name}</span>
                           <div className="flex min-w-0 items-end gap-1.5">
-                            <div className="kakaotalk-bubble kakaotalk-bubble-other">{m.content}</div>
+                            <div className="flex min-w-0 flex-col items-start gap-1.5">
+                              {m.content?.trim() ? (
+                                <div className="kakaotalk-bubble kakaotalk-bubble-other">{m.content}</div>
+                              ) : null}
+                              <MessageAttachmentBundle
+                                attachments={m.attachments}
+                                onOpenImage={(index, images) =>
+                                  setViewer({ images, index, caption: `${m.sender.name} · ${formatTimeForList(m.createdAt)}` })
+                                }
+                              />
+                            </div>
                             <span className="kakaotalk-time-indicator pb-0.5">
                               {formatTimeForList(m.createdAt)}
                             </span>
@@ -890,8 +1097,26 @@ export function AdminMessagesPage() {
                   return (
                     <div key={m.id} id={`admin-msg-${m.id}`} className="kakaotalk-message-row-mine">
                       <div className="flex min-w-0 items-end justify-end gap-1.5">
-                        <MineMessageMeta message={m} />
-                        <div className="kakaotalk-bubble kakaotalk-bubble-mine">{m.content}</div>
+                        <MineMessageMeta message={m} onOpenReaders={setReadersFor} />
+                        <div className="flex min-w-0 flex-col items-end gap-1.5">
+                          {m.content?.trim() ? (
+                            <div className="kakaotalk-bubble kakaotalk-bubble-mine">
+                              {m.isNotice ? (
+                                <span className="mb-1 mr-1 inline-block rounded bg-slate-900/10 px-1.5 text-[11px] font-extrabold align-middle">
+                                  공지
+                                </span>
+                              ) : null}
+                              {m.content}
+                            </div>
+                          ) : null}
+                          <MessageAttachmentBundle
+                            attachments={m.attachments}
+                            align="right"
+                            onOpenImage={(index, images) =>
+                              setViewer({ images, index, caption: `${m.sender.name} · ${formatTimeForList(m.createdAt)}` })
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
                   );
@@ -899,6 +1124,11 @@ export function AdminMessagesPage() {
                 <div ref={messagesEndRef} />
               </div>
 
+              {!supportSelected && chatDraft.items.length > 0 ? (
+                <div style={{ padding: '8px 12px 0', background: '#fff', borderTop: '1px solid #e2e8f0' }}>
+                  <AttachmentDraftStrip draft={chatDraft} disabled={sending} compact />
+                </div>
+              ) : null}
               <StaffChatComposer
                 variant="admin"
                 value={input}
@@ -907,6 +1137,8 @@ export function AdminMessagesPage() {
                 sending={sending}
                 placeholder={supportSelected ? '청소비서 운영팀에 문의하세요...' : '메시지를 입력하세요...'}
                 sendLabel="전송"
+                allowEmpty={!supportSelected && chatDraft.items.length > 0}
+                onAttachFiles={supportSelected ? undefined : (files) => chatDraft.addFiles(files)}
                 error={sendError}
                 onInputActivity={() => {
                   if (sendError) setSendError(null);
@@ -933,6 +1165,65 @@ export function AdminMessagesPage() {
           )}
         </div>
       </div>
+
+      {confirmBroadcast ? (
+        <NoticeSendConfirm
+          targetsText={broadcastTargetsText}
+          attachText={attachmentSummary(broadcastDraft.imageCount, broadcastDraft.fileCount)}
+          onCancel={() => setConfirmBroadcast(false)}
+          onConfirm={() => void doBroadcast()}
+        />
+      ) : null}
+      {viewer ? (
+        <MessagePhotoViewer
+          images={viewer.images}
+          startIndex={viewer.index}
+          caption={viewer.caption}
+          onClose={() => setViewer(null)}
+        />
+      ) : null}
+      {readersFor?.notice && token ? (
+        <NoticeReadersDialog
+          token={token}
+          batchId={readersFor.notice.batchId}
+          title={readersFor.content?.trim() || undefined}
+          onClose={() => setReadersFor(null)}
+        />
+      ) : null}
+      {archivePick && token ? (
+        <div
+          className="fixed inset-0 z-[1050] flex items-end justify-center bg-slate-900/50 md:items-center"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setArchivePick(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="지난 공지에서 다시 붙이기"
+            className="flex h-[82vh] w-full flex-col rounded-t-2xl bg-slate-50 p-4 shadow-2xl md:h-[640px] md:w-[720px] md:rounded-2xl"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-[16px] font-extrabold text-slate-900">지난 공지에서 다시 붙이기</h3>
+              <button
+                type="button"
+                onClick={() => setArchivePick(false)}
+                className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-3 text-[12.5px] font-bold text-slate-700"
+              >
+                닫기
+              </button>
+            </div>
+            <NoticeArchivePanel
+              token={token}
+              pickMode
+              onReuse={(list) => {
+                broadcastDraft.addExisting(list);
+                setArchivePick(false);
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

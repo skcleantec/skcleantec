@@ -5,10 +5,14 @@ import { getCrewToken, subscribeCrewAuth } from '../../stores/crewAuth';
 import {
   getCrewMonthlyJobStats,
   getCrewStaffNotices,
+  markCrewStaffNoticeViewed,
   type CrewMonthlyJobStatItem,
   type CrewStaffNoticeItem,
 } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
+import type { MessageAttachment } from '../../api/messages';
+import { MessageAttachmentBundle } from '../../components/messages/MessageAttachmentBundle';
+import { MessagePhotoViewer } from '../../components/messages/MessagePhotoViewer';
 import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
@@ -35,6 +39,7 @@ export function CrewHomePage() {
 
   const [staffNotices, setStaffNotices] = useState<CrewStaffNoticeItem[]>([]);
   const [staffNoticesLoading, setStaffNoticesLoading] = useState(false);
+  const [noticeViewer, setNoticeViewer] = useState<{ images: MessageAttachment[]; index: number; caption: string } | null>(null);
 
   const loadStaffNotices = useCallback(async () => {
     const token = getCrewToken();
@@ -192,10 +197,31 @@ export function CrewHomePage() {
             <CrewBiLine id="crew.common.loading" />
           </p>
         ) : (
-          <ul className="max-h-52 space-y-2 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+          <ul className="max-h-[70vh] space-y-2 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
             {staffNotices.map((n) => (
               <li key={n.id} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/90 px-2.5 py-2 text-[12px]">
-                <p className="whitespace-pre-wrap break-words font-medium text-slate-800">{n.content}</p>
+                {n.content?.trim() ? (
+                  <p className="whitespace-pre-wrap break-words font-medium text-slate-800">{n.content}</p>
+                ) : null}
+                {(n.attachments?.length ?? 0) > 0 ? (
+                  <div className="mt-1.5">
+                    <MessageAttachmentBundle
+                      attachments={n.attachments}
+                      width={240}
+                      onOpenImage={(index, images) => {
+                        if (crewToken) void markCrewStaffNoticeViewed(crewToken, n.id);
+                        setNoticeViewer({
+                          images,
+                          index,
+                          caption: `${n.sender.name} · ${formatDateTimeCompactWithWeekday(n.createdAt)}`,
+                        });
+                      }}
+                      onOpenFile={() => {
+                        if (crewToken) void markCrewStaffNoticeViewed(crewToken, n.id);
+                      }}
+                    />
+                  </div>
+                ) : null}
                 <p className="mt-1 truncate text-[12px] tabular-nums text-slate-500" title={n.sender.name}>
                   {n.sender.name} · {formatDateTimeCompactWithWeekday(n.createdAt)}
                 </p>
@@ -332,6 +358,14 @@ export function CrewHomePage() {
           </p>
         </div>
       </section>
+      {noticeViewer ? (
+        <MessagePhotoViewer
+          images={noticeViewer.images}
+          startIndex={noticeViewer.index}
+          caption={noticeViewer.caption}
+          onClose={() => setNoticeViewer(null)}
+        />
+      ) : null}
     </div>
   );
 }
