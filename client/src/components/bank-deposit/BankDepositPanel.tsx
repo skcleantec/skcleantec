@@ -130,7 +130,7 @@ function RowButtons({
   if (deleteArmed) {
     return (
       <span className="flex items-center justify-end gap-1">
-        <span className="mr-1 text-fluid-2xs text-rose-700">지우면 되돌릴 수 없어요</span>
+        <span className="mr-1 whitespace-nowrap text-fluid-2xs text-rose-700">되돌릴 수 없어요</span>
         <Button size="sm" variant="danger" onClick={onDelete} disabled={busy}>
           지우기
         </Button>
