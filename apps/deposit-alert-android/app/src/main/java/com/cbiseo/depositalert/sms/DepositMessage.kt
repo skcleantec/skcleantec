@@ -61,7 +61,7 @@ fun contentHash(sender: String, rawText: String): String {
 
 fun sourceLabel(source: IntakeSource): String = when (source) {
     IntakeSource.Sms -> "sms"
-    IntakeSource.Notice -> "notification"
+    IntakeSource.Notice, IntakeSource.NoticeRescan -> "notification"
     IntakeSource.Scan -> "scan"
 }
 

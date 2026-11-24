@@ -52,7 +52,55 @@ class DeviceSettings(context: Context) {
         setListening(false)
     }
 
-    fun messageNotice(): Boolean = plain.getBoolean(KEY_MESSAGE_NOTICE, false)
+    fun messageNotice(): Boolean = plain.getBoolean(KEY_MESSAGE_NOTICE, true)
+
+    fun noticeAccessPrompted(): Boolean = plain.getBoolean(KEY_NOTICE_PROMPTED, false)
+
+    fun markNoticeAccessPrompted() {
+        plain.edit().putBoolean(KEY_NOTICE_PROMPTED, true).apply()
+    }
+
+    fun lastNoticeAt(): Long = plain.getLong(KEY_NOTICE_LAST, 0L)
+
+    fun noticePosts(): Int = noticeInt(KEY_NOTICE_POSTS)
+
+    fun noticeExtracted(): Int = noticeInt(KEY_NOTICE_EXTRACTED)
+
+    fun noticeDeposits(): Int = noticeInt(KEY_NOTICE_DEPOSITS)
+
+    fun noticeSent(): Int = noticeInt(KEY_NOTICE_SENT)
+
+    fun noticeDup(): Int = noticeInt(KEY_NOTICE_DUP)
+
+    fun noticeFromSummary(): Int = noticeInt(KEY_NOTICE_SUMMARY)
+
+    fun noticeFromRescan(): Int = noticeInt(KEY_NOTICE_RESCAN)
+
+    fun noticeRejected(): Int = noticeInt(KEY_NOTICE_REJECTED)
+
+    fun noticeMissed(): Int = noticeInt(KEY_NOTICE_MISSED)
+
+    fun noticeRebinds(): Int = noticeInt(KEY_NOTICE_REBIND)
+
+    fun noteNoticePost(at: Long) = bumpNotice(KEY_NOTICE_POSTS, 1, at)
+
+    fun noteNoticeExtracted(count: Int) = bumpNotice(KEY_NOTICE_EXTRACTED, count, 0L)
+
+    fun noteNoticeDeposits(count: Int) = bumpNotice(KEY_NOTICE_DEPOSITS, count, 0L)
+
+    fun noteNoticeDup() = bumpNotice(KEY_NOTICE_DUP, 1, 0L)
+
+    fun noteNoticeMissed() = bumpNotice(KEY_NOTICE_MISSED, 1, 0L)
+
+    fun noteNoticeRebind() = bumpNotice(KEY_NOTICE_REBIND, 1, 0L)
+
+    fun noteNoticeRejected() = bumpNotice(KEY_NOTICE_REJECTED, 1, 0L)
+
+    fun noteNoticeSent(summary: Boolean, rescan: Boolean) {
+        bumpNotice(KEY_NOTICE_SENT, 1, 0L)
+        if (summary) bumpNotice(KEY_NOTICE_SUMMARY, 1, 0L)
+        if (rescan) bumpNotice(KEY_NOTICE_RESCAN, 1, 0L)
+    }
 
     fun setMessageNotice(on: Boolean) {
         plain.edit().putBoolean(KEY_MESSAGE_NOTICE, on).apply()
@@ -120,6 +168,29 @@ class DeviceSettings(context: Context) {
         plain.unregisterOnSharedPreferenceChangeListener(listener)
     }
 
+    private fun noticeInt(key: String): Int {
+        if (plain.getString(KEY_NOTICE_DAY, "") != todayKey()) return 0
+        return plain.getInt(key, 0)
+    }
+
+    private fun bumpNotice(key: String, by: Int, at: Long) {
+        if (by == 0 && at <= 0L) return
+        synchronized(lock) {
+            val today = todayKey()
+            val same = plain.getString(KEY_NOTICE_DAY, "") == today
+            val editor = plain.edit().putString(KEY_NOTICE_DAY, today)
+            if (!same) {
+                for (name in NOTICE_INT_KEYS) editor.putInt(name, 0)
+            }
+            if (by != 0) {
+                val current = if (same) plain.getInt(key, 0) else 0
+                editor.putInt(key, current + by)
+            }
+            if (at > 0L) editor.putLong(KEY_NOTICE_LAST, at)
+            editor.commit()
+        }
+    }
+
     private fun openSecret(): SharedPreferences {
         val master = MasterKey.Builder(app)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -142,6 +213,31 @@ class DeviceSettings(context: Context) {
         private const val KEY_RECONNECT = "needs_reconnect"
         private const val KEY_TOKEN = "device_token"
         private const val KEY_MESSAGE_NOTICE = "message_notice"
+        private const val KEY_NOTICE_PROMPTED = "notice_prompted"
+        private const val KEY_NOTICE_DAY = "notice_day"
+        private const val KEY_NOTICE_LAST = "notice_last_at"
+        private const val KEY_NOTICE_POSTS = "notice_posts"
+        private const val KEY_NOTICE_EXTRACTED = "notice_extracted"
+        private const val KEY_NOTICE_DEPOSITS = "notice_deposits"
+        private const val KEY_NOTICE_SENT = "notice_sent"
+        private const val KEY_NOTICE_DUP = "notice_dup"
+        private const val KEY_NOTICE_SUMMARY = "notice_summary"
+        private const val KEY_NOTICE_RESCAN = "notice_rescan"
+        private const val KEY_NOTICE_REJECTED = "notice_rejected"
+        private const val KEY_NOTICE_MISSED = "notice_missed"
+        private const val KEY_NOTICE_REBIND = "notice_rebind"
+        private val NOTICE_INT_KEYS = listOf(
+            KEY_NOTICE_POSTS,
+            KEY_NOTICE_EXTRACTED,
+            KEY_NOTICE_DEPOSITS,
+            KEY_NOTICE_SENT,
+            KEY_NOTICE_DUP,
+            KEY_NOTICE_SUMMARY,
+            KEY_NOTICE_RESCAN,
+            KEY_NOTICE_REJECTED,
+            KEY_NOTICE_MISSED,
+            KEY_NOTICE_REBIND,
+        )
         private const val KEY_RECEIVED = "received_count"
         private const val KEY_DEPOSIT = "deposit_count"
         private const val KEY_LATE_DAY = "late_day"

@@ -44,7 +44,7 @@ class ArrivalGateTest {
             messageNoticeBody("com.google.android.apps.messaging", "입금20,000원", null, false),
         )
         assertNull(messageNoticeBody("com.kakao.talk", "입금", "농협 입금", false))
-        assertNull(messageNoticeBody("com.samsung.android.messaging", "요약", "요약", true))
+        assertEquals("요약", messageNoticeBody("com.samsung.android.messaging", "요약", "요약", true))
         assertNull(messageNoticeBody("com.samsung.android.messaging", "  ", null, false))
     }
 }

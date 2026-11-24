@@ -86,6 +86,8 @@ class MainActivity : AppCompatActivity() {
         binding.samsungBattery.setOnClickListener { openBattery() }
         binding.sampleButton.setOnClickListener { showSample() }
         binding.scanButton.setOnClickListener { scanInbox() }
+        binding.noticeRescan.setOnClickListener { rescanNotices() }
+        binding.noticeWarning.setOnClickListener { openMessageNoticeAccess() }
         binding.readSmsPermission.setOnClickListener { scanInbox() }
         binding.disconnectButton.setOnClickListener { disconnect() }
     }
@@ -94,7 +96,14 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         settings.listen(prefListener)
         render()
-        ui.launch(Dispatchers.IO) { InboxScan.run(applicationContext) }
+        if (settings.messageNotice() && !messageNoticeAllowed() && !settings.noticeAccessPrompted()) {
+            settings.markNoticeAccessPrompted()
+            openMessageNoticeAccess()
+        }
+        ui.launch(Dispatchers.IO) {
+            InboxScan.run(applicationContext)
+            MessageNoticeReader.maintain(applicationContext)
+        }
     }
 
     override fun onPause() {
@@ -176,6 +185,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun rescanNotices() {
+        if (!messageNoticeAllowed()) {
+            openMessageNoticeAccess()
+            return
+        }
+        ui.launch(Dispatchers.IO) { MessageNoticeReader.maintain(applicationContext) }
+    }
+
     private fun scanInbox() {
         if (!readSmsGranted()) {
             askReadSms.launch(Manifest.permission.READ_SMS)
@@ -208,6 +225,18 @@ class MainActivity : AppCompatActivity() {
             suppressSwitch = false
         }
         binding.batteryWarning.visibility = if (batteryIgnored()) View.GONE else View.VISIBLE
+        val noticeReady = settings.messageNotice() && messageNoticeAllowed() && MessageNoticeReader.connected
+        binding.noticeWarning.visibility = if (noticeReady) View.GONE else View.VISIBLE
+        val ago = minutesAgo(settings.lastNoticeAt())
+        binding.noticeStatus.text = if (noticeReady) {
+            "알림 읽기 연결됨 · 마지막 알림 $ago"
+        } else {
+            "알림 읽기 연결 안 됨"
+        }
+        binding.noticeStats.text =
+            "메시지 앱 알림 ${settings.noticePosts()}번 · 꺼낸 메시지 ${settings.noticeExtracted()}건 · 농협 입금 ${settings.noticeDeposits()}건 · 새로 보냄 ${settings.noticeSent()}건 · 이미 보낸 것 ${settings.noticeDup()}건"
+        binding.noticeExtra.text =
+            "요약 알림에서 건진 ${settings.noticeFromSummary()}건 · 다시 훑기로 건진 ${settings.noticeFromRescan()}건 · 서버가 건너뛰거나 거절 ${settings.noticeRejected()}건 · 본문 없음·농협 없음 ${settings.noticeMissed()}건 · 다시 연결 ${settings.noticeRebinds()}회"
         binding.statusListening.text = if (settings.listening()) "상태: 켜짐" else "상태: 꺼짐"
         binding.statusServer.text = when {
             !paired -> "서버: 연결 안 됨"
@@ -261,10 +290,13 @@ class MainActivity : AppCompatActivity() {
         else startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
     }
 
-    private fun messageNoticeAllowed(): Boolean {
-        val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners").orEmpty()
-        return enabled.contains(packageName)
+    private fun minutesAgo(at: Long): String {
+        if (at <= 0L) return "없음"
+        val minutes = ((System.currentTimeMillis() - at) / 60_000L).coerceAtLeast(0L)
+        return "${minutes}분 전"
     }
+
+    private fun messageNoticeAllowed(): Boolean = MessageNoticeReader.accessEnabled(this)
 
     private fun readSmsGranted() = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) ==
         android.content.pm.PackageManager.PERMISSION_GRANTED
