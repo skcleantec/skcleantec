@@ -45,8 +45,9 @@ fun receivedAtIso(receivedAtMillis: Long): String {
     return Instant.ofEpochMilli(receivedAtMillis).atZone(SEOUL).format(ISO)
 }
 
-fun dedupeKey(sender: String, strippedText: String, receivedAtMillis: Long): String {
-    val material = sender.trim() + "\n" + strippedText.trim() + "\n" + receivedMinuteKey(receivedAtMillis)
+/** 키에만 원문을 쓴다. 해시를 만든 뒤 원문은 저장하지 않는다. */
+fun dedupeKey(sender: String, rawText: String, receivedAtMillis: Long): String {
+    val material = sender.trim() + "\n" + rawText + "\n" + receivedMinuteKey(receivedAtMillis)
     val digest = MessageDigest.getInstance("SHA-256").digest(material.toByteArray(Charsets.UTF_8))
     return digest.joinToString(separator = "") { byte -> "%02x".format(byte) }
 }
@@ -69,7 +70,7 @@ fun previewDeposit(sender: String, rawText: String, receivedAtMillis: Long): Dep
         stripped = if (safe) stripped else "",
         amountLabel = amount,
         depositorName = name,
-        dedupeKey = if (safe) dedupeKey(sender, stripped, receivedAtMillis) else "",
+        dedupeKey = if (safe) dedupeKey(sender, rawText, receivedAtMillis) else "",
     )
 }
 
@@ -83,5 +84,6 @@ fun displayFields(stripped: String): Pair<String, String> {
 fun resultLabel(serverResult: String): String = when (serverResult) {
     "duplicate" -> "중복"
     "skipped" -> "건너뜀"
+    "unsent" -> "보내지 못함"
     else -> "보냄"
 }

@@ -9,11 +9,10 @@ import com.cbiseo.depositalert.store.DeviceSettings
 
 class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val before = DepositDatabase.get(applicationContext).pending().count()
         DepositIntake.flush(applicationContext)
         val settings = DeviceSettings(applicationContext)
         if (settings.needsReconnect()) return Result.failure()
-        val after = DepositDatabase.get(applicationContext).pending().count()
-        return if (after > 0 && after >= before) Result.retry() else Result.success()
+        val left = DepositDatabase.get(applicationContext).pending().count()
+        return if (left > 0) Result.retry() else Result.success()
     }
 }

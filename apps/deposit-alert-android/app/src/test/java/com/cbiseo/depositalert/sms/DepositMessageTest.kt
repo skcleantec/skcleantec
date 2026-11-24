@@ -52,17 +52,29 @@ class DepositMessageTest {
     }
 
     @Test
-    fun dedupeKeyUsesSenderStrippedBodyAndMinute() {
-        val stripped = stripBalance(SAMPLE_NH_SMS)
-        val first = dedupeKey("15882100", stripped, at)
-        val sameMinute = dedupeKey("15882100", stripped, at + 30_000)
-        val nextMinute = dedupeKey("15882100", stripped, at + 60_000)
-        val otherSender = dedupeKey("15880000", stripped, at)
+    fun dedupeKeyUsesSenderRawBodyAndMinute() {
+        val first = dedupeKey("15882100", SAMPLE_NH_SMS, at)
+        val sameMinute = dedupeKey("15882100", SAMPLE_NH_SMS, at + 30_000)
+        val nextMinute = dedupeKey("15882100", SAMPLE_NH_SMS, at + 60_000)
+        val otherSender = dedupeKey("15880000", SAMPLE_NH_SMS, at)
         assertEquals(64, first.length)
         assertEquals(first, sameMinute)
         assertNotEquals(first, nextMinute)
         assertNotEquals(first, otherSender)
         assertFalse(first.contains("4,041,585"))
+        assertNotEquals(first, dedupeKey("15882100", stripBalance(SAMPLE_NH_SMS), at))
+    }
+
+    @Test
+    fun sameMinuteSameBodyDifferentBalanceGetsDifferentKey() {
+        val other = SAMPLE_NH_SMS.replace("4,041,585", "9,999")
+        val first = previewDeposit("15882100", SAMPLE_NH_SMS, at)
+        val second = previewDeposit("15882100", other, at + 20_000)
+        assertEquals(stripBalance(SAMPLE_NH_SMS), stripBalance(other))
+        assertEquals(first.stripped, second.stripped)
+        assertFalse(first.stripped.contains("잔액"))
+        assertNotEquals(first.dedupeKey, second.dedupeKey)
+        assertEquals(first.dedupeKey, previewDeposit("15882100", SAMPLE_NH_SMS, at + 30_000).dedupeKey)
     }
 
     @Test
@@ -75,5 +87,8 @@ class DepositMessageTest {
         assertEquals("a", (counts as IngestReply.Done).items.single().dedupeKey)
         assertTrue(interpretIngest(401, """{"error":"no"}""", listOf("a")) is IngestReply.Unauthorized)
         assertTrue(interpretIngest(429, """{"error":"rate"}""", listOf("a")) is IngestReply.Retry)
+        assertTrue(interpretIngest(400, """{"error":"bad"}""", listOf("a")) is IngestReply.Rejected)
+        assertTrue(interpretIngest(500, """{"error":"down"}""", listOf("a")) is IngestReply.Retry)
+        assertTrue(interpretIngest(503, "", listOf("a")) is IngestReply.Retry)
     }
 }

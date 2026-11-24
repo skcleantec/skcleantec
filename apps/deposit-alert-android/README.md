@@ -15,10 +15,12 @@
 | 입금 전달 | `POST /api/bank-deposits/ingest` |
 | 살아 있음 | `POST /api/bank-deposits/heartbeat` (15분) |
 
-연결 본문은 `{ "code": "123456", "deviceName": "samsung SM-G991N", "appVersion": "0.1.0" }` 입니다.
+연결 본문은 `{ "code": "123456", "deviceName": "samsung SM-G991N", "appVersion": "0.1.1" }` 입니다.
 응답의 `token` 은 암호화해서 폰에만 두고, 화면과 로그에는 찍지 않습니다.
-입금 본문에는 `dedupeKey`, `sender`, `text`(잔액을 지운 문자), `receivedAt` 을 넣습니다.
+`dedupeKey` 는 보낸이, 잔액이 들어 있는 원문, 받은 시각(분)을 해시합니다. 원문은 키를 만든 뒤 버리고 폰에도 남기지 않습니다.
+서버로 가는 `text` 는 잔액을 지운 문자입니다. `sender`, `receivedAt` 도 함께 넣습니다.
 서버가 `stored` · `duplicate` · `skipped` 로 답하면 그 건은 대기열에서 뺍니다.
+묶음이 400이면 한 건씩 다시 보내고, 한 건도 400이면 최근 목록에 「보내지 못함」으로 남기고 뺍니다. 401은 다시 연결, 429·5xx·연결 실패만 다시 시도합니다.
 
 ## 디버그 APK
 
@@ -58,7 +60,7 @@ Android Studio 에서는 이 폴더를 열고 **Build → Generate Signed Bundle
 
 ## 시험
 
-단위 테스트는 입금/출금/광고 구분, 잔액 삭제, 문자 조각 합치기, dedupeKey 를 확인합니다.
+단위 테스트는 입금/출금/광고 구분, 잔액 삭제, 문자 조각 합치기, 잔액이 다른 같은 분의 중복 키, JSON 제어 문자, 400 묶음 나누기를 확인합니다.
 
 에뮬레이터가 켜져 있을 때:
 
