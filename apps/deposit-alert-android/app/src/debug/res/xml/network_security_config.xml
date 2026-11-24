@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 디버그 시험 서버만 http 를 연다. 릴리스는 https 만 허용한다. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

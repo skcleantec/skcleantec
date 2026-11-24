@@ -72,6 +72,19 @@ apps/telecrm-android/keystore/*.jks
 apps/telecrm-android/keystore/*.keystore
 apps/telecrm-android/app/release/
 
+# Android 입금 알림 (apps/deposit-alert-android)
+apps/deposit-alert-android/.gradle/
+apps/deposit-alert-android/local.properties
+apps/deposit-alert-android/**/build/
+apps/deposit-alert-android/.idea/
+apps/deposit-alert-android/*.iml
+apps/deposit-alert-android/app/*.iml
+apps/deposit-alert-android/.kotlin/
+apps/deposit-alert-android/keystore.properties
+apps/deposit-alert-android/keystore/*.jks
+apps/deposit-alert-android/keystore/*.keystore
+apps/deposit-alert-android/app/release/
+
 # 로컬 에이전트 — product/help·오케스트라만 저장소 포함
 /agent/*
 !/agent/product/
