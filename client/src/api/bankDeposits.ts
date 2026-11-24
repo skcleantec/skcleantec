@@ -476,3 +476,31 @@ export async function uncancelBankDeposit(token: string, id: string): Promise<{ 
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
+
+/** 고객에게 안내할 입금 계좌 — 브랜드마다 하나. 팀장 앱 「계좌입금」에 보인다. */
+export type BankDepositGuideAccount = {
+  operatingCompanyId: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+};
+
+export async function listBankDepositGuideAccounts(token: string): Promise<{ items: BankDepositGuideAccount[] }> {
+  const res = await fetch(`${base}/guide-accounts`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function saveBankDepositGuideAccount(
+  token: string,
+  operatingCompanyId: string,
+  body: { bankName: string; accountNumber: string; accountHolder: string },
+): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/guide-accounts/${encodeURIComponent(operatingCompanyId)}`, {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}

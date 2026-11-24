@@ -11,6 +11,7 @@ import {
 import { isBlankSupplierField } from '@shared/supplierFieldText';
 import { RepresentativeWithSeal } from '../../components/quotations/RepresentativeWithSeal';
 import { CompanyProfileSuccessModal } from './CompanyProfileSuccessModal';
+import { DepositGuideAccountCard } from '../../components/bank-deposit/DepositGuideAccountCard';
 import { useTenantCompanyProfileForm } from './useTenantCompanyProfileForm';
 
 export function AdminTenantCompanyBusinessPage() {
@@ -240,6 +241,8 @@ export function AdminTenantCompanyBusinessPage() {
             document.body,
           )
         : null}
+
+      <DepositGuideAccountCard />
 
       <CompanyProfileSuccessModal message={form.successModal} onClose={() => form.setSuccessModal(null)} />
     </div>
