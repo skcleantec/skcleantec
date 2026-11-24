@@ -9,20 +9,22 @@ type Props = {
   compact?: boolean;
   /** 「지난 공지」에서 다시 붙이기 */
   onPickFromArchive?: () => void;
+  /** 붙이기 단추 줄 오른쪽 끝에 놓을 것(보내기 단추 등) */
+  trailing?: React.ReactNode;
 };
 
 /** 붙여 둔 사진·파일 줄 + 붙이기 단추. 번호가 보내지는 순서. */
-export function AttachmentDraftStrip({ draft, disabled, compact, onPickFromArchive }: Props) {
+export function AttachmentDraftStrip({ draft, disabled, compact, onPickFromArchive, trailing }: Props) {
   const photoRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const { items } = draft;
-  const size = compact ? 56 : 72;
+  const size = compact ? 48 : 56;
 
   const pickBtn =
-    'inline-flex h-8 items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 text-[12.5px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500';
+    'inline-flex h-8 items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 text-[12.5px] font-semibold md:h-7 md:px-2 md:text-[12px] text-slate-700 hover:bg-slate-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500';
 
   const take = (e: React.ChangeEvent<HTMLInputElement>) => {
     draft.addFiles(e.target.files);
@@ -30,7 +32,7 @@ export function AttachmentDraftStrip({ draft, disabled, compact, onPickFromArchi
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       <input ref={photoRef} type="file" accept="image/*" multiple hidden onChange={take} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={take} />
       <input ref={fileRef} type="file" accept="application/pdf,.pdf" multiple hidden onChange={take} />
@@ -154,17 +156,15 @@ export function AttachmentDraftStrip({ draft, disabled, compact, onPickFromArchi
         ) : null}
         <span className="text-[12px] text-slate-500">
           {items.length > 0
-            ? `${attachmentSummary(draft.imageCount, draft.fileCount)} · 원본으로 보냄`
+            ? `${attachmentSummary(draft.imageCount, draft.fileCount)} · 원본으로 보냄${
+                items.length > 1 && !compact ? ' · 번호 순서대로 감(끌거나 눌러서 바꾸기)' : ''
+              }`
             : compact
               ? ''
               : '끌어다 놓거나 붙여넣어도 됩니다'}
         </span>
+        {trailing ? <span className="ml-auto flex items-center gap-1.5">{trailing}</span> : null}
       </div>
-      {items.length > 1 && !compact ? (
-        <p className="text-[12px] text-slate-500">
-          번호가 보내지는 순서입니다. <span className="max-md:hidden">끌어서 바꾸거나, </span>사진을 누르면 ◀ ▶ 로 옮길 수 있어요.
-        </p>
-      ) : null}
       {draft.notice ? (
         <p className="whitespace-pre-line text-[12.5px] font-semibold text-red-600" role="alert">
           {draft.notice}
