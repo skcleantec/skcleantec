@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DepositAlert" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#0F172A</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+</resources>
