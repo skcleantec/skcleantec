@@ -83,7 +83,8 @@ export interface OrderFollowupItem {
 export type OrderFollowupBookingReason = 'phone' | 'linked' | 'name' | 'address' | 'building' | 'structure' | 'date';
 
 export interface OrderFollowupBooking {
-  level: 'booked' | 'suspect' | 'otherBrand';
+  /** past: 예전에 이용이 끝난 고객(막지 않고 알려만 준다) */
+  level: 'booked' | 'suspect' | 'otherBrand' | 'past';
   reasons: OrderFollowupBookingReason[];
   inquiryId: string;
   inquiryNumber?: string | null;

@@ -37,6 +37,7 @@ function bookingReasonsText(booking: OrderFollowupBooking): string {
 function bookingHeadline(booking: OrderFollowupBooking): string {
   if (booking.level === 'booked') return '이미 예약';
   if (booking.level === 'otherBrand') return `${booking.operatingCompanyName ?? '다른 브랜드'}로 예약됨`;
+  if (booking.level === 'past') return '지난 이용 고객';
   return '예약 의심';
 }
 
@@ -55,6 +56,7 @@ const TONE = {
   booked: 'border-rose-300 bg-rose-50 text-rose-800',
   otherBrand: 'border-sky-300 bg-sky-50 text-sky-800',
   suspect: 'border-amber-300 bg-amber-50 text-amber-900',
+  past: 'border-slate-300 bg-slate-50 text-slate-700',
 } as const;
 
 /** 접수 목록에 이미 있는 고객이면 붙는 표시. 목록 줄에는 작게, 상세에는 banner 로. */
@@ -89,7 +91,7 @@ export function FollowupBookingNote({
 
   return (
     <div
-      role={booking.level === 'suspect' ? 'status' : 'alert'}
+      role={booking.level === 'suspect' || booking.level === 'past' ? 'status' : 'alert'}
       className={`rounded-lg border px-3 py-2 text-fluid-xs leading-relaxed ${TONE[booking.level]} ${className}`}
     >
       <b className="font-bold">
@@ -97,7 +99,9 @@ export function FollowupBookingNote({
           ? '이미 예약한 고객입니다. 전화하지 마세요.'
           : booking.level === 'otherBrand'
             ? `${booking.operatingCompanyName ?? '다른 브랜드'}로 이미 예약한 고객입니다.`
-            : '이미 예약한 고객일 수 있어요. 전화 전에 접수 목록을 확인하세요.'}
+            : booking.level === 'past'
+              ? '예전에 이용한 고객입니다. 다시 문의한 것일 수 있어요.'
+              : '이미 예약한 고객일 수 있어요. 전화 전에 접수 목록을 확인하세요.'}
       </b>
       {detail ? <span className="ml-1.5">{detail}</span> : null}
       {booking.inquiryNumber ? <span className="ml-1.5 tabular-nums">접수번호 {booking.inquiryNumber}</span> : null}
