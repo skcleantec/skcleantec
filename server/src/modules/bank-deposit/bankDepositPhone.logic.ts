@@ -1,7 +1,10 @@
 /** 입금 알림 폰이 heartbeat 로 보내는 상태. 화면 판단과 알림 제한은 여기서만 한다. */
 
 export const PHONE_ALERT_PUSH_TEXT = '사업자폰이 입금 알림을 못 받고 있어요';
+export const PHONE_ALERT_RESTORED_TEXT = '사업자폰이 다시 연결됐어요';
 const HOUR_MS = 60 * 60 * 1000;
+const SILENT_NEW_MIN = 12;
+const SILENT_OLD_MIN = 20;
 const LISTENER_DOWN_MS = 3 * 60 * 1000;
 const COUNTER_KEYS = ['posts', 'extracted', 'deposits', 'missed', 'rebinds', 'sent'] as const;
 
@@ -43,6 +46,14 @@ export type PhoneDevice = HeartbeatPrevious & {
   keepAliveRunning: boolean | null;
   alertPushCode: string | null;
   alertPushAt: Date | null;
+  alertRecoveredAt: Date | null;
+};
+
+export type PhoneAlertTick = {
+  alert: PhoneAlert | null;
+  deviceId: string | null;
+  sendError: boolean;
+  recoverDeviceId: string | null;
 };
 
 const RANK: Record<PhoneAlertCode, number> = {
@@ -123,19 +134,36 @@ export function heartbeatWrite(body: unknown, previous: HeartbeatPrevious, now: 
   return write;
 }
 
-/** 화면과 같이, 마지막 신호가 20분을 넘긴 뒤(21분째)부터 끊긴 것으로 본다. */
-export function phoneIsSilent(lastSeenAt: Date | null, now: Date): boolean {
+/** 상태를 보낸 앱은 12분, 예전 앱은 20분을 넘긴 뒤부터 끊긴 것으로 본다. */
+export function silentAfterMinutes(hasStatus: boolean): number {
+  return hasStatus ? SILENT_NEW_MIN : SILENT_OLD_MIN;
+}
+
+export function phoneIsSilent(lastSeenAt: Date | null, now: Date, hasStatus: boolean): boolean {
   if (!lastSeenAt) return true;
   const diffMin = Math.floor((now.getTime() - lastSeenAt.getTime()) / 60_000);
-  return diffMin > 20;
+  return diffMin > silentAfterMinutes(hasStatus);
+}
+
+function silentSince(device: PhoneDevice): Date {
+  if (!device.lastSeenAt) return device.createdAt;
+  const minutes = silentAfterMinutes(device.statusAt != null) + 1;
+  return new Date(device.lastSeenAt.getTime() + minutes * 60_000);
+}
+
+function sentErrorNotRecovered(device: PhoneDevice): boolean {
+  return (
+    (device.alertPushCode === 'NOT_LISTENING' ||
+      device.alertPushCode === 'NO_ACCESS' ||
+      device.alertPushCode === 'SILENT') &&
+    device.alertPushAt != null &&
+    device.alertRecoveredAt == null
+  );
 }
 
 function alertsForDevice(device: PhoneDevice, now: Date): PhoneAlert[] {
-  if (phoneIsSilent(device.lastSeenAt, now)) {
-    const since = device.lastSeenAt
-      ? new Date(device.lastSeenAt.getTime() + 21 * 60_000)
-      : device.createdAt;
-    return [{ level: 'error', code: 'SILENT', since: since.toISOString() }];
+  if (phoneIsSilent(device.lastSeenAt, now, device.statusAt != null)) {
+    return [{ level: 'error', code: 'SILENT', since: silentSince(device).toISOString() }];
   }
   if (!device.statusAt) {
     return [{ level: 'warn', code: 'OLD_APP', since: device.createdAt.toISOString() }];
@@ -183,4 +211,17 @@ export function shouldSendPhoneAlert(
       now.getTime() - device.alertPushAt.getTime() < HOUR_MS,
   );
   return !recent;
+}
+
+/** 화면을 열지 않아도 같은 판단. error 이면 끊김 알림, 풀렸고 끊김 알림을 보낸 적이 있으면 복구 알림. */
+export function phoneAlertTick(devices: PhoneDevice[], now: Date): PhoneAlertTick {
+  const picked = pickPhoneAlert(devices, now);
+  const sendError = Boolean(picked.deviceId && shouldSendPhoneAlert(devices, picked.alert, now));
+  const pending = picked.alert?.level === 'error' ? undefined : devices.find(sentErrorNotRecovered);
+  return {
+    alert: picked.alert,
+    deviceId: picked.deviceId,
+    sendError,
+    recoverDeviceId: pending?.id ?? null,
+  };
 }

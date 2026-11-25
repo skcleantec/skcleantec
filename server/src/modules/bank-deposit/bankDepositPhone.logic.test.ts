@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   heartbeatWrite,
+  phoneAlertTick,
   pickPhoneAlert,
   shouldSendPhoneAlert,
   type HeartbeatPrevious,
@@ -29,6 +30,7 @@ function device(patch: Partial<PhoneDevice> = {}): PhoneDevice {
     keepAliveOffSince: null,
     alertPushCode: null,
     alertPushAt: null,
+    alertRecoveredAt: null,
     ...patch,
   };
 }
@@ -110,12 +112,12 @@ describe('입금 알림 폰 상태', () => {
     assert.equal(alive.alert?.code, 'KEEPALIVE_OFF');
     assert.equal(alive.alert?.level, 'warn');
 
-    const silentAt = new Date(now.getTime() - 21 * 60_000);
+    const silentAt = new Date(now.getTime() - 13 * 60_000);
     const silent = pickPhoneAlert([device({ lastSeenAt: silentAt, listenerConnected: false })], now);
     assert.equal(silent.alert?.code, 'SILENT');
     assert.equal(silent.alert?.level, 'error');
-    assert.equal(silent.alert?.since, new Date(silentAt.getTime() + 21 * 60_000).toISOString());
-    assert.equal(pickPhoneAlert([device({ lastSeenAt: new Date(now.getTime() - 20 * 60_000) })], now).alert, null);
+    assert.equal(silent.alert?.since, new Date(silentAt.getTime() + 13 * 60_000).toISOString());
+    assert.equal(pickPhoneAlert([device({ lastSeenAt: new Date(now.getTime() - 12 * 60_000) })], now).alert, null);
 
     const old = pickPhoneAlert([device({ statusAt: null, listenerConnected: null })], now);
     assert.equal(old.alert?.code, 'OLD_APP');
@@ -138,5 +140,56 @@ describe('입금 알림 폰 상태', () => {
     const warn = pickPhoneAlert([device({ statusAt: null })], now).alert;
     assert.equal(shouldSendPhoneAlert([device()], warn, now), false);
     assert.equal(shouldSendPhoneAlert([device()], null, now), false);
+  });
+
+  it('상태 있는 폰은 12분, 예전 빈 heartbeat 폰은 20분이 넘으면 끊긴다', () => {
+    assert.deepEqual(heartbeatWrite({}, blank, now), {});
+    assert.equal(pickPhoneAlert([device({ lastSeenAt: new Date(now.getTime() - 12 * 60_000) })], now).alert, null);
+    const late = new Date(now.getTime() - 13 * 60_000);
+    const freshSilent = pickPhoneAlert([device({ lastSeenAt: late })], now);
+    assert.equal(freshSilent.alert?.code, 'SILENT');
+    assert.equal(freshSilent.alert?.since, new Date(late.getTime() + 13 * 60_000).toISOString());
+
+    const oldSeen = { statusAt: null, listenerConnected: null, noticeAccessEnabled: null, keepAliveRunning: null };
+    assert.equal(pickPhoneAlert([device({ ...oldSeen, lastSeenAt: new Date(now.getTime() - 12 * 60_000) })], now).alert?.code, 'OLD_APP');
+    assert.equal(pickPhoneAlert([device({ ...oldSeen, lastSeenAt: new Date(now.getTime() - 20 * 60_000) })], now).alert?.code, 'OLD_APP');
+    const oldLate = new Date(now.getTime() - 21 * 60_000);
+    const oldSilent = pickPhoneAlert([device({ ...oldSeen, lastSeenAt: oldLate })], now);
+    assert.equal(oldSilent.alert?.code, 'SILENT');
+    assert.equal(oldSilent.alert?.since, new Date(oldLate.getTime() + 21 * 60_000).toISOString());
+  });
+
+  it('화면을 열지 않아도 끊기면 알리고, 다시 연결되면 한 번만 알린다', () => {
+    const silent = device({ lastSeenAt: new Date(now.getTime() - 13 * 60_000) });
+    const first = phoneAlertTick([silent], now);
+    assert.equal(first.sendError, true);
+    assert.equal(first.alert?.code, 'SILENT');
+    assert.equal(first.recoverDeviceId, null);
+
+    const held = device({
+      lastSeenAt: new Date(now.getTime() - 13 * 60_000),
+      alertPushCode: 'SILENT',
+      alertPushAt: new Date(now.getTime() - 5 * 60_000),
+    });
+    assert.equal(phoneAlertTick([held], now).sendError, false);
+
+    const back = phoneAlertTick(
+      [device({ alertPushCode: 'SILENT', alertPushAt: new Date(now.getTime() - 10 * 60_000) })],
+      now,
+    );
+    assert.equal(back.alert, null);
+    assert.equal(back.sendError, false);
+    assert.equal(back.recoverDeviceId, 'phone-1');
+
+    const again = phoneAlertTick(
+      [device({
+        alertPushCode: 'SILENT',
+        alertPushAt: new Date(now.getTime() - 10 * 60_000),
+        alertRecoveredAt: new Date(now.getTime() - 60_000),
+      })],
+      now,
+    );
+    assert.equal(again.recoverDeviceId, null);
+    assert.equal(phoneAlertTick([device()], now).recoverDeviceId, null);
   });
 });

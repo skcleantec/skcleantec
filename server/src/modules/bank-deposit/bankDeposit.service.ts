@@ -680,6 +680,7 @@ const DEPOSIT_LIST_SELECT = {
   accountMask: true,
   depositedAt: true,
   receivedAt: true,
+  createdAt: true,
   status: true,
   linkedInquiryId: true,
   linkedFollowupId: true,
@@ -731,7 +732,14 @@ export async function listBankDeposits(
   ]);
   const counts = depositListCounts(grouped.map((group) => ({ status: group.status, n: group._count._all })));
   const linked = await withLinkedSummaries(db, params.tenantId, items);
-  return { items: await decorateStaffDeposits(db, params.tenantId, linked), counts };
+  const decorated = await decorateStaffDeposits(db, params.tenantId, linked);
+  return {
+    items: decorated.map(({ createdAt, ...item }) => ({
+      ...item,
+      ingestedAt: createdAt.toISOString(),
+    })),
+    counts,
+  };
 }
 
 async function withLinkedSummaries<
