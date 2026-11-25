@@ -114,9 +114,40 @@ function withinSafePhoneWindow(followup: FollowupMatchInput, inquiry: InquiryMat
   return Math.abs(left - right) <= SAFE_PHONE_WINDOW_MS;
 }
 
+type InquiryPrep = {
+  plain: string[];
+  safe: string[];
+  nameKeys: string[];
+  region: { si: string; gu: string; dong: string } | null;
+  complexes: string[];
+  building: string | null;
+  preferred: string | null;
+  addressTrimmed: string;
+};
+
+const inquiryPrepCache = new WeakMap<InquiryMatchInput, InquiryPrep>();
+
+function prepInquiry(inquiry: InquiryMatchInput): InquiryPrep {
+  const cached = inquiryPrepCache.get(inquiry);
+  if (cached) return cached;
+  const phones = splitPhones(inquiry.customerPhone, inquiry.customerPhone2);
+  const prepared: InquiryPrep = {
+    plain: phones.plain,
+    safe: phones.safe,
+    nameKeys: usableNameKeys(inquiry.customerName, inquiry.nickname, inquiry.source),
+    region: regionOf(inquiry.address),
+    complexes: complexesOf(inquiry.address),
+    building: buildingLabel(inquiry.buildingType || inquiry.propertyType, inquiry.address, inquiry.memo),
+    preferred: preferredYmd(inquiry.preferredDate),
+    addressTrimmed: (inquiry.address ?? '').trim(),
+  };
+  inquiryPrepCache.set(inquiry, prepared);
+  return prepared;
+}
+
 function phonesOverlap(followup: FollowupMatchInput, inquiry: InquiryMatchInput): boolean {
   const left = splitPhones(followup.customerPhone, followup.customerPhone2);
-  const right = splitPhones(inquiry.customerPhone, inquiry.customerPhone2);
+  const right = prepInquiry(inquiry);
   if (listsOverlap(left.plain, right.plain)) return true;
   return listsOverlap(left.safe, right.safe) && withinSafePhoneWindow(followup, inquiry);
 }
@@ -133,10 +164,18 @@ function usableNameKeys(name?: string | null, nickname?: string | null, platform
   return keys.filter((key) => key && !PLACEHOLDER_NAMES.has(key) && !/^\d+$/.test(key) && key !== platformKey);
 }
 
+export function bookingNameKeys(name?: string | null, nickname?: string | null, platform?: string | null): string[] {
+  return usableNameKeys(name, nickname, platform);
+}
+
+export function phoneTails(phone?: string | null, phone2?: string | null): string[] {
+  const phones = splitPhones(phone, phone2);
+  return [...new Set([...phones.plain, ...phones.safe].map((digits) => digits.slice(-8)))];
+}
+
 function namesMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
   const left = usableNameKeys(a.customerName, a.nickname, a.leadSource);
-  const right = usableNameKeys(b.customerName, b.nickname, b.source);
-  return left.some((key) => right.includes(key));
+  return left.some((key) => prepInquiry(b).nameKeys.includes(key));
 }
 
 function regionOf(address?: string | null): { si: string; gu: string; dong: string } | null {
@@ -161,12 +200,11 @@ function complexesOf(address?: string | null): string[] {
 
 function addressMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
   const left = (a.address ?? '').trim();
-  const right = (b.address ?? '').trim();
-  if (!left || !right) return false;
+  const right = prepInquiry(b);
+  if (!left || !right.addressTrimmed) return false;
   const ra = regionOf(left);
-  const rb = regionOf(right);
-  if (ra && rb && ra.si === rb.si && ra.gu === rb.gu && ra.dong === rb.dong) return true;
-  const shared = complexesOf(left).filter((name) => complexesOf(right).includes(name));
+  if (ra && right.region && ra.si === right.region.si && ra.gu === right.region.gu && ra.dong === right.region.dong) return true;
+  const shared = complexesOf(left).filter((name) => right.complexes.includes(name));
   return shared.length > 0;
 }
 
@@ -180,7 +218,7 @@ function buildingLabel(explicit?: string | null, address?: string | null, memo?:
 
 function buildingsMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
   const left = buildingLabel(null, a.address, a.memo);
-  const right = buildingLabel(b.buildingType || b.propertyType, b.address, b.memo);
+  const right = prepInquiry(b).building;
   return Boolean(left && right && left === right);
 }
 
@@ -213,7 +251,7 @@ export function preferredYmd(value?: string | Date | null): string | null {
 
 function datesMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
   const left = preferredYmd(a.preferredMoveInCleaningDate);
-  const right = preferredYmd(b.preferredDate);
+  const right = prepInquiry(b).preferred;
   return Boolean(left && right && left === right);
 }
 
@@ -261,41 +299,59 @@ export function isPastInquiryForFollowup(followup: FollowupMatchInput, inquiry: 
   return Boolean(done && done < made);
 }
 
+type BookingPick = { rank: number; at: number; booking: FollowupBooking };
+
+function considerBooking(best: BookingPick | null, followup: FollowupMatchInput, inquiry: InquiryMatchInput): BookingPick | null {
+  const match = matchFollowupToInquiry(followup, inquiry);
+  if (!match.level) return best;
+  const past = isPastInquiryForFollowup(followup, inquiry);
+  if (past && match.level !== 'booked') return best;
+  const sameBrand = !followup.operatingCompanyId || followup.operatingCompanyId === inquiry.operatingCompanyId;
+  const level: BookingLevel = past ? 'past' : match.level === 'booked' && !sameBrand ? 'otherBrand' : match.level;
+  const at = createdMs(inquiry.createdAt);
+  const rank = LEVEL_RANK[level];
+  if (best && (rank > best.rank || (rank === best.rank && at <= best.at))) return best;
+  return {
+    rank,
+    at,
+    booking: {
+      level,
+      reasons: match.reasons,
+      inquiryId: inquiry.id,
+      inquiryNumber: inquiry.inquiryNumber ?? null,
+      status: inquiry.status,
+      preferredDate: preferredYmd(inquiry.preferredDate),
+      operatingCompanyId: inquiry.operatingCompanyId,
+      operatingCompanyName: inquiry.operatingCompanyName ?? null,
+      marketerName: inquiry.marketerName ?? null,
+    },
+  };
+}
+
 /** 여러 접수 중 하나. booked > otherBrand > suspect > past, 그다음 최근 접수. */
 export function pickFollowupBooking(
   followup: FollowupMatchInput,
   inquiries: InquiryMatchInput[],
 ): FollowupBooking | null {
-  let best: { rank: number; at: number; booking: FollowupBooking } | null = null;
+  let best: BookingPick | null = null;
+  for (const inquiry of inquiries) best = considerBooking(best, followup, inquiry);
+  return best?.booking ?? null;
+}
+
+/** 후보가 길면 중간중간 이벤트 루프에 양보한다. 결과는 pickFollowupBooking 과 같다. */
+export async function pickFollowupBookingYielding(
+  followup: FollowupMatchInput,
+  inquiries: InquiryMatchInput[],
+  maxSliceMs = 30,
+): Promise<FollowupBooking | null> {
+  let best: BookingPick | null = null;
+  let sliceStart = Date.now();
   for (const inquiry of inquiries) {
-    const match = matchFollowupToInquiry(followup, inquiry);
-    if (!match.level) continue;
-    const past = isPastInquiryForFollowup(followup, inquiry);
-    if (past && match.level !== 'booked') continue;
-    const sameBrand = !followup.operatingCompanyId || followup.operatingCompanyId === inquiry.operatingCompanyId;
-    const level: BookingLevel = past
-      ? 'past'
-      : match.level === 'booked' && !sameBrand
-        ? 'otherBrand'
-        : match.level;
-    const at = createdMs(inquiry.createdAt);
-    const rank = LEVEL_RANK[level];
-    if (best && (rank > best.rank || (rank === best.rank && at <= best.at))) continue;
-    best = {
-      rank,
-      at,
-      booking: {
-        level,
-        reasons: match.reasons,
-        inquiryId: inquiry.id,
-        inquiryNumber: inquiry.inquiryNumber ?? null,
-        status: inquiry.status,
-        preferredDate: preferredYmd(inquiry.preferredDate),
-        operatingCompanyId: inquiry.operatingCompanyId,
-        operatingCompanyName: inquiry.operatingCompanyName ?? null,
-        marketerName: inquiry.marketerName ?? null,
-      },
-    };
+    best = considerBooking(best, followup, inquiry);
+    if (Date.now() - sliceStart >= maxSliceMs) {
+      await yieldEventLoop();
+      sliceStart = Date.now();
+    }
   }
   return best?.booking ?? null;
 }
@@ -387,4 +443,133 @@ export function tallySweep(
     else if (row.booking?.level === 'past') past += 1;
   }
   return { wouldClose, suspect, otherBrand, past, byReason, byInquiryStatus, byFollowupStatus, byReasonCombo };
+}
+
+export type InquiryBookingIndex = {
+  byPhone: Map<string, InquiryMatchInput[]>;
+  byName: Map<string, InquiryMatchInput[]>;
+  byId: Map<string, InquiryMatchInput>;
+  byDateArea: Map<string, InquiryMatchInput[]>;
+  /** 같은 시각이면 앞선 접수가 이긴다. 전체 대조와 같은 순서. */
+  order: Map<string, number>;
+};
+
+function emptyInquiryIndex(): InquiryBookingIndex {
+  return { byPhone: new Map(), byName: new Map(), byId: new Map(), byDateArea: new Map(), order: new Map() };
+}
+
+function pushIndex(map: Map<string, InquiryMatchInput[]>, key: string, inquiry: InquiryMatchInput): void {
+  const list = map.get(key);
+  if (list) list.push(inquiry);
+  else map.set(key, [inquiry]);
+}
+
+/** 희망일 + 평수(±1). 이름·전화가 없어도 주소·구조·희망일 의심을 후보에 남긴다. */
+export function dateAreaKeys(ymd: string | null, area: number | null | undefined): string[] {
+  if (!ymd || area == null || !Number.isFinite(area)) return [];
+  const rounded = Math.round(area);
+  return [rounded - 1, rounded, rounded + 1].map((value) => `${ymd}|${value}`);
+}
+
+function addInquiryToIndex(index: InquiryBookingIndex, inquiry: InquiryMatchInput): void {
+  const prepared = prepInquiry(inquiry);
+  if (!index.order.has(inquiry.id)) index.order.set(inquiry.id, index.order.size);
+  index.byId.set(inquiry.id, inquiry);
+  for (const tail of phoneTails(inquiry.customerPhone, inquiry.customerPhone2)) pushIndex(index.byPhone, tail, inquiry);
+  for (const key of prepared.nameKeys) pushIndex(index.byName, key, inquiry);
+  for (const key of dateAreaKeys(prepared.preferred, inquiry.areaPyeong)) pushIndex(index.byDateArea, key, inquiry);
+}
+
+export function buildInquiryBookingIndex(inquiries: InquiryMatchInput[]): InquiryBookingIndex {
+  const index = emptyInquiryIndex();
+  for (const inquiry of inquiries) addInquiryToIndex(index, inquiry);
+  return index;
+}
+
+function yieldEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** 색인을 만들 때도 한 덩어리가 길어지면 이벤트 루프에 양보한다. */
+export async function buildInquiryBookingIndexYielding(
+  inquiries: InquiryMatchInput[],
+  maxSliceMs = 30,
+): Promise<InquiryBookingIndex> {
+  const index = emptyInquiryIndex();
+  let sliceStart = Date.now();
+  for (let i = 0; i < inquiries.length; i += 1) {
+    addInquiryToIndex(index, inquiries[i]!);
+    if (Date.now() - sliceStart >= maxSliceMs) {
+      await yieldEventLoop();
+      sliceStart = Date.now();
+    }
+  }
+  return index;
+}
+
+export function candidatesForFollowup(index: InquiryBookingIndex, followup: FollowupMatchInput): InquiryMatchInput[] {
+  const seen = new Set<string>();
+  const out: InquiryMatchInput[] = [];
+  const add = (row?: InquiryMatchInput) => {
+    if (!row || seen.has(row.id)) return;
+    seen.add(row.id);
+    out.push(row);
+  };
+  for (const tail of phoneTails(followup.customerPhone, followup.customerPhone2)) {
+    for (const row of index.byPhone.get(tail) ?? []) add(row);
+  }
+  for (const key of usableNameKeys(followup.customerName, followup.nickname, followup.leadSource)) {
+    for (const row of index.byName.get(key) ?? []) add(row);
+  }
+  if (followup.inquiryId) add(index.byId.get(followup.inquiryId));
+  const ymd = preferredYmd(followup.preferredMoveInCleaningDate);
+  for (const key of dateAreaKeys(ymd, followup.areaPyeong)) {
+    for (const row of index.byDateArea.get(key) ?? []) add(row);
+  }
+  out.sort((a, b) => (index.order.get(a.id) ?? 0) - (index.order.get(b.id) ?? 0));
+  return out;
+}
+
+export function pickFollowupBookingNarrowed(
+  followup: FollowupMatchInput,
+  index: InquiryBookingIndex,
+): FollowupBooking | null {
+  return pickFollowupBooking(followup, candidatesForFollowup(index, followup));
+}
+
+/** 200건 또는 30ms마다 양보하면서 색인 후보만 대조한다. */
+export async function sweepFollowupsYielding(
+  followups: FollowupMatchInput[],
+  inquiries: InquiryMatchInput[],
+  options: {
+    batchSize?: number;
+    maxSliceMs?: number;
+    onProgress?: (done: number, total: number) => void;
+    onSlice?: (busyMs: number) => void;
+  } = {},
+): Promise<SweepPlan> {
+  const batchSize = options.batchSize ?? 200;
+  const maxSliceMs = options.maxSliceMs ?? 20;
+  const index = await buildInquiryBookingIndexYielding(inquiries, maxSliceMs);
+  const judged: { booking: FollowupBooking | null; open: boolean; sameBrandBooked: boolean; followupStatus?: string | null }[] = [];
+  let sliceStart = Date.now();
+  for (let i = 0; i < followups.length; i += 1) {
+    const followup = followups[i]!;
+    const booking = await pickFollowupBookingYielding(followup, candidatesForFollowup(index, followup), maxSliceMs);
+    judged.push({
+      booking,
+      open: isOpenCallStatus(followup.status),
+      sameBrandBooked: booking?.level === 'booked',
+      followupStatus: followup.status,
+    });
+    const done = i + 1;
+    if (done % batchSize === 0 || Date.now() - sliceStart >= maxSliceMs) {
+      options.onProgress?.(done, followups.length);
+      options.onSlice?.(Date.now() - sliceStart);
+      await yieldEventLoop();
+      sliceStart = Date.now();
+    }
+  }
+  options.onProgress?.(followups.length, followups.length);
+  return tallySweep(judged);
 }
