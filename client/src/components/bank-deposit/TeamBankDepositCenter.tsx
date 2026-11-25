@@ -22,6 +22,35 @@ const REASONS: Array<{ id: TeamDepositMismatchReason; label: string }> = [
   { id: 'OTHER', label: '다른 이유예요' },
 ];
 
+/** 잠깐 내려놓기 — 3분 뒤 다시 뜨고, 한 입금에 5번까지. 앱을 껐다 켜도 남게 폰에 적어 둔다. */
+const HOLD_MS = 3 * 60 * 1000;
+const HOLD_MAX = 5;
+const HOLD_KEY = 'cbiseo.teamDepositHold.v1';
+type HoldMap = Record<string, { count: number; until: number }>;
+
+function readHolds(): HoldMap {
+  try {
+    const raw = localStorage.getItem(HOLD_KEY);
+    const parsed = raw ? (JSON.parse(raw) as HoldMap) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeHolds(map: HoldMap) {
+  try {
+    localStorage.setItem(HOLD_KEY, JSON.stringify(map));
+  } catch {
+    /* 저장이 막힌 폰에서는 화면을 닫을 때까지만 기억한다 */
+  }
+}
+
+function mmss(ms: number): string {
+  const sec = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+
 function ymdKst(iso: string): string {
   return new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
@@ -65,12 +94,20 @@ function ClaimFlow({
   position,
   onDone,
   onLater,
+  holdsLeft,
+  heldBefore,
+  onHold,
 }: {
   token: string;
   item: TeamBankDepositOpenItem;
   position: string;
   onDone: () => void;
   onLater: () => void;
+  /** 잠깐 내려놓기를 더 쓸 수 있는 횟수 */
+  holdsLeft: number;
+  /** 한 번 이상 내려놨다가 다시 뜬 입금 */
+  heldBefore: boolean;
+  onHold: () => void;
 }) {
   const [step, setStep] = useState<'ask' | 'decline' | 'pick' | 'confirm'>('ask');
   const [mine, setMine] = useState<TeamBankDepositMine[] | null>(null);
@@ -78,6 +115,7 @@ function ClaimFlow({
   const [reason, setReason] = useState<TeamDepositMismatchReason | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     setStep('ask');
@@ -85,7 +123,23 @@ function ClaimFlow({
     setPickedId(null);
     setReason(null);
     setError(null);
+    setQuery('');
   }, [item.id]);
+
+  /** 이름·주소·금액으로 내 접수 찾기. 금액이 같은 건을 위로. */
+  const shownMine = useMemo(() => {
+    if (!mine) return null;
+    const q = query.trim().replace(/\s+/g, '');
+    const digits = q.replace(/[^0-9]/g, '');
+    const list = q
+      ? mine.filter((m) => {
+          const text = `${m.customerName}${m.addressShort ?? ''}`.replace(/\s+/g, '');
+          if (text.includes(q)) return true;
+          return digits.length >= 2 && m.balanceWon != null && String(m.balanceWon).includes(digits);
+        })
+      : mine;
+    return [...list].sort((a, b) => Number(b.amountMatch) - Number(a.amountMatch));
+  }, [mine, query]);
 
   const picked = useMemo(() => mine?.find((m) => m.inquiryId === pickedId) ?? null, [mine, pickedId]);
   const needsReason = Boolean(picked && !picked.amountMatch);
@@ -140,7 +194,13 @@ function ClaimFlow({
     <Sheet label="누구 고객 입금인지 확인">
       <div className="flex items-center gap-2 px-5 pt-5">
         <p className="min-w-0 flex-1 text-fluid-base font-bold text-[#0F172A]">
-          {step === 'pick' ? '어느 고객의 입금인가요?' : step === 'confirm' ? '이대로 연결할까요?' : '누구 고객 입금인지 확인해 주세요'}
+          {step === 'pick'
+            ? '어느 고객의 입금인가요?'
+            : step === 'confirm'
+              ? '이대로 연결할까요?'
+              : heldBefore
+                ? '아직 확인이 안 된 입금이 있어요'
+                : '누구 고객 입금인지 확인해 주세요'}
         </p>
         {position ? <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">{position}</span> : null}
       </div>
@@ -168,8 +228,22 @@ function ClaimFlow({
               최근 일주일 안에 잔금을 받을 내 접수가 없어요. 내 고객 입금이 맞다면 사무실에 알려 주세요.
             </p>
           ) : (
+            <>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="이름·주소·금액으로 찾기"
+              aria-label="내 접수에서 찾기"
+              className="h-11 w-full rounded-[12px] border border-slate-300 bg-white px-3 text-fluid-sm outline-none focus-visible:border-[#6d28d9] focus-visible:ring-2 focus-visible:ring-violet-200"
+            />
+            {shownMine && shownMine.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 px-3 py-3 text-fluid-xs leading-relaxed text-slate-600">
+                「{query.trim()}」에 맞는 내 접수가 없어요. 다른 글자로 찾아보세요.
+              </p>
+            ) : null}
             <ul className="space-y-2">
-              {mine.map((m) => {
+              {(shownMine ?? []).map((m) => {
                 const on = m.inquiryId === pickedId;
                 return (
                   <li key={m.inquiryId}>
@@ -212,6 +286,7 @@ function ClaimFlow({
                 );
               })}
             </ul>
+            </>
           )
         ) : null}
 
@@ -265,7 +340,7 @@ function ClaimFlow({
         {error ? <p className="text-fluid-xs text-rose-700">{error}</p> : null}
       </div>
 
-      <div className="grid gap-2 border-t border-slate-100 px-5 py-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2 border-t border-slate-100 px-5 py-4">
         {step === 'ask' ? (
           <>
             <Button variant="primary" size="lg" className="h-[52px] w-full rounded-[14px]" onClick={() => void openPick()} disabled={busy}>
@@ -274,6 +349,19 @@ function ClaimFlow({
             <Button size="lg" className="h-[52px] w-full rounded-[14px]" onClick={() => setStep('decline')} disabled={busy}>
               내 건 아니에요
             </Button>
+            {holdsLeft > 0 ? (
+              <button
+                type="button"
+                onClick={onHold}
+                disabled={busy}
+                className="flex min-h-[46px] w-full min-w-0 flex-col items-center justify-center rounded-[12px] bg-slate-100 px-3 py-1.5 text-fluid-sm font-bold text-slate-800 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+              >
+                <span>{heldBefore ? '조금 더 찾아볼게요' : '잠깐 내려놓고 찾아볼게요'}</span>
+                <span className="text-fluid-2xs font-normal text-slate-500">3분 뒤 다시 떠요 · {holdsLeft}번 남음</span>
+              </button>
+            ) : (
+              <p className="text-center text-fluid-2xs text-slate-500">내려놓기를 모두 썼어요. 둘 중 하나를 골라 주세요.</p>
+            )}
             {error ? (
               <Button variant="quiet" size="md" className="w-full" onClick={onLater} disabled={busy}>
                 잠시 뒤에 다시 볼게요
@@ -334,7 +422,29 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
   const [resolvedNote, setResolvedNote] = useState<string | null>(null);
   /** 오류로 잠깐 미룬 입금 — 다음 새로 고침(1분) 때 다시 뜬다 */
   const [snoozedId, setSnoozedId] = useState<string | null>(null);
+  const [holds, setHolds] = useState<HoldMap>(() => readHolds());
+  const [now, setNow] = useState(() => Date.now());
   const on = enabled && Boolean(token);
+
+  const holdDeposit = useCallback((id: string) => {
+    setHolds((prev) => {
+      const next = { ...prev, [id]: { count: (prev[id]?.count ?? 0) + 1, until: Date.now() + HOLD_MS } };
+      writeHolds(next);
+      return next;
+    });
+    setNow(Date.now());
+    setActiveId(null);
+  }, []);
+
+  const reopenDeposit = useCallback((id: string) => {
+    setHolds((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev, [id]: { ...prev[id], until: 0 } };
+      writeHolds(next);
+      return next;
+    });
+    setActiveId(id);
+  }, []);
 
   const load = useCallback(async () => {
     if (!on || !token) {
@@ -345,6 +455,14 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
       const r = await fetchOpenTeamBankDeposits(token);
       setOpen(r.items);
       setSnoozedId(null);
+      // 처리된 입금의 내려놓기 기록은 지운다.
+      setHolds((prev) => {
+        const ids = new Set(r.items.map((x) => x.id));
+        const keep = Object.fromEntries(Object.entries(prev).filter(([id]) => ids.has(id)));
+        if (Object.keys(keep).length === Object.keys(prev).length) return prev;
+        writeHolds(keep);
+        return keep;
+      });
     } catch {
       /* 기능이 꺼졌거나 잠깐 실패 — 띠만 안 보인다 */
     }
@@ -407,9 +525,21 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
     return () => clearTimeout(t);
   }, [resolvedNote]);
 
+  const heldItems = open.filter((x) => (holds[x.id]?.until ?? 0) > now);
+  const hasHeld = heldItems.length > 0;
+
+  // 내려놓은 입금이 있는 동안만 1초마다 남은 시간을 고친다. 시간이 다 되면 다시 가운데로 뜬다.
+  useEffect(() => {
+    if (!hasHeld) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [hasHeld]);
+
   if (!on) return null;
-  // 확인할 입금이 있으면 가운데 창이 항상 떠 있다. 둘 중 하나를 눌러야 닫힌다.
-  const active = open.find((x) => x.id === activeId && x.id !== snoozedId) ?? open.find((x) => x.id !== snoozedId) ?? null;
+  // 확인할 입금이 있으면 가운데 창이 항상 떠 있다. 고르거나, 잠깐 내려놓아야 닫힌다.
+  const showable = (x: TeamBankDepositOpenItem) => x.id !== snoozedId && !((holds[x.id]?.until ?? 0) > now);
+  const active = open.find((x) => x.id === activeId && showable(x)) ?? open.find(showable) ?? null;
+  const held = heldItems[0] ?? null;
   const activeIndex = active ? open.findIndex((x) => x.id === active.id) : -1;
 
   return (
@@ -428,6 +558,9 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
           token={token}
           item={active}
           position={open.length > 1 ? `${activeIndex + 1} / ${open.length}` : ''}
+          holdsLeft={Math.max(0, HOLD_MAX - (holds[active.id]?.count ?? 0))}
+          heldBefore={(holds[active.id]?.count ?? 0) > 0}
+          onHold={() => holdDeposit(active.id)}
           onLater={() => {
             setSnoozedId(active.id);
             setActiveId(null);
@@ -440,6 +573,35 @@ export function TeamBankDepositCenter({ token, enabled }: { token: string | null
           }}
         />
       ) : null}
+
+      {held && !paid
+        ? createPortal(
+            <div
+              role="status"
+              className="fixed inset-x-3 z-[138] mx-auto flex max-w-[420px] items-center gap-3 rounded-[16px] bg-[#1e1b4b] px-3.5 py-3 text-white shadow-2xl md:inset-x-auto md:right-5 md:mx-0 md:w-[380px]"
+              style={{ bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' }}
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-[3px] border-violet-300 text-[11px] font-extrabold tabular-nums">
+                {mmss((holds[held.id]?.until ?? 0) - now)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-fluid-sm font-bold tabular-nums">{won(held.amountWon)} 확인 대기</span>
+                <span className="block truncate text-fluid-2xs text-violet-200">
+                  입금자 {held.depositorName || '이름 없음'}
+                  {heldItems.length > 1 ? ` · 외 ${heldItems.length - 1}건` : ''}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => reopenDeposit(held.id)}
+                className="h-10 shrink-0 whitespace-nowrap rounded-[10px] bg-white px-3 text-fluid-xs font-extrabold text-[#4c1d95] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+              >
+                다시 열기
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {paid
         ? createPortal(
