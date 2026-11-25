@@ -556,6 +556,7 @@ function rememberSweep(tenantId: string, plan: SweepPlan): void {
       suspect: plan.suspect,
       otherBrand: plan.otherBrand,
       past: plan.past,
+      conflictDowngraded: plan.conflictDowngraded,
       byInquiryStatus: plan.byInquiryStatus,
       byFollowupStatus: plan.byFollowupStatus,
       byReasonCombo: plan.byReasonCombo,
