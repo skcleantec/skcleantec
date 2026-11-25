@@ -125,6 +125,11 @@ class KeepAlivePlanTest {
         assertEquals(0, counters.getInt("balance"))
         assertEquals(0, counters.getInt("hiddenLost"))
         assertEquals(0L, json.getLong("lastHiddenLostAt"))
+        assertEquals("specialUse", json.getString("keepAliveType"))
+        assertEquals("", json.getString("lastExitReason"))
+        assertEquals(0L, json.getLong("lastExitAt"))
+        assertEquals(0, json.getInt("restarts"))
+        assertEquals(0, json.getInt("fgsTimeoutCount"))
         assertFalse(body.contains("token"))
         assertFalse(body.contains("잔액"))
     }

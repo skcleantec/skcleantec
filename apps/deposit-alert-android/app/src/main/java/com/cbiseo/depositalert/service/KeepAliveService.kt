@@ -1,10 +1,13 @@
 package com.cbiseo.depositalert.service
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -27,7 +30,9 @@ import com.cbiseo.depositalert.sms.NoticeTally
 import com.cbiseo.depositalert.sms.heartbeatDue
 import com.cbiseo.depositalert.sms.shouldRescanNow
 import com.cbiseo.depositalert.sms.showMissedDepositNotice
+import com.cbiseo.depositalert.sms.showWakePrompt
 import com.cbiseo.depositalert.store.NoticeLog
+import com.cbiseo.depositalert.store.ServiceHealth
 import com.cbiseo.depositalert.ui.MainActivity
 import com.cbiseo.depositalert.work.DepositScheduler
 import com.cbiseo.depositalert.work.HeartbeatPulse
@@ -46,6 +51,7 @@ class KeepAliveService : Service() {
     private var hiddenScheduled = false
     private var wakeRegistered = false
     private var wakeLock: PowerManager.WakeLock? = null
+    private var lastTimeoutAt = 0L
     private val tickRunnable = Runnable { onTick() }
     private val hiddenRunnable = Runnable { onHiddenTick() }
     private val wakeReceiver = object : BroadcastReceiver() {
@@ -67,17 +73,67 @@ class KeepAliveService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, notification())
+        if (!promote()) {
+            running = false
+            scheduleWake(this)
+            return START_NOT_STICKY
+        }
         running = true
         if (!scope.isActive) scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val now = System.currentTimeMillis()
+        ServiceHealth(this).noteStart(now)
+        rememberExit()
         DepositScheduler.ensureHeartbeat(this)
         DepositScheduler.enqueueUpload(this)
+        scheduleWake(this)
         instance = this
         HiddenFollowScheduler.onArm = { armHiddenFollow() }
         registerWake()
         startTicker()
         armHiddenFollow()
         return START_STICKY
+    }
+
+    override fun onTimeout(startId: Int) {
+        handleTimeout()
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        handleTimeout()
+    }
+
+    private fun handleTimeout() {
+        val now = System.currentTimeMillis()
+        if (now - lastTimeoutAt < 5_000L) return
+        lastTimeoutAt = now
+        ServiceHealth(this).noteTimeout(now)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        running = false
+        val restarted = promote()
+        if (restarted) running = true
+        if (timeoutNeedsUser(restarted)) showWakePrompt(this)
+    }
+
+    private fun promote(): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTIFICATION_ID, notification())
+            }
+            true
+        } catch (error: RuntimeException) {
+            if (!isFgsStartBlocked(error.javaClass.name)) throw error
+            showWakePrompt(this)
+            false
+        }
+    }
+
+    private fun rememberExit() {
+        if (Build.VERSION.SDK_INT < 30) return
+        val manager = getSystemService(ActivityManager::class.java) ?: return
+        val latest = manager.getHistoricalProcessExitReasons(packageName, 0, 1).firstOrNull() ?: return
+        ServiceHealth(this).noteExit(exitReasonLabel(latest.reason), latest.timestamp)
     }
 
     override fun onDestroy() {
@@ -247,12 +303,14 @@ class KeepAliveService : Service() {
 
         fun isRunning(): Boolean = running
 
-        fun start(context: Context) {
-            try {
+        fun start(context: Context): Boolean {
+            return try {
                 val intent = Intent(context, KeepAliveService::class.java)
                 androidx.core.content.ContextCompat.startForegroundService(context, intent)
-            } catch (_: Exception) {
-                // 화면이 앞에 있을 때 다시 켠다.
+                true
+            } catch (error: Exception) {
+                if (isFgsStartBlocked(error.javaClass.name)) showWakePrompt(context)
+                false
             }
         }
 

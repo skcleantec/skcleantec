@@ -10,8 +10,10 @@ import com.cbiseo.depositalert.net.heartbeatBody
 import com.cbiseo.depositalert.service.KeepAliveService
 import com.cbiseo.depositalert.sms.InboxScan
 import com.cbiseo.depositalert.sms.MessageNoticeReader
+import com.cbiseo.depositalert.service.KEEP_ALIVE_TYPE
 import com.cbiseo.depositalert.store.DeviceSettings
 import com.cbiseo.depositalert.store.NoticeLog
+import com.cbiseo.depositalert.store.ServiceHealth
 
 object HeartbeatPulse {
     fun send(context: Context): HeartbeatResult {
@@ -37,7 +39,9 @@ object HeartbeatPulse {
     private fun snapshot(context: Context): HeartbeatSnapshot {
         val settings = DeviceSettings(context)
         val log = NoticeLog(context)
+        val health = ServiceHealth(context)
         val reasons = log.reasonTotals()
+        val now = System.currentTimeMillis()
         val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         return HeartbeatSnapshot(
             appVersion = BuildConfig.VERSION_NAME,
@@ -61,6 +65,11 @@ object HeartbeatPulse {
             balance = reasons.balance,
             hiddenLost = log.hiddenLostTotal(),
             lastHiddenLostAt = log.lastHiddenLostAt(),
+            keepAliveType = KEEP_ALIVE_TYPE,
+            lastExitReason = health.lastExitReason(),
+            lastExitAt = health.lastExitAt(),
+            restarts = health.restartsToday(now),
+            fgsTimeoutCount = health.timeoutCount(),
         )
     }
 }

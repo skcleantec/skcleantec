@@ -7,6 +7,7 @@ import com.cbiseo.depositalert.data.PendingDeposit
 import com.cbiseo.depositalert.data.SentDeposit
 import com.cbiseo.depositalert.net.DepositApi
 import com.cbiseo.depositalert.net.uploadPending
+import com.cbiseo.depositalert.service.expediteAfterSend
 import com.cbiseo.depositalert.store.DeviceSettings
 import com.cbiseo.depositalert.work.DepositScheduler
 
@@ -110,9 +111,17 @@ object DepositIntake {
         }
         if (notice) settings.noteNoticeSent(summary, source == IntakeSource.NoticeRescan)
         if (source == IntakeSource.Scan) settings.noteLateFound(1)
-        flush(context)
-        if (db.pending().count() > 0) DepositScheduler.enqueueUpload(context)
+        sendQueued(context)
         return IntakeOutcome.Queued
+    }
+
+    /** 대기 중인 입금을 바로 보내고, 실패하면 긴급 재시도를 건다. */
+    suspend fun sendQueued(context: Context) {
+        flush(context)
+        val left = DepositDatabase.get(context).pending().count()
+        if (expediteAfterSend(queued = true, stillPending = left > 0)) {
+            DepositScheduler.enqueueUpload(context, expedited = true)
+        }
     }
 
     suspend fun flush(context: Context) {

@@ -7,6 +7,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
@@ -23,12 +24,13 @@ object DepositScheduler {
         WorkManager.getInstance(context).enqueueUniqueWork(MMS_SCAN, ExistingWorkPolicy.REPLACE, request)
     }
 
-    fun enqueueUpload(context: Context) {
-        val request = OneTimeWorkRequestBuilder<UploadWorker>()
+    fun enqueueUpload(context: Context, expedited: Boolean = false) {
+        val builder = OneTimeWorkRequestBuilder<UploadWorker>()
             .setConstraints(network())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(UPLOAD, ExistingWorkPolicy.KEEP, request)
+        if (expedited) builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        val policy = if (expedited) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
+        WorkManager.getInstance(context).enqueueUniqueWork(UPLOAD, policy, builder.build())
     }
 
     fun ensureHeartbeat(context: Context) {

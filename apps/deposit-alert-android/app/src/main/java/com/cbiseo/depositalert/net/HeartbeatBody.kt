@@ -1,5 +1,6 @@
 package com.cbiseo.depositalert.net
 
+import com.cbiseo.depositalert.service.KEEP_ALIVE_TYPE
 import org.json.JSONObject
 
 data class HeartbeatSnapshot(
@@ -24,6 +25,11 @@ data class HeartbeatSnapshot(
     val balance: Int = 0,
     val hiddenLost: Int = 0,
     val lastHiddenLostAt: Long = 0L,
+    val keepAliveType: String = KEEP_ALIVE_TYPE,
+    val lastExitReason: String = "",
+    val lastExitAt: Long = 0L,
+    val restarts: Int = 0,
+    val fgsTimeoutCount: Int = 0,
 )
 
 /** 서버가 모르는 칸은 무시한다. 문자 본문·잔액·토큰은 넣지 않는다. */
@@ -51,6 +57,11 @@ fun heartbeatBody(shot: HeartbeatSnapshot): String {
         .put("batteryUnrestricted", shot.batteryUnrestricted)
         .put("lastNoticeAt", shot.lastNoticeAt)
         .put("lastHiddenLostAt", shot.lastHiddenLostAt)
+        .put("keepAliveType", shot.keepAliveType)
+        .put("lastExitReason", shot.lastExitReason)
+        .put("lastExitAt", shot.lastExitAt)
+        .put("restarts", shot.restarts)
+        .put("fgsTimeoutCount", shot.fgsTimeoutCount)
         .put("counters", counters)
         .toString()
 }
