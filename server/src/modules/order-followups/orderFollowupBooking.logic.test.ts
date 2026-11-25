@@ -2,13 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   closedStatusForBookedInquiry,
-  dawnSweepDryRun,
   isOpenCallStatus,
   matchFollowupToInquiry,
   parseAutoCloseLog,
   pickFollowupBooking,
   statusAfterSweep,
-  tallySweep,
   type FollowupMatchInput,
   type InquiryMatchInput,
 } from './orderFollowupBooking.logic.js';
@@ -145,161 +143,5 @@ describe('부재보류와 접수 맞추기', () => {
     assert.equal(parseAutoCloseLog(JSON.stringify({ auto: false, from: 'ABSENT', to: 'FULFILLED' })), null);
     assert.equal(statusAfterSweep('ABSENT', 'FULFILLED', true), 'ABSENT');
     assert.equal(statusAfterSweep('ABSENT', 'FULFILLED', false), 'FULFILLED');
-  });
-
-  it('지난 이용은 내리지 않고 past 로만 보여 주며, 앞으로의 접수가 있으면 그걸 쓴다', () => {
-    const made = new Date('2026-11-25T01:00:00.000Z');
-    const past = pickFollowupBooking(
-      followup({ customerPhone: '010-1111-2222', createdAt: made, customerName: '다른사람', address: '' }),
-      [inquiry({ customerPhone: '010-1111-2222', preferredDate: new Date('2026-11-01T03:00:00.000Z'), createdAt: new Date('2026-10-20T03:00:00.000Z') })],
-    );
-    assert.equal(past?.level, 'past');
-
-    const finished = pickFollowupBooking(
-      followup({ customerPhone: '010-1111-2222', createdAt: made, customerName: '다른사람', address: '' }),
-      [inquiry({
-        customerPhone: '010-1111-2222',
-        status: 'COMPLETED',
-        preferredDate: new Date('2026-12-01T03:00:00.000Z'),
-        completedAt: new Date('2026-11-10T03:00:00.000Z'),
-        createdAt: new Date('2026-11-01T03:00:00.000Z'),
-      })],
-    );
-    assert.equal(finished?.level, 'past');
-
-    const both = pickFollowupBooking(
-      followup({ customerPhone: '010-1111-2222', createdAt: made, customerName: '다른사람', address: '' }),
-      [
-        inquiry({ id: 'old', customerPhone: '010-1111-2222', preferredDate: new Date('2026-11-01T03:00:00.000Z'), createdAt: new Date('2026-10-20T03:00:00.000Z') }),
-        inquiry({ id: 'next', customerPhone: '010-1111-2222', preferredDate: new Date('2026-12-01T03:00:00.000Z'), createdAt: new Date('2026-11-24T03:00:00.000Z') }),
-      ],
-    );
-    assert.equal(both?.level, 'booked');
-    assert.equal(both?.inquiryId, 'next');
-  });
-
-  it('050 안심번호는 72시간 안에서만 전화 근거이고, 임시 번호·이름은 근거가 아니다', () => {
-    const near = pickFollowupBooking(
-      followup({
-        customerPhone: '0504-1111-2222',
-        customerName: '다른사람',
-        address: '',
-        areaPyeong: null,
-        createdAt: new Date('2026-11-20T01:00:00.000Z'),
-      }),
-      [inquiry({
-        customerPhone: '050411112222',
-        customerName: '무관',
-        address: '',
-        createdAt: new Date('2026-11-21T01:00:00.000Z'),
-      })],
-    );
-    assert.equal(near?.level, 'booked');
-    assert.ok(near?.reasons.includes('phone'));
-
-    const far = matchFollowupToInquiry(
-      followup({
-        customerPhone: '0504-1111-2222',
-        customerName: '다른사람',
-        address: '',
-        areaPyeong: null,
-        preferredMoveInCleaningDate: null,
-        createdAt: new Date('2026-11-01T01:00:00.000Z'),
-      }),
-      inquiry({
-        customerPhone: '050411112222',
-        customerName: '무관',
-        address: '',
-        buildingType: null,
-        createdAt: new Date('2026-11-20T01:00:00.000Z'),
-      }),
-    );
-    assert.equal(far.level, null);
-    assert.equal(far.reasons.includes('phone'), false);
-
-    const farButSameHome = matchFollowupToInquiry(
-      followup({ customerPhone: '0504-1111-2222', createdAt: new Date('2026-11-01T01:00:00.000Z') }),
-      inquiry({ customerPhone: '050411112222', createdAt: new Date('2026-11-20T01:00:00.000Z') }),
-    );
-    assert.equal(farButSameHome.level, 'booked');
-    assert.equal(farButSameHome.reasons.includes('phone'), false);
-    assert.ok(farButSameHome.reasons.includes('name'));
-
-    for (const phone of ['01000000000', '01012345678', '11111111111', '1234567']) {
-      assert.equal(
-        matchFollowupToInquiry(
-          followup({ customerPhone: phone, customerName: '다른사람', address: '', areaPyeong: null, preferredMoveInCleaningDate: null }),
-          inquiry({ customerPhone: phone, customerName: '무관', address: '', buildingType: null }),
-        ).level,
-        null,
-      );
-    }
-
-    assert.equal(
-      matchFollowupToInquiry(
-        followup({ customerName: '고객', nickname: null, customerPhone: '010-9999-8888', address: '', areaPyeong: null, preferredMoveInCleaningDate: null }),
-        inquiry({ customerName: '고객님', nickname: null, customerPhone: '010-7777-6666', address: '', buildingType: null }),
-      ).level,
-      null,
-    );
-    assert.equal(
-      matchFollowupToInquiry(
-        followup({ customerName: '네이버', nickname: null, leadSource: '네이버', customerPhone: '010-9999-8888', address: '', areaPyeong: null, preferredMoveInCleaningDate: null }),
-        inquiry({ customerName: '네이버', nickname: null, source: '네이버', customerPhone: '010-7777-6666', address: '', buildingType: null }),
-      ).level,
-      null,
-    );
-    assert.equal(
-      matchFollowupToInquiry(
-        followup({ customerName: '김', nickname: '12', customerPhone: '010-9999-8888', address: '', areaPyeong: null, preferredMoveInCleaningDate: null }),
-        inquiry({ customerName: '김', nickname: '12', customerPhone: '010-7777-6666', address: '', buildingType: null }),
-      ).level,
-      null,
-    );
-  });
-
-  it('새벽 작업은 닫지 않고, dryRun 응답은 건수만 담는다', () => {
-    assert.equal(dawnSweepDryRun(), true);
-    assert.equal(statusAfterSweep('ABSENT', 'FULFILLED', dawnSweepDryRun()), 'ABSENT');
-    const plan = tallySweep([
-      {
-        booking: {
-          level: 'booked',
-          reasons: ['name', 'address', 'structure'],
-          inquiryId: 'inq-1',
-          inquiryNumber: null,
-          status: 'RECEIVED',
-          preferredDate: null,
-          operatingCompanyId: 'brand-a',
-          operatingCompanyName: null,
-          marketerName: null,
-        },
-        open: true,
-        sameBrandBooked: true,
-        followupStatus: 'ABSENT',
-      },
-      {
-        booking: {
-          level: 'past',
-          reasons: ['phone'],
-          inquiryId: 'inq-2',
-          inquiryNumber: null,
-          status: 'COMPLETED',
-          preferredDate: null,
-          operatingCompanyId: 'brand-a',
-          operatingCompanyName: null,
-          marketerName: null,
-        },
-        open: true,
-        sameBrandBooked: false,
-        followupStatus: 'ON_HOLD',
-      },
-    ]);
-    assert.equal(plan.wouldClose, 1);
-    assert.equal(plan.past, 1);
-    assert.equal(plan.byInquiryStatus.RECEIVED, 1);
-    assert.equal(plan.byFollowupStatus.ABSENT, 1);
-    assert.equal(plan.byReasonCombo['name+address+structure'], 1);
-    assert.equal(JSON.stringify(plan).includes('홍길동'), false);
   });
 });

@@ -1,7 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 import {
   closedStatusForBookedInquiry,
-  dawnSweepDryRun,
   isOpenCallStatus,
   parseAutoCloseLog,
   pickFollowupBooking,
@@ -38,8 +37,6 @@ const inquirySelect = {
   isOneRoom: true,
   preferredDate: true,
   createdAt: true,
-  updatedAt: true,
-  source: true,
   operatingCompany: { select: { name: true } },
   createdBy: { select: { name: true } },
 } satisfies Prisma.InquirySelect;
@@ -69,8 +66,6 @@ function toInquiry(row: InquiryRow): InquiryMatchInput {
     isOneRoom: row.isOneRoom,
     preferredDate: row.preferredDate,
     createdAt: row.createdAt,
-    completedAt: row.status === 'COMPLETED' ? row.updatedAt : null,
-    source: row.source,
   };
 }
 
@@ -90,8 +85,6 @@ const followupSelect = {
   bathroomCount: true,
   isOneRoom: true,
   preferredMoveInCleaningDate: true,
-  leadSource: true,
-  createdAt: true,
   createdById: true,
   handledById: true,
   depositReceivedAt: true,
@@ -115,8 +108,6 @@ function toFollowup(row: FollowupRow): FollowupMatchInput {
     preferredMoveInCleaningDate: row.preferredMoveInCleaningDate,
     operatingCompanyId: row.operatingCompanyId,
     status: row.status,
-    createdAt: row.createdAt,
-    leadSource: row.leadSource,
   };
 }
 
@@ -280,13 +271,7 @@ export async function sweepOpenFollowupBookings(
   ]);
   const judged = open.map((row) => {
     const booking = pickFollowupBooking(toFollowup(row), inquiries);
-    return {
-      row,
-      booking,
-      open: isOpenCallStatus(row.status),
-      sameBrandBooked: booking?.level === 'booked',
-      followupStatus: row.status,
-    };
+    return { row, booking, open: isOpenCallStatus(row.status), sameBrandBooked: booking?.level === 'booked' };
   });
   const plan = tallySweep(judged);
   if (options.dryRun) {
@@ -316,20 +301,7 @@ export async function sweepAllTenantFollowupBookings(db: PrismaClient, now = new
   });
   for (const link of links) {
     try {
-      const plan = await sweepOpenFollowupBookings(db, link.tenantId, { now, dryRun: dawnSweepDryRun() });
-      console.log(
-        '[order-followups] dawn booking sweep',
-        link.tenantId,
-        JSON.stringify({
-          wouldClose: plan.wouldClose,
-          suspect: plan.suspect,
-          otherBrand: plan.otherBrand,
-          past: plan.past,
-          byInquiryStatus: plan.byInquiryStatus,
-          byFollowupStatus: plan.byFollowupStatus,
-          byReasonCombo: plan.byReasonCombo,
-        }),
-      );
+      await sweepOpenFollowupBookings(db, link.tenantId, { now });
     } catch (error) {
       console.error('[order-followups] daily sweep skipped', error instanceof Error ? error.message : error);
     }

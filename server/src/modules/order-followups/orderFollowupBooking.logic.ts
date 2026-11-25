@@ -1,17 +1,8 @@
-import { normalizeKrPhoneDigits } from '../cs/matchInquiryForCs.js';
 import { followupPhonesOverlap } from './orderFollowups.service.js';
 
 export type BookingReason = 'phone' | 'linked' | 'name' | 'address' | 'building' | 'structure' | 'date';
 export type MatchLevel = 'booked' | 'suspect';
-export type BookingLevel = MatchLevel | 'otherBrand' | 'past';
-
-/** 새벽 자동 정리는 끈다. 접수 생성·상태 변경과 관리자 수동 정리는 그대로다. */
-export const DAWN_FOLLOWUP_BOOKING_SWEEP_CLOSES = false;
-
-const SAFE_PHONE_WINDOW_MS = 72 * 60 * 60 * 1000;
-const JUNK_PHONES = new Set(['01000000000', '01012345678']);
-const PLACEHOLDER_NAMES = new Set(['고객', '숨고', '숨고고객', '당근', '미소', '미상', '모름', '이름없음', '무명', '테스트']);
-const REASON_ORDER: BookingReason[] = ['phone', 'linked', 'name', 'address', 'building', 'structure', 'date'];
+export type BookingLevel = MatchLevel | 'otherBrand';
 
 export type FollowupMatchInput = {
   inquiryId?: string | null;
@@ -28,8 +19,6 @@ export type FollowupMatchInput = {
   preferredMoveInCleaningDate?: string | null;
   operatingCompanyId?: string | null;
   status?: string | null;
-  createdAt?: string | Date | null;
-  leadSource?: string | null;
 };
 
 export type InquiryMatchInput = {
@@ -53,9 +42,6 @@ export type InquiryMatchInput = {
   isOneRoom?: boolean | null;
   preferredDate?: string | Date | null;
   createdAt?: string | Date | null;
-  /** COMPLETED 일 때만. 완료 시각 칸이 없어 마지막 수정 시각을 쓴다. */
-  completedAt?: string | Date | null;
-  source?: string | null;
 };
 
 export type FollowupBooking = {
@@ -84,41 +70,8 @@ const BUILDING_LABELS: { word: string; label: string }[] = [
   { word: '상가', label: '상가' },
 ];
 
-function usablePhone(raw?: string | null): string {
-  const digits = normalizeKrPhoneDigits(raw ?? '');
-  if (digits.length < 8) return '';
-  if (/^(\d)\1+$/.test(digits)) return '';
-  if (JUNK_PHONES.has(digits)) return '';
-  return digits;
-}
-
-function splitPhones(phone?: string | null, phone2?: string | null): { plain: string[]; safe: string[] } {
-  const plain: string[] = [];
-  const safe: string[] = [];
-  for (const digits of [usablePhone(phone), usablePhone(phone2)]) {
-    if (!digits) continue;
-    if (digits.startsWith('050')) safe.push(digits);
-    else plain.push(digits);
-  }
-  return { plain, safe };
-}
-
-function listsOverlap(left: string[], right: string[]): boolean {
-  return followupPhonesOverlap(left[0] ?? '', left[1] ?? null, right[0] ?? '', right[1] ?? null);
-}
-
-function withinSafePhoneWindow(followup: FollowupMatchInput, inquiry: InquiryMatchInput): boolean {
-  const left = createdMs(followup.createdAt);
-  const right = createdMs(inquiry.createdAt);
-  if (!left || !right) return false;
-  return Math.abs(left - right) <= SAFE_PHONE_WINDOW_MS;
-}
-
-function phonesOverlap(followup: FollowupMatchInput, inquiry: InquiryMatchInput): boolean {
-  const left = splitPhones(followup.customerPhone, followup.customerPhone2);
-  const right = splitPhones(inquiry.customerPhone, inquiry.customerPhone2);
-  if (listsOverlap(left.plain, right.plain)) return true;
-  return listsOverlap(left.safe, right.safe) && withinSafePhoneWindow(followup, inquiry);
+function phonesOverlap(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
+  return followupPhonesOverlap(a.customerPhone ?? '', a.customerPhone2, b.customerPhone ?? '', b.customerPhone2);
 }
 
 function nameKey(raw?: string | null): string {
@@ -127,16 +80,10 @@ function nameKey(raw?: string | null): string {
   return stripped.length >= 2 ? stripped : '';
 }
 
-function usableNameKeys(name?: string | null, nickname?: string | null, platform?: string | null): string[] {
-  const platformKey = nameKey(platform);
-  const keys = [nameKey(name), nameKey(nickname)];
-  return keys.filter((key) => key && !PLACEHOLDER_NAMES.has(key) && !/^\d+$/.test(key) && key !== platformKey);
-}
-
 function namesMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
-  const left = usableNameKeys(a.customerName, a.nickname, a.leadSource);
-  const right = usableNameKeys(b.customerName, b.nickname, b.source);
-  return left.some((key) => right.includes(key));
+  const left = [nameKey(a.customerName), nameKey(a.nickname)].filter(Boolean);
+  const right = [nameKey(b.customerName), nameKey(b.nickname)].filter(Boolean);
+  return left.some((x) => right.includes(x));
 }
 
 function regionOf(address?: string | null): { si: string; gu: string; dong: string } | null {
@@ -241,7 +188,7 @@ export function matchFollowupToInquiry(
   return { level: null, reasons };
 }
 
-const LEVEL_RANK: Record<BookingLevel, number> = { booked: 0, otherBrand: 1, suspect: 2, past: 3 };
+const LEVEL_RANK: Record<BookingLevel, number> = { booked: 0, otherBrand: 1, suspect: 2 };
 
 function createdMs(value?: string | Date | null): number {
   if (!value) return 0;
@@ -249,19 +196,7 @@ function createdMs(value?: string | Date | null): number {
   return Number.isNaN(time) ? 0 : time;
 }
 
-/** 희망일이 부재보류를 만든 날보다 앞이거나, 완료가 그보다 앞이면 지난 이용이다. */
-export function isPastInquiryForFollowup(followup: FollowupMatchInput, inquiry: InquiryMatchInput): boolean {
-  const made = createdMs(followup.createdAt);
-  if (!made) return false;
-  const preferred = preferredYmd(inquiry.preferredDate);
-  const madeYmd = preferredYmd(new Date(made));
-  if (preferred && madeYmd && preferred < madeYmd) return true;
-  if (inquiry.status !== 'COMPLETED' || !inquiry.completedAt) return false;
-  const done = createdMs(inquiry.completedAt);
-  return Boolean(done && done < made);
-}
-
-/** 여러 접수 중 하나. booked > otherBrand > suspect > past, 그다음 최근 접수. */
+/** 여러 접수 중 하나. booked > otherBrand > suspect, 그다음 최근 접수. */
 export function pickFollowupBooking(
   followup: FollowupMatchInput,
   inquiries: InquiryMatchInput[],
@@ -270,14 +205,8 @@ export function pickFollowupBooking(
   for (const inquiry of inquiries) {
     const match = matchFollowupToInquiry(followup, inquiry);
     if (!match.level) continue;
-    const past = isPastInquiryForFollowup(followup, inquiry);
-    if (past && match.level !== 'booked') continue;
     const sameBrand = !followup.operatingCompanyId || followup.operatingCompanyId === inquiry.operatingCompanyId;
-    const level: BookingLevel = past
-      ? 'past'
-      : match.level === 'booked' && !sameBrand
-        ? 'otherBrand'
-        : match.level;
+    const level: BookingLevel = match.level === 'booked' && !sameBrand ? 'otherBrand' : match.level;
     const at = createdMs(inquiry.createdAt);
     const rank = LEVEL_RANK[level];
     if (best && (rank > best.rank || (rank === best.rank && at <= best.at))) continue;
@@ -340,51 +269,26 @@ export type SweepPlan = {
   wouldClose: number;
   suspect: number;
   otherBrand: number;
-  past: number;
   byReason: Record<BookingReason, number>;
-  byInquiryStatus: Record<string, number>;
-  byFollowupStatus: Record<string, number>;
-  byReasonCombo: Record<string, number>;
 };
 
 export function emptyReasonCounts(): Record<BookingReason, number> {
   return { phone: 0, linked: 0, name: 0, address: 0, building: 0, structure: 0, date: 0 };
 }
 
-export function reasonCombo(reasons: BookingReason[]): string {
-  return REASON_ORDER.filter((reason) => reasons.includes(reason)).join('+');
-}
-
-/** 새벽 작업은 닫지 않는다. */
-export function dawnSweepDryRun(): boolean {
-  return !DAWN_FOLLOWUP_BOOKING_SWEEP_CLOSES;
-}
-
 export function tallySweep(
-  rows: { booking: FollowupBooking | null; open: boolean; sameBrandBooked: boolean; followupStatus?: string | null }[],
+  rows: { booking: FollowupBooking | null; open: boolean; sameBrandBooked: boolean }[],
 ): SweepPlan {
   const byReason = emptyReasonCounts();
-  const byInquiryStatus: Record<string, number> = {};
-  const byFollowupStatus: Record<string, number> = {};
-  const byReasonCombo: Record<string, number> = {};
   let wouldClose = 0;
   let suspect = 0;
   let otherBrand = 0;
-  let past = 0;
   for (const row of rows) {
     if (row.sameBrandBooked && row.open) {
       wouldClose += 1;
-      const reasons = row.booking?.reasons ?? [];
-      for (const reason of reasons) byReason[reason] += 1;
-      const combo = reasonCombo(reasons);
-      if (combo) byReasonCombo[combo] = (byReasonCombo[combo] ?? 0) + 1;
-      const inquiryStatus = row.booking?.status || 'UNKNOWN';
-      byInquiryStatus[inquiryStatus] = (byInquiryStatus[inquiryStatus] ?? 0) + 1;
-      const followupStatus = row.followupStatus || 'UNKNOWN';
-      byFollowupStatus[followupStatus] = (byFollowupStatus[followupStatus] ?? 0) + 1;
+      for (const reason of row.booking?.reasons ?? []) byReason[reason] += 1;
     } else if (row.booking?.level === 'suspect') suspect += 1;
     else if (row.booking?.level === 'otherBrand') otherBrand += 1;
-    else if (row.booking?.level === 'past') past += 1;
   }
-  return { wouldClose, suspect, otherBrand, past, byReason, byInquiryStatus, byFollowupStatus, byReasonCombo };
+  return { wouldClose, suspect, otherBrand, byReason };
 }
