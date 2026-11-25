@@ -331,6 +331,8 @@ async function resolveTelecrmCustomerByPhone(
         bathroomCount: row.bathroomCount,
         isOneRoom: row.isOneRoom,
         preferredMoveInCleaningDate: row.preferredMoveInCleaningDate,
+        createdAt: row.createdAt,
+        leadSource: row.leadSource,
       }),
     ),
   );
