@@ -23,6 +23,8 @@ export type BankDepositItem = {
   accountMask: string;
   depositedAt: string;
   receivedAt: string;
+  /** 서버가 이 입금을 받은 시각. receivedAt 은 폰이 문자를 받은 시각. */
+  ingestedAt?: string | null;
   status: BankDepositStatus;
   linkedInquiryId: string | null;
   linkedFollowupId: string | null;

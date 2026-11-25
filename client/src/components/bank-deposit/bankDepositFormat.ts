@@ -110,7 +110,24 @@ export function phoneAlertText(
         title: '사업자폰 앱이 예전 버전이에요',
         body: '예전 앱은 알림을 듣고 있는지 알려 주지 않아, 놓쳐도 여기에 표시되지 않습니다. 새 버전으로 바꿔 주세요.',
       };
+    case 'SILENT':
+      return {
+        short: '폰 연결 끊김',
+        title: '사업자폰이 서버로 신호를 보내지 않고 있어요',
+        body: '그동안 들어온 입금은 여기에 안 보일 수 있습니다. 폰이 켜져 있는지 확인하고, 「청소비서 입금 알림」 앱을 한 번 열어 주세요. 열면 밀린 입금이 한꺼번에 들어옵니다.',
+      };
     default:
       return null;
   }
+}
+
+/** 폰이 문자를 받고도 서버에는 늦게 올라온 입금이면 「37분 늦게」 같은 글. 5분 안이면 null. */
+export function lateArrivalText(receivedAt: string, ingestedAt: string | null | undefined): string | null {
+  if (!ingestedAt) return null;
+  const min = Math.floor((new Date(ingestedAt).getTime() - new Date(receivedAt).getTime()) / 60000);
+  if (!Number.isFinite(min) || min < 5) return null;
+  if (min < 60) return `${min}분 늦게`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}시간 ${m}분 늦게` : `${h}시간 늦게`;
 }

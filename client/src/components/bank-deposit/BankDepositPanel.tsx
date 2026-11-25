@@ -31,6 +31,7 @@ import {
   DEPOSIT_STATUS_LABEL,
   DEPOSIT_STATUS_TONE,
   deviceSeen,
+  lateArrivalText,
   phoneAlertText,
   kstDayLabel,
   kstTime,
@@ -442,7 +443,8 @@ export function BankDepositPanel({ token }: { token: string }) {
   const today = kstTodayYmd();
   const device = summary?.devices ?? null;
   const seen = device && device.total > 0 ? deviceSeen(device.lastSeenAt, now) : null;
-  const phoneAlert = seen?.ok ? (summary?.phoneAlert ?? null) : null;
+  // 서버 판단(12분 무신호 등)을 먼저 쓰고, 서버가 아무 말 없을 때만 화면의 20분 기준을 쓴다.
+  const phoneAlert = seen ? (summary?.phoneAlert ?? null) : null;
   const phoneAlertCopy = phoneAlert ? phoneAlertText(phoneAlert.code) : null;
   const phoneBad = Boolean(phoneAlert && phoneAlertCopy && phoneAlert.level === 'error');
   const sum = shown.reduce((acc, row) => acc + (row.status === 'IGNORED' || row.status === 'CANCELLED' ? 0 : row.amountWon), 0);
@@ -491,7 +493,7 @@ export function BankDepositPanel({ token }: { token: string }) {
         </div>
       </div>
 
-      {seen && !seen.ok ? (
+      {seen && !seen.ok && !phoneAlert ? (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs leading-relaxed text-rose-900">
           입금 문자를 받는 폰이 {seen.text}부터 연결되지 않았어요. 그동안 들어온 입금은 여기에 안 보일 수 있습니다. 폰이 켜져 있는지, 앱이 실행 중인지 확인해 주세요.
         </p>
@@ -731,6 +733,14 @@ export function BankDepositPanel({ token }: { token: string }) {
                             <Tag>뒤늦게 가져옴</Tag>
                           </span>
                         ) : null}
+                        {row.source !== 'scan' && row.source !== 'manual' && lateArrivalText(row.receivedAt, row.ingestedAt) ? (
+                          <span
+                            className="mt-0.5 block"
+                            title={`폰은 ${kstTime(row.receivedAt)}에 문자를 받았지만 서버에는 ${kstTime(row.ingestedAt ?? row.receivedAt)}에 올라왔어요. 그 사이 폰 앱이 멈춰 있었습니다.`}
+                          >
+                            <Tag>{lateArrivalText(row.receivedAt, row.ingestedAt)} 들어옴</Tag>
+                          </span>
+                        ) : null}
                       </td>
                       <td
                         className={`px-2 py-2.5 text-right text-fluid-sm font-bold tabular-nums ${
@@ -788,7 +798,13 @@ export function BankDepositPanel({ token }: { token: string }) {
                     <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">
                       {range !== 'day' ? `${kstDayLabel(ymdOf(row.depositedAt))} ` : ''}
                       {kstTime(row.depositedAt)}
-                      {row.source === 'scan' ? ' · 뒤늦게 가져옴' : row.source === 'manual' ? ' · 직접 추가' : ''}
+                      {row.source === 'scan'
+                        ? ' · 뒤늦게 가져옴'
+                        : row.source === 'manual'
+                          ? ' · 직접 추가'
+                          : lateArrivalText(row.receivedAt, row.ingestedAt)
+                            ? ` · ${lateArrivalText(row.receivedAt, row.ingestedAt)}`
+                            : ''}
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center gap-2">
