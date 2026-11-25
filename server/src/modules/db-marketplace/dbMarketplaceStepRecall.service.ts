@@ -18,6 +18,7 @@ import {
 import { assertRootSellerCanRecall } from './dbMarketplaceChain.helpers.js';
 import { reverseDbMarketplaceFeeLedgerInTx } from './dbMarketplaceFeeLedger.service.js';
 import { appendDbMarketplaceEvent } from './dbMarketplaceHistory.service.js';
+import { syncFollowupsAfterInquiry } from '../order-followups/orderFollowupBooking.service.js';
 
 export type DbMarketplaceStepRecallMode = 'complete' | 'cart';
 
@@ -117,6 +118,11 @@ async function undoPartnerBuyerForListingInTx(
       data: { status: 'CANCELLED' },
     });
     await stampTenantShareCancelFeeDirection(tx, targetInquiry.id);
+    await syncFollowupsAfterInquiry(tx, {
+      tenantId: share.targetTenantId,
+      inquiryId: targetInquiry.id,
+      actorUserId: opts.actorUserId,
+    });
   }
 
   if (opts.reverseFees) {

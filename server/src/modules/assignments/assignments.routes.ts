@@ -11,6 +11,7 @@ import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { notifyNewAssignmentForInquiry } from '../push/inquiryTeamWebPush.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { syncTelecrmQuoteCrewLearningFromInquiry } from '../telecrm/telecrmQuoteCrewLearning.service.js';
+import { syncFollowupsAfterInquiry } from '../order-followups/orderFollowupBooking.service.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import {
   assertTeamLeadersMatchInquiryBrand,
@@ -225,6 +226,9 @@ router.post('/', async (req, res) => {
       where: { id: inquiryId },
       data: { status: 'ASSIGNED' },
     });
+  });
+  void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId, actorUserId: adminId }).catch((error) => {
+    console.error('[assignments] followup booking sync failed', error instanceof Error ? error.message : error);
   });
 
   const assignment = await prisma.assignment.findFirst({
