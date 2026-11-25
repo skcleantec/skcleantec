@@ -6344,6 +6344,8 @@ model BankDepositDevice {
   keepAliveOffSince    DateTime? @map("keepalive_off_since")
   alertPushCode        String?   @map("alert_push_code") @db.VarChar(32)
   alertPushAt          DateTime? @map("alert_push_at")
+  /// 끊김 알림을 보낸 뒤, 다시 연결됐다고 알린 시각.
+  alertRecoveredAt     DateTime? @map("alert_recovered_at")
 
   deposits BankDeposit[]
   unparsed BankDepositUnparsed[]
