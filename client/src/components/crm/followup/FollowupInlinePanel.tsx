@@ -36,6 +36,7 @@ import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
 import { isSafePhoneCallBlocked } from '../../../utils/safePhoneExpiry';
 import { SafePhoneExpiryBadge } from '../../order-followup/SafePhoneExpiryBadge';
+import { FollowupBookingNote } from '../../order-followup/FollowupBookingNote';
 import { shouldShowListBlockingLoading } from '../../../utils/listRefreshDisplay';
 
 type DetailDraft = {
@@ -85,6 +86,8 @@ export function FollowupInlinePanel({
   const { userName, userId, role } = useAdminStaffSession();
   const isAdmin = role === 'ADMIN';
   const [hotOpenCount, setHotOpenCount] = useState(0);
+  /** 이미 예약한 고객에게 전화를 누르면 한 번 더 묻는다 */
+  const [callAskId, setCallAskId] = useState<string | null>(null);
   const [hotUsers, setHotUsers] = useState<{ id: string; name: string }[]>([]);
   const {
     filters,
@@ -277,8 +280,14 @@ export function FollowupInlinePanel({
     }
   };
 
-  const handleCall = async () => {
+  const handleCall = async (force = false) => {
     if (!draft || !token) return;
+    const bookingLevel = selected?.booking?.level;
+    if (!force && (bookingLevel === 'booked' || bookingLevel === 'otherBrand')) {
+      setCallAskId(selected?.id ?? null);
+      return;
+    }
+    setCallAskId(null);
     const dial = resolveCrmOutboundPhone(draft.contactPhone, draft.safePhone);
     if (dial.replace(/\D/g, '').length < 8) {
       setError('통화할 연락처가 없습니다.');
@@ -423,6 +432,28 @@ export function FollowupInlinePanel({
 
       {selected && draft ? (
         <div className="space-y-3 rounded-xl border border-amber-200/80 bg-amber-50/30 p-3">
+          <FollowupBookingNote booking={selected.booking} variant="banner" />
+          {callAskId === selected.id ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-300 bg-white px-3 py-2 text-fluid-xs">
+              <span className="font-semibold text-rose-800">이미 예약한 고객입니다. 그래도 전화를 걸까요?</span>
+              <span className="ml-auto flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCallAskId(null)}
+                  className="inline-flex h-7 items-center rounded-lg border border-slate-300 bg-white px-2.5 text-fluid-2xs font-semibold text-slate-700"
+                >
+                  걸지 않기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleCall(true)}
+                  className="inline-flex h-7 items-center rounded-lg bg-rose-600 px-2.5 text-fluid-2xs font-semibold text-white hover:bg-rose-700"
+                >
+                  그래도 걸기
+                </button>
+              </span>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"

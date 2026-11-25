@@ -64,6 +64,7 @@ import {
 import { SafePhoneExpiryBadge } from './SafePhoneExpiryBadge';
 import { FollowupDuplicatesDialog } from './FollowupDuplicatesDialog';
 import { OtherBrandsNote } from './OtherBrandsNote';
+import { FollowupBookingNote } from './FollowupBookingNote';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { isSafePhoneCallBlocked } from '../../utils/safePhoneExpiry';
 import { FollowupIntakeExtrasFields } from './FollowupIntakeExtrasFields';
@@ -1205,6 +1206,7 @@ export function AdminOrderFormFollowupPanel({
                           createdAt={row.createdAt}
                           className="mt-0.5"
                         />
+                        <FollowupBookingNote booking={row.booking} className="mt-0.5" />
                         <OtherBrandsNote otherBrands={row.otherBrands} className="mt-0.5" />
                       </td>
                       <td className="py-2.5 px-2">
@@ -1309,6 +1311,7 @@ export function AdminOrderFormFollowupPanel({
                           createdAt={row.createdAt}
                           className="ml-1.5 align-middle"
                         />
+                        <FollowupBookingNote booking={row.booking} className="ml-1.5 align-middle" />
                         <OtherBrandsNote otherBrands={row.otherBrands} className="ml-1.5 align-middle" />
                       </p>
                     </div>

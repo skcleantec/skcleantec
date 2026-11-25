@@ -13,6 +13,7 @@ import {
 } from './followupListDisplay';
 import { SafePhoneExpiryBadge } from './SafePhoneExpiryBadge';
 import { OtherBrandsNote } from './OtherBrandsNote';
+import { FollowupBookingNote } from './FollowupBookingNote';
 
 /** 부재·보류 목록 — 관리 표와 동일 열 (작업 열 제외) */
 export function FollowupListTable({
@@ -99,7 +100,10 @@ export function FollowupListTable({
                   ) : null}
                 </td>
                 <td className="py-2 px-1.5 tabular-nums text-slate-800 font-medium">
-                  <span className="block truncate">{displayFollowupPhone(row.customerPhone)}</span>
+                  <span className={`block truncate ${row.booking?.level === 'booked' ? 'text-slate-400 line-through' : ''}`}>
+                    {displayFollowupPhone(row.customerPhone)}
+                  </span>
+                  <FollowupBookingNote booking={row.booking} className="mt-0.5" />
                   <SafePhoneExpiryBadge
                     phones={[row.customerPhone, row.customerPhone2]}
                     createdAt={row.createdAt}
