@@ -146,18 +146,33 @@ function yieldEventLoop(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-type LookupKeys = { tails: string[]; names: string[]; ids: string[]; dateAreas: { ymd: string; min: number; max: number }[] };
+type LookupKeys = {
+  tails: string[];
+  names: string[];
+  ids: string[];
+  dateAreas: { ymd: string; min: number; max: number }[];
+  nameDates: { name: string; ymd: string }[];
+};
 
 function keysForFollowups(followups: FollowupMatchInput[]): LookupKeys {
   const tails = new Set<string>();
   const names = new Set<string>();
   const ids = new Set<string>();
   const dateAreas: LookupKeys['dateAreas'] = [];
+  const nameDates: LookupKeys['nameDates'] = [];
+  const seenNameDates = new Set<string>();
   for (const row of followups) {
     for (const tail of phoneTails(row.customerPhone, row.customerPhone2)) tails.add(tail);
-    for (const key of bookingNameKeys(row.customerName, row.nickname, row.leadSource)) names.add(key);
-    if (row.inquiryId) ids.add(row.inquiryId);
     const ymd = preferredYmd(row.preferredMoveInCleaningDate);
+    for (const key of bookingNameKeys(row.customerName, row.nickname, row.leadSource)) {
+      names.add(key);
+      if (!ymd) continue;
+      const token = `${key}|${ymd}`;
+      if (seenNameDates.has(token)) continue;
+      seenNameDates.add(token);
+      nameDates.push({ name: key, ymd });
+    }
+    if (row.inquiryId) ids.add(row.inquiryId);
     if (ymd && row.areaPyeong != null && Number.isFinite(row.areaPyeong)) {
       const rounded = Math.round(row.areaPyeong);
       const area = { ymd, min: rounded - 1.5, max: rounded + 1.5 };
@@ -165,7 +180,7 @@ function keysForFollowups(followups: FollowupMatchInput[]): LookupKeys {
       if (!dateAreas.some((item) => `${item.ymd}|${item.min}|${item.max}` === token)) dateAreas.push(area);
     }
   }
-  return { tails: [...tails], names: [...names], ids: [...ids], dateAreas: dateAreas.slice(0, 80) };
+  return { tails: [...tails], names: [...names], ids: [...ids], dateAreas: dateAreas.slice(0, 80), nameDates: nameDates.slice(0, 80) };
 }
 
 function keysForInquiry(inquiry: InquiryMatchInput): LookupKeys {
@@ -175,11 +190,13 @@ function keysForInquiry(inquiry: InquiryMatchInput): LookupKeys {
     const rounded = Math.round(inquiry.areaPyeong);
     dateAreas.push({ ymd, min: rounded - 1.5, max: rounded + 1.5 });
   }
+  const names = bookingNameKeys(inquiry.customerName, inquiry.nickname, inquiry.source);
   return {
     tails: phoneTails(inquiry.customerPhone, inquiry.customerPhone2),
-    names: bookingNameKeys(inquiry.customerName, inquiry.nickname, inquiry.source),
+    names,
     ids: [inquiry.id],
     dateAreas,
+    nameDates: ymd ? names.map((name) => ({ name, ymd })) : [],
   };
 }
 
@@ -194,6 +211,14 @@ function candidateOrSql(keys: LookupKeys, linkedColumn: 'id' | 'inquiry_id', dat
     const list = Prisma.join(keys.names);
     ors.push(Prisma.sql`${NAME_SQL('"customer_name"')} IN (${list})`);
     ors.push(Prisma.sql`${NAME_SQL('"nickname"')} IN (${list})`);
+  }
+  for (const pair of keys.nameDates) {
+    const onDate =
+      dateColumn === 'preferred_date'
+        ? Prisma.sql`to_char(preferred_date AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') = ${pair.ymd}`
+        : Prisma.sql`preferred_move_in_cleaning_date = ${pair.ymd}`;
+    ors.push(Prisma.sql`(${NAME_SQL('"customer_name"')} = ${pair.name} AND ${onDate})`);
+    ors.push(Prisma.sql`(${NAME_SQL('"nickname"')} = ${pair.name} AND ${onDate})`);
   }
   if (keys.ids.length > 0) {
     ors.push(Prisma.sql`${Prisma.raw(linkedColumn)}::text IN (${Prisma.join(keys.ids)})`);

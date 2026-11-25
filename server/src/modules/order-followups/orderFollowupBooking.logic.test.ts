@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  bookingRegionKey,
   buildInquiryBookingIndex,
+  candidatesForFollowup,
   closedStatusForBookedInquiry,
   dawnSweepDryRun,
   isOpenCallStatus,
@@ -9,6 +11,7 @@ import {
   parseAutoCloseLog,
   pickFollowupBooking,
   pickFollowupBookingNarrowed,
+  reasonCombo,
   statusAfterSweep,
   tallySweep,
   type FollowupMatchInput,
@@ -305,6 +308,182 @@ describe('부재보류와 접수 맞추기', () => {
     assert.equal(JSON.stringify(plan).includes('홍길동'), false);
   });
 
+  it('지번과 도로명에서 같은 시·군·구를 뽑고, 이름·희망일·30일 안이면 예약으로 본다', () => {
+    assert.equal(bookingRegionKey('서울특별시 강남구 역삼동 123-4'), bookingRegionKey('서울특별시 강남구 테헤란로 152'));
+    assert.equal(bookingRegionKey('서울 강남구 역삼동'), '서울특별시|강남구');
+    assert.equal(bookingRegionKey('경기도 이천시 창전동 123'), bookingRegionKey('경기도 이천시 경충대로 1914'));
+    assert.equal(bookingRegionKey('경기도 성남시 분당구 정자동'), bookingRegionKey('경기도 성남시 분당구 판교로 200'));
+    assert.notEqual(bookingRegionKey('경기도 성남시 분당구 판교로'), bookingRegionKey('경기도 성남시 수정구 수정로'));
+    assert.equal(bookingRegionKey('부산광역시 해운대구 우동 12'), bookingRegionKey('부산광역시 해운대구 해운대로 100'));
+    assert.notEqual(bookingRegionKey('부산광역시 해운대구 해운대로'), bookingRegionKey('부산광역시 수영구 광안로'));
+    assert.equal(bookingRegionKey('강원특별자치도 홍천군 홍천읍 희망리'), bookingRegionKey('강원특별자치도 홍천군 홍천로 1'));
+    assert.equal(bookingRegionKey('경기도 가평군 가평읍'), bookingRegionKey('경기도 가평군 가평대로 50'));
+    assert.equal(bookingRegionKey(''), null);
+    assert.equal(bookingRegionKey('테헤란로 152'), null);
+
+    const made = new Date('2026-11-20T01:00:00.000Z');
+    const near = new Date('2026-11-01T01:00:00.000Z');
+    const far = new Date(made.getTime() - 31 * 24 * 60 * 60 * 1000);
+    const exactly = new Date(made.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const byStructure = matchFollowupToInquiry(
+      followup({
+        customerPhone: '010-9999-1111',
+        address: '',
+        areaPyeong: 24,
+        createdAt: made,
+        preferredMoveInCleaningDate: '2026-11-20',
+      }),
+      inquiry({
+        customerPhone: '010-8888-2222',
+        address: '',
+        buildingType: null,
+        createdAt: near,
+        preferredDate: new Date('2026-11-20T03:00:00.000Z'),
+      }),
+    );
+    assert.equal(byStructure.level, 'booked');
+    assert.ok(byStructure.reasons.includes('name') && byStructure.reasons.includes('date') && byStructure.reasons.includes('structure'));
+    assert.equal(byStructure.reasons.includes('region'), false);
+
+    const byRegion = matchFollowupToInquiry(
+      followup({
+        customerPhone: '010-9999-1111',
+        address: '서울특별시 강남구 역삼동 123-4',
+        areaPyeong: null,
+        memo: '',
+        createdAt: made,
+        preferredMoveInCleaningDate: '2026-11-20',
+      }),
+      inquiry({
+        customerPhone: '010-8888-2222',
+        address: '서울특별시 강남구 테헤란로 152',
+        buildingType: null,
+        memo: '',
+        areaPyeong: null,
+        createdAt: exactly,
+        preferredDate: new Date('2026-11-20T03:00:00.000Z'),
+      }),
+    );
+    assert.equal(byRegion.level, 'booked');
+    assert.ok(byRegion.reasons.includes('region'));
+    assert.equal(byRegion.reasons.includes('address'), false);
+    assert.equal(reasonCombo(byRegion.reasons).includes('region'), true);
+
+    const nameDateOnly = matchFollowupToInquiry(
+      followup({
+        customerPhone: '010-9999-1111',
+        address: '',
+        areaPyeong: null,
+        createdAt: made,
+        preferredMoveInCleaningDate: '2026-11-20',
+      }),
+      inquiry({
+        customerPhone: '010-8888-2222',
+        address: '',
+        buildingType: null,
+        areaPyeong: null,
+        createdAt: near,
+        preferredDate: new Date('2026-11-20T03:00:00.000Z'),
+      }),
+    );
+    assert.equal(nameDateOnly.level, 'suspect');
+    assert.equal(nameDateOnly.reasons.includes('region'), false);
+
+    const tooFar = matchFollowupToInquiry(
+      followup({
+        customerPhone: '010-9999-1111',
+        address: '서울특별시 강남구 역삼동 123-4',
+        areaPyeong: null,
+        memo: '',
+        createdAt: made,
+        preferredMoveInCleaningDate: '2026-11-20',
+      }),
+      inquiry({
+        customerPhone: '010-8888-2222',
+        address: '서울특별시 강남구 테헤란로 152',
+        buildingType: null,
+        memo: '',
+        areaPyeong: null,
+        createdAt: far,
+        preferredDate: new Date('2026-11-20T03:00:00.000Z'),
+      }),
+    );
+    assert.equal(tooFar.level, 'suspect');
+    assert.ok(tooFar.reasons.includes('region'));
+
+    const otherCity = matchFollowupToInquiry(
+      followup({
+        customerPhone: '010-9999-1111',
+        address: '서울특별시 강남구 역삼동 1',
+        areaPyeong: null,
+        memo: '',
+        createdAt: made,
+        preferredMoveInCleaningDate: '2026-11-20',
+      }),
+      inquiry({
+        customerPhone: '010-8888-2222',
+        address: '부산광역시 해운대구 해운대로 100',
+        buildingType: null,
+        memo: '',
+        areaPyeong: null,
+        createdAt: made,
+        preferredDate: new Date('2026-12-02T03:00:00.000Z'),
+      }),
+    );
+    assert.equal(otherCity.level, null);
+
+    const sameDong = matchFollowupToInquiry(
+      followup({ customerPhone: '010-9999-1111', areaPyeong: null, preferredMoveInCleaningDate: null, memo: '' }),
+      inquiry({ customerPhone: '010-8888-2222', buildingType: null, memo: '' }),
+    );
+    assert.ok(sameDong.reasons.includes('address') && sameDong.reasons.includes('region'));
+
+    const roadInquiry = inquiry({
+      id: 'inq-road',
+      customerPhone: '010-7777-6666',
+      address: '서울특별시 강남구 테헤란로 152',
+      buildingType: null,
+      memo: '',
+      areaPyeong: null,
+      createdAt: exactly,
+      preferredDate: new Date('2026-11-20T03:00:00.000Z'),
+    });
+    const jibunFollowup = followup({
+      customerPhone: '010-9999-1111',
+      address: '서울특별시 강남구 역삼동 123-4',
+      areaPyeong: null,
+      memo: '',
+      createdAt: made,
+      preferredMoveInCleaningDate: '2026-11-20',
+    });
+    const index = buildInquiryBookingIndex([roadInquiry]);
+    assert.ok(candidatesForFollowup(index, jibunFollowup).some((row) => row.id === 'inq-road'));
+    assert.equal(pickFollowupBookingNarrowed(jibunFollowup, index)?.level, 'booked');
+    assert.equal(pickFollowupBooking(jibunFollowup, [roadInquiry])?.inquiryId, pickFollowupBookingNarrowed(jibunFollowup, index)?.inquiryId);
+
+    const plan = tallySweep([
+      {
+        booking: {
+          level: 'booked',
+          reasons: byRegion.reasons,
+          inquiryId: 'inq-1',
+          inquiryNumber: null,
+          status: 'RECEIVED',
+          preferredDate: '2026-11-20',
+          operatingCompanyId: 'brand-a',
+          operatingCompanyName: null,
+          marketerName: null,
+        },
+        open: true,
+        sameBrandBooked: true,
+        followupStatus: 'ABSENT',
+      },
+    ]);
+    assert.equal(plan.byReason.region, 1);
+    assert.equal(plan.byReasonCombo[reasonCombo(byRegion.reasons)], 1);
+  });
+
   it('후보만 대조해도 전체를 대조한 것과 같다', () => {
     const inquiries: InquiryMatchInput[] = [];
     const followups: FollowupMatchInput[] = [];
@@ -319,7 +498,10 @@ describe('부재보류와 접수 맞추기', () => {
           nickname: i % 11 === 0 ? '길동맘' : null,
           customerPhone: phone,
           customerPhone2: i % 17 === 0 ? `0504${String(10000000 + i).slice(0, 8)}` : null,
-          address: `서울특별시 강남구 ${dongs[i % dongs.length]} 래미안아파트 ${i}동`,
+          address:
+            i % 4 === 0
+              ? `서울특별시 강남구 테헤란로 ${100 + i}`
+              : `서울특별시 강남구 ${dongs[i % dongs.length]} 래미안아파트 ${i}동`,
           areaPyeong: 20 + (i % 8),
           preferredDate: new Date(Date.UTC(2026, 10, 1 + (i % 27), 3)),
           createdAt: new Date(Date.UTC(2026, 9, 1 + (i % 28), 3)),
@@ -339,7 +521,8 @@ describe('부재보류와 접수 맞추기', () => {
           nickname: i % 29 === 0 ? '길동맘' : null,
           customerPhone: i % 4 === 0 ? inquiries[i % 500]!.customerPhone : `010${String(20000000 + i).padStart(8, '0')}`,
           customerPhone2: i % 31 === 0 ? inquiries[(i + 3) % 500]!.customerPhone2 : null,
-          address: i % 6 === 0 ? inquiries[i % 500]!.address : `부산광역시 해운대구 우동 ${i}`,
+          address:
+            i % 6 === 0 ? inquiries[i % 500]!.address : i % 6 === 1 ? '서울특별시 강남구 역삼동 10-2' : `부산광역시 해운대구 우동 ${i}`,
           areaPyeong: i % 7 === 0 ? inquiries[i % 500]!.areaPyeong : 30,
           preferredMoveInCleaningDate: i % 8 === 0 ? '2026-11-20' : '2026-12-02',
           createdAt: new Date(Date.UTC(2026, 10, 20, 1)),
