@@ -49,8 +49,6 @@ import {
   mapOperatingCompanyResolveError,
 } from '../operating-companies/operatingCompanyResolve.service.js';
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
-import { syncFollowupsAfterInquiry, bookingsForFollowups, sweepOpenFollowupBookings } from './orderFollowupBooking.service.js';
-import type { FollowupMatchInput, FollowupBooking } from './orderFollowupBooking.logic.js';
 import type { UserRole } from '@prisma/client';
 import { mergeCustomerPhones, relinkSafeNumberRecords } from './customerPhoneRelink.service.js';
 import {
@@ -96,9 +94,6 @@ async function syncInquiryWhenFollowupDepositComplete(inquiryId: string, tenantI
     data: { status: 'DEPOSIT_COMPLETED' },
   });
   if (updated.count === 0) return;
-  void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId }).catch((error) => {
-    console.error('[order-followups] booking sync after deposit complete failed', error instanceof Error ? error.message : error);
-  });
   const assigns = await prisma.assignment.findMany({
     where: { inquiryId, tenantId },
     select: { teamLeaderId: true },
@@ -111,13 +106,13 @@ async function syncInquiryWhenFollowupDepositComplete(inquiryId: string, tenantI
 /** 부재현황이 예약금 대기(DEPOSIT_PENDING)일 때, 연결 접수를 접수 목록 입금대기로 맞춤(접수번호 없으면 발급) */
 async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId: string): Promise<void> {
   const tenantPlan = await getTenantPlan(tenantId);
-  const changed = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const inv = await tx.inquiry.findFirst({
       where: { id: inquiryId, tenantId },
       select: { status: true, inquiryNumber: true, tenantId: true, operatingCompanyId: true },
     });
-    if (!inv || inv.status === 'CANCELLED') return false;
-    if (inv.status === 'DEPOSIT_PENDING') return false;
+    if (!inv || inv.status === 'CANCELLED') return;
+    if (inv.status === 'DEPOSIT_PENDING') return;
     if (
       inv.status === 'DEPOSIT_COMPLETED' ||
       inv.status === 'ORDER_FORM_PENDING' ||
@@ -126,7 +121,7 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId
       inv.status === 'COMPLETED' ||
       inv.status === 'CS_PROCESSING'
     ) {
-      return false;
+      return;
     }
     const data: import('@prisma/client').Prisma.InquiryUpdateInput = {
       status: 'DEPOSIT_PENDING',
@@ -141,11 +136,6 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId
       inquiryId,
       status: 'DEPOSIT_PENDING',
     });
-    return true;
-  });
-  if (!changed) return;
-  void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId }).catch((error) => {
-    console.error('[order-followups] booking sync after deposit pending failed', error instanceof Error ? error.message : error);
   });
 }
 router.use(authMiddleware);
@@ -189,7 +179,7 @@ async function createInquiryForDepositFlow(params: {
     throw new Error('접수 생성에 필요한 업체 정보를 찾을 수 없습니다.');
   }
   const tenantPlan = await getTenantPlan(tenantId);
-  const inquiryId = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     const actor = await tx.user.findFirst({
       where: { id: params.actorId, tenantId },
       select: { role: true },
@@ -242,112 +232,7 @@ async function createInquiryForDepositFlow(params: {
     });
     return created.id;
   });
-  void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId, actorUserId: params.actorId }).catch((error) => {
-    console.error('[order-followups] booking sync after inquiry create failed', error instanceof Error ? error.message : error);
-  });
-  return inquiryId;
 }
-
-function followupMatchInput(row: {
-  inquiryId?: string | null;
-  operatingCompanyId?: string | null;
-  customerName?: string | null;
-  nickname?: string | null;
-  customerPhone?: string | null;
-  customerPhone2?: string | null;
-  address?: string | null;
-  memo?: string | null;
-  areaPyeong?: number | null;
-  roomCount?: number | null;
-  bathroomCount?: number | null;
-  isOneRoom?: boolean | null;
-  preferredMoveInCleaningDate?: string | null;
-  status?: string | null;
-}): FollowupMatchInput {
-  return {
-    inquiryId: row.inquiryId,
-    operatingCompanyId: row.operatingCompanyId,
-    customerName: row.customerName,
-    nickname: row.nickname,
-    customerPhone: row.customerPhone,
-    customerPhone2: row.customerPhone2,
-    address: row.address,
-    memo: row.memo,
-    areaPyeong: row.areaPyeong,
-    roomCount: row.roomCount,
-    bathroomCount: row.bathroomCount,
-    isOneRoom: row.isOneRoom,
-    preferredMoveInCleaningDate: row.preferredMoveInCleaningDate,
-    status: row.status,
-  };
-}
-
-const BOOKING_LIST_SELECT = {
-  id: true,
-  inquiryId: true,
-  operatingCompanyId: true,
-  customerName: true,
-  nickname: true,
-  customerPhone: true,
-  customerPhone2: true,
-  address: true,
-  memo: true,
-  areaPyeong: true,
-  roomCount: true,
-  bathroomCount: true,
-  isOneRoom: true,
-  preferredMoveInCleaningDate: true,
-  status: true,
-} as const;
-
-async function bookingIndexForWhere(tenantId: string, where: import('@prisma/client').Prisma.OrderFollowupWhereInput) {
-  const rows = await prisma.orderFollowup.findMany({
-    where,
-    select: BOOKING_LIST_SELECT,
-    orderBy: { createdAt: 'desc' },
-    take: 3000,
-  });
-  const found = await bookingsForFollowups(prisma, tenantId, rows.map(followupMatchInput));
-  const counts = { booked: 0, suspect: 0, otherBrand: 0 };
-  const ids: Record<'booked' | 'suspect' | 'otherBrand' | 'none', string[]> = {
-    booked: [],
-    suspect: [],
-    otherBrand: [],
-    none: [],
-  };
-  const byId = new Map<string, FollowupBooking | null>();
-  rows.forEach((row, index) => {
-    const booking = found.get(index) ?? null;
-    byId.set(row.id, booking);
-    if (!booking) ids.none.push(row.id);
-    else {
-      counts[booking.level] += 1;
-      ids[booking.level].push(row.id);
-    }
-  });
-  return { counts, ids, byId };
-}
-
-function parseBookingFilter(raw: unknown): 'booked' | 'suspect' | 'otherBrand' | 'none' | null {
-  if (raw === 'booked' || raw === 'suspect' || raw === 'otherBrand' || raw === 'none') return raw;
-  return null;
-}
-
-router.post('/booking-sweep', async (req, res) => {
-  const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = getTenantIdFromAuth(user);
-  if (!tenantId) {
-    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
-    return;
-  }
-  if (!(await userHasStaffAdminAccess(user))) {
-    res.status(403).json({ error: '부재·보류 정리는 관리자만 할 수 있습니다.' });
-    return;
-  }
-  const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
-  const plan = await sweepOpenFollowupBookings(prisma, tenantId, { dryRun, actorUserId: user.userId });
-  res.json(plan);
-});
 
 router.get('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
@@ -499,20 +384,6 @@ router.get('/', async (req, res) => {
       hotListUserId = target.id;
     }
   }
-  const bookingFilter = parseBookingFilter(req.query.booking);
-  const bookingIndex = await bookingIndexForWhere(tenantId, where);
-  if (bookingFilter) {
-    const picked = bookingIndex.ids[bookingFilter];
-    const current = where.id;
-    const existing =
-      current && typeof current === 'object' && 'in' in current && Array.isArray(current.in)
-        ? current.in.filter((id): id is string => typeof id === 'string')
-        : null;
-    const next = existing ? picked.filter((id) => existing.includes(id)) : picked;
-    where.id = { in: next.length > 0 ? next : ['00000000-0000-0000-0000-000000000000'] };
-  }
-  const withBooking = <T,>(items: T[], rows: { id: string }[]) =>
-    items.map((item, index) => ({ ...item, booking: bookingIndex.byId.get(rows[index]?.id ?? '') ?? null }));
   if (missingInquiryLink) {
     const rows = await prisma.orderFollowup.findMany({
       where,
@@ -526,7 +397,7 @@ router.get('/', async (req, res) => {
       rows,
       rows.map((row) => serializeFollowup(row)),
     );
-    res.json({ items: withBooking(items, rows), total: rows.length, bookingCounts: bookingIndex.counts });
+    res.json({ items, total: rows.length });
     return;
   }
 
@@ -555,7 +426,7 @@ router.get('/', async (req, res) => {
       page.rows,
       page.rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
     );
-    res.json({ items: withBooking(items, page.rows), total: page.total, bookingCounts: bookingIndex.counts });
+    res.json({ items, total: page.total });
     return;
   }
 
@@ -580,7 +451,7 @@ router.get('/', async (req, res) => {
     rows,
     rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
   );
-  res.json({ items: withBooking(items, rows), total, bookingCounts: bookingIndex.counts });
+  res.json({ items, total });
 });
 
 router.get('/hot-summary', async (req, res) => {
@@ -884,8 +755,7 @@ router.get('/:id', async (req, res) => {
     [row],
     [serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)],
   );
-  const bookings = await bookingsForFollowups(prisma, tenantId, [followupMatchInput(row)]);
-  res.json({ item: { ...item, booking: bookings.get(0) ?? null } });
+  res.json({ item });
 });
 
 router.get('/:id/logs', async (req, res) => {
@@ -1150,10 +1020,8 @@ router.post('/', async (req, res) => {
         excludeFollowupId: full.id,
       });
       const prior = followupExistingSaveSummary(existing);
-      const savedBookings = await bookingsForFollowups(prisma, tenantId, [followupMatchInput(full)]);
       res.json({
         item: serializeFollowup(full),
-        booking: savedBookings.get(0) ?? null,
         deduped: true,
         registeredAt: prior.registeredAt,
         handlerName: prior.handlerName,
@@ -1222,8 +1090,7 @@ router.post('/', async (req, res) => {
     actorUserId: user.userId,
     excludeFollowupId: full.id,
   });
-  const createdBookings = await bookingsForFollowups(prisma, tenantId, [followupMatchInput(full)]);
-  res.status(201).json({ item: serializeFollowup(full), booking: createdBookings.get(0) ?? null });
+  res.status(201).json({ item: serializeFollowup(full) });
   } catch (e) {
     const coinErr = mapTenantCoinError(e);
     if (coinErr) {
@@ -1522,8 +1389,7 @@ router.patch('/:id', async (req, res) => {
       excludeFollowupId: full.id,
     });
   }
-  const patchedBookings = await bookingsForFollowups(prisma, tenantId, [followupMatchInput(full)]);
-  res.json({ item: serializeFollowup(full), booking: patchedBookings.get(0) ?? null });
+  res.json({ item: serializeFollowup(full) });
   } catch (e) {
     const coinErr = mapTenantCoinError(e);
     if (coinErr) {

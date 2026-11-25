@@ -1,6 +1,4 @@
 import { prisma } from '../../lib/prisma.js';
-import { bookingsForFollowups } from '../order-followups/orderFollowupBooking.service.js';
-import type { FollowupMatchInput } from '../order-followups/orderFollowupBooking.logic.js';
 import { normalizeKrPhoneDigits } from '../cs/matchInquiryForCs.js';
 import {
   serializeTelecrmInquiryBrief,
@@ -314,29 +312,6 @@ async function resolveTelecrmCustomerByPhone(
       structureOutdoorTerrace: row.structureOutdoorTerrace ?? null,
       leadSource: row.leadSource ?? null,
     }));
-  const followupBookings = await bookingsForFollowups(
-    prisma,
-    tenantId,
-    followups.map(
-      (row): FollowupMatchInput => ({
-        inquiryId: row.inquiryId,
-        operatingCompanyId,
-        customerName: row.customerName,
-        nickname: row.nickname,
-        customerPhone: row.customerPhone,
-        customerPhone2: row.customerPhone2,
-        address: row.address,
-        areaPyeong: row.areaPyeong,
-        roomCount: row.roomCount,
-        bathroomCount: row.bathroomCount,
-        isOneRoom: row.isOneRoom,
-        preferredMoveInCleaningDate: row.preferredMoveInCleaningDate,
-      }),
-    ),
-  );
-  followups.forEach((row, index) => {
-    (row as { booking?: unknown }).booking = followupBookings.get(index) ?? null;
-  });
 
   const csReports = csRows
     .filter((row) => phonesMatch(row.customerPhone, phoneDigits))

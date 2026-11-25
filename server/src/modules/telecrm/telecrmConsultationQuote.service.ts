@@ -22,8 +22,6 @@ import {
   OPEN_FOLLOWUP_MERGE_STATUSES,
 } from '../order-followups/orderFollowups.service.js';
 import { mergeCustomerPhones, relinkSafeNumberRecords } from '../order-followups/customerPhoneRelink.service.js';
-import { bookingsForFollowups } from '../order-followups/orderFollowupBooking.service.js';
-import type { FollowupBooking } from '../order-followups/orderFollowupBooking.logic.js';
 import {
   preferHigherFollowupStatus,
   replacePhonesForTargetSave,
@@ -385,8 +383,6 @@ export type FinalizeTelecrmConsultationQuoteResult = {
   registeredAt: string | null;
   /** deduped 일 때 당시 담당 이름 */
   handlerName: string | null;
-  /** 같은 브랜드에 이미 접수된 고객이면 화면이 알릴 수 있게 실음. 저장은 그대로 둔다. */
-  booking: FollowupBooking | null;
 };
 
 export async function finalizeTelecrmConsultationQuote(
@@ -684,28 +680,7 @@ export async function finalizeTelecrmConsultationQuote(
   } catch (e) {
     console.error('[telecrm-quote] finalize phone relink failed', e instanceof Error ? e.message : e);
   }
-  const savedForBooking = await prisma.orderFollowup.findUnique({
-    where: { id: finalized.followupId },
-    select: {
-      inquiryId: true,
-      operatingCompanyId: true,
-      customerName: true,
-      nickname: true,
-      customerPhone: true,
-      customerPhone2: true,
-      address: true,
-      memo: true,
-      areaPyeong: true,
-      roomCount: true,
-      bathroomCount: true,
-      isOneRoom: true,
-      preferredMoveInCleaningDate: true,
-    },
-  });
-  const booking = savedForBooking
-    ? (await bookingsForFollowups(prisma, tenantId, [savedForBooking])).get(0) ?? null
-    : null;
-  return { ...finalized, booking };
+  return finalized;
 }
 
 export async function linkTelecrmConsultationQuoteInquiry(

@@ -2122,7 +2122,7 @@ router.patch('/:id', async (req, res) => {
   );
   /** 상태 변경 시 같은 연락처 부재현황 자동 정리, 연락처 변경 시 050→010 연결 — best-effort */
   try {
-    if (mergedStatus !== inquiry.status) {
+    if (mergedStatus !== inquiry.status && mergedStatus !== 'PENDING' && mergedStatus !== 'CANCELLED') {
       await closeOpenFollowupsForInquiry(prisma, {
         tenantId,
         operatingCompanyId: updated.operatingCompanyId,

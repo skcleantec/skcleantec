@@ -10,7 +10,6 @@ import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
 import { rematchInquiryDeposits } from '../bank-deposit/bankDepositTeam.service.js';
-import { syncFollowupsAfterInquiry } from '../order-followups/orderFollowupBooking.service.js';
 import { normalizeCustomerLinkBlockOrder } from '../../lib/orderFormCustomerLinkBlocks.js';
 import { computeEstimateTotalFromPyeong } from '../../lib/estimateTotal.js';
 import { authMiddleware, adminOrMarketerOrTeamLeader } from '../auth/auth.middleware.js';
@@ -1830,13 +1829,6 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           }),
         );
       });
-      void syncFollowupsAfterInquiry(prisma, {
-        tenantId: authTenantId,
-        inquiryId: pid,
-        actorUserId: userId,
-      }).catch((error) => {
-        console.error('[orderforms] followup booking sync failed', error instanceof Error ? error.message : error);
-      });
       const assigns = await prisma.assignment.findMany({
         where: { inquiryId: pid },
         select: { teamLeaderId: true },
@@ -1972,16 +1964,6 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
         }),
       );
     });
-    const issuedInquiryId = orderForm.inquiries?.[0]?.id;
-    if (issuedInquiryId) {
-      void syncFollowupsAfterInquiry(prisma, {
-        tenantId: authTenantId,
-        inquiryId: issuedInquiryId,
-        actorUserId: userId,
-      }).catch((error) => {
-        console.error('[orderforms] followup booking sync failed', error instanceof Error ? error.message : error);
-      });
-    }
     res.json(orderForm);
   } catch (e) {
     const ocErr = mapOperatingCompanyResolveError(e);
@@ -2491,13 +2473,6 @@ router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('
     return updated;
   });
 
-  void syncFollowupsAfterInquiry(prisma, {
-    tenantId,
-    inquiryId,
-    actorUserId: userId,
-  }).catch((error) => {
-    console.error('[orderforms] followup booking sync failed', error instanceof Error ? error.message : error);
-  });
   const teamLeaderIds = [...new Set(targetInquiry.assignments.map((a) => a.teamLeaderId))];
   if (teamLeaderIds.length > 0) {
     notifyInboxRefresh(teamLeaderIds);
@@ -2640,13 +2615,6 @@ router.post('/:id/delete', authMiddleware, requireStaffPermission('orderform.edi
     }
     await tx.orderForm.delete({ where: { id } });
   });
-  if (!isSubmitted) {
-    for (const row of linkedInquiriesBeforeDelete) {
-      void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId: row.id, actorUserId: userId }).catch((error) => {
-        console.error('[orderforms] followup booking sync failed', error instanceof Error ? error.message : error);
-      });
-    }
-  }
   if (teamLeaderIdsToRefresh.length > 0) {
     notifyInboxRefresh(teamLeaderIdsToRefresh);
   }
@@ -3975,13 +3943,6 @@ router.post('/submit/:token', async (req, res) => {
   }
 
   if (changedInquiryId) {
-    void syncFollowupsAfterInquiry(prisma, {
-      tenantId: submitTenantId,
-      inquiryId: changedInquiryId,
-      actorUserId: form.createdById,
-    }).catch((error) => {
-      console.error('[orderforms] followup booking sync failed', error instanceof Error ? error.message : error);
-    });
     void triggerAlimtalkOrderDone({
       tenantId: submitTenantId,
       orderFormId: form.id,
