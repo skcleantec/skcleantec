@@ -276,10 +276,11 @@ export async function closeOpenFollowupsForInquiry(
     actorUserId?: string | null;
   },
 ): Promise<number> {
-  const { syncFollowupsAfterInquiry } = await import('./orderFollowupBooking.service.js');
-  return syncFollowupsAfterInquiry(db, {
+  const { scheduleFollowupBookingSync } = await import('./orderFollowupBooking.service.js');
+  scheduleFollowupBookingSync(db, {
     tenantId: params.tenantId,
     inquiryId: params.inquiryId,
     actorUserId: params.actorUserId,
   });
+  return 0;
 }

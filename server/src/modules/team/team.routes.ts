@@ -37,7 +37,7 @@ import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
-import { syncFollowupsAfterInquiry } from '../order-followups/orderFollowupBooking.service.js';
+import { scheduleFollowupBookingSync } from '../order-followups/orderFollowupBooking.service.js';
 import { formatInquiryStatusLabel } from '../inquiry-change-logs/inquiryChangeLogWrite.service.js';
 import {
   ackAllScheduleAlerts,
@@ -1515,9 +1515,7 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
       ...(snapCid ? { cancelFeeExternalCompany: { connect: { id: snapCid } } } : {}),
     },
   });
-  void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId: id, actorUserId: actorId }).catch((error) => {
-    console.error('[team] followup booking restore failed', error instanceof Error ? error.message : error);
-  });
+  scheduleFollowupBookingSync(prisma, { tenantId, inquiryId: id, actorUserId: actorId });
   const cancelLines = [
     '관리자/마케터 취소 처리',
     `상태: ${formatInquiryStatusLabel(inquiry.status)} → 취소`,

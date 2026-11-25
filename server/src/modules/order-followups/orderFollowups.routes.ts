@@ -49,7 +49,13 @@ import {
   mapOperatingCompanyResolveError,
 } from '../operating-companies/operatingCompanyResolve.service.js';
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
-import { syncFollowupsAfterInquiry, bookingsForFollowups, sweepOpenFollowupBookings } from './orderFollowupBooking.service.js';
+import {
+  scheduleFollowupBookingSync,
+  bookingsForFollowups,
+  startBookingSweepJob,
+  getBookingSweepJob,
+  latestBookingSummary,
+} from './orderFollowupBooking.service.js';
 import type { FollowupMatchInput, FollowupBooking } from './orderFollowupBooking.logic.js';
 import type { UserRole } from '@prisma/client';
 import { mergeCustomerPhones, relinkSafeNumberRecords } from './customerPhoneRelink.service.js';
@@ -96,9 +102,7 @@ async function syncInquiryWhenFollowupDepositComplete(inquiryId: string, tenantI
     data: { status: 'DEPOSIT_COMPLETED' },
   });
   if (updated.count === 0) return;
-  void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId }).catch((error) => {
-    console.error('[order-followups] booking sync after deposit complete failed', error instanceof Error ? error.message : error);
-  });
+  scheduleFollowupBookingSync(prisma, { tenantId, inquiryId });
   const assigns = await prisma.assignment.findMany({
     where: { inquiryId, tenantId },
     select: { teamLeaderId: true },
@@ -144,9 +148,7 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId
     return true;
   });
   if (!changed) return;
-  void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId }).catch((error) => {
-    console.error('[order-followups] booking sync after deposit pending failed', error instanceof Error ? error.message : error);
-  });
+  scheduleFollowupBookingSync(prisma, { tenantId, inquiryId });
 }
 router.use(authMiddleware);
 router.use(requireStaffPermissionByMethod(['followup.view'], ['followup.edit']));
@@ -242,9 +244,7 @@ async function createInquiryForDepositFlow(params: {
     });
     return created.id;
   });
-  void syncFollowupsAfterInquiry(prisma, { tenantId, inquiryId, actorUserId: params.actorId }).catch((error) => {
-    console.error('[order-followups] booking sync after inquiry create failed', error instanceof Error ? error.message : error);
-  });
+  scheduleFollowupBookingSync(prisma, { tenantId, inquiryId, actorUserId: params.actorId });
   return inquiryId;
 }
 
@@ -286,57 +286,9 @@ function followupMatchInput(row: {
   };
 }
 
-const BOOKING_LIST_SELECT = {
-  id: true,
-  inquiryId: true,
-  operatingCompanyId: true,
-  customerName: true,
-  nickname: true,
-  customerPhone: true,
-  customerPhone2: true,
-  address: true,
-  memo: true,
-  areaPyeong: true,
-  roomCount: true,
-  bathroomCount: true,
-  isOneRoom: true,
-  preferredMoveInCleaningDate: true,
-  status: true,
-  createdAt: true,
-  leadSource: true,
-} as const;
-
-async function bookingIndexForWhere(tenantId: string, where: import('@prisma/client').Prisma.OrderFollowupWhereInput) {
-  const rows = await prisma.orderFollowup.findMany({
-    where,
-    select: BOOKING_LIST_SELECT,
-    orderBy: { createdAt: 'desc' },
-    take: 3000,
-  });
+async function attachPageBookings<T>(tenantId: string, items: T[], rows: Parameters<typeof followupMatchInput>[0][]): Promise<(T & { booking: FollowupBooking | null })[]> {
   const found = await bookingsForFollowups(prisma, tenantId, rows.map(followupMatchInput));
-  const counts = { booked: 0, suspect: 0, otherBrand: 0 };
-  const ids: Record<'booked' | 'suspect' | 'otherBrand' | 'none', string[]> = {
-    booked: [],
-    suspect: [],
-    otherBrand: [],
-    none: [],
-  };
-  const byId = new Map<string, FollowupBooking | null>();
-  rows.forEach((row, index) => {
-    const booking = found.get(index) ?? null;
-    byId.set(row.id, booking);
-    if (!booking) ids.none.push(row.id);
-    else if (booking.level !== 'past') {
-      counts[booking.level] += 1;
-      ids[booking.level].push(row.id);
-    }
-  });
-  return { counts, ids, byId };
-}
-
-function parseBookingFilter(raw: unknown): 'booked' | 'suspect' | 'otherBrand' | 'none' | null {
-  if (raw === 'booked' || raw === 'suspect' || raw === 'otherBrand' || raw === 'none') return raw;
-  return null;
+  return items.map((item, index) => ({ ...item, booking: found.get(index) ?? null }));
 }
 
 router.post('/booking-sweep', async (req, res) => {
@@ -350,9 +302,40 @@ router.post('/booking-sweep', async (req, res) => {
     res.status(403).json({ error: '부재·보류 정리는 관리자만 할 수 있습니다.' });
     return;
   }
-  const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
-  const plan = await sweepOpenFollowupBookings(prisma, tenantId, { dryRun, actorUserId: user.userId });
-  res.json(plan);
+  const dryRun = !(req.query.dryRun === '0' || req.query.dryRun === 'false');
+  const started = startBookingSweepJob(prisma, tenantId, { dryRun, actorUserId: user.userId });
+  if (started.alreadyRunning) {
+    res.status(409).json({ error: '이미 부재·보류 정리가 진행 중입니다.', jobId: started.jobId, dryRun: started.dryRun });
+    return;
+  }
+  res.status(202).json({ jobId: started.jobId, dryRun: started.dryRun });
+});
+
+router.get('/booking-sweep/:jobId', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  if (!(await userHasStaffAdminAccess(user))) {
+    res.status(403).json({ error: '부재·보류 정리는 관리자만 볼 수 있습니다.' });
+    return;
+  }
+  const job = getBookingSweepJob(req.params.jobId);
+  if (!job || job.tenantId !== tenantId) {
+    res.status(404).json({ error: '정리 작업을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json({
+    jobId: job.id,
+    status: job.status,
+    dryRun: job.dryRun,
+    done: job.done,
+    total: job.total,
+    result: job.result,
+    error: job.error,
+  });
 });
 
 router.get('/', async (req, res) => {
@@ -505,20 +488,7 @@ router.get('/', async (req, res) => {
       hotListUserId = target.id;
     }
   }
-  const bookingFilter = parseBookingFilter(req.query.booking);
-  const bookingIndex = await bookingIndexForWhere(tenantId, where);
-  if (bookingFilter) {
-    const picked = bookingIndex.ids[bookingFilter];
-    const current = where.id;
-    const existing =
-      current && typeof current === 'object' && 'in' in current && Array.isArray(current.in)
-        ? current.in.filter((id): id is string => typeof id === 'string')
-        : null;
-    const next = existing ? picked.filter((id) => existing.includes(id)) : picked;
-    where.id = { in: next.length > 0 ? next : ['00000000-0000-0000-0000-000000000000'] };
-  }
-  const withBooking = <T,>(items: T[], rows: { id: string }[]) =>
-    items.map((item, index) => ({ ...item, booking: bookingIndex.byId.get(rows[index]?.id ?? '') ?? null }));
+  const bookingSummary = latestBookingSummary(tenantId);
   if (missingInquiryLink) {
     const rows = await prisma.orderFollowup.findMany({
       where,
@@ -532,7 +502,7 @@ router.get('/', async (req, res) => {
       rows,
       rows.map((row) => serializeFollowup(row)),
     );
-    res.json({ items: withBooking(items, rows), total: rows.length, bookingCounts: bookingIndex.counts });
+    res.json({ items: await attachPageBookings(tenantId, items, rows), total: rows.length, bookingSummary });
     return;
   }
 
@@ -561,7 +531,7 @@ router.get('/', async (req, res) => {
       page.rows,
       page.rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
     );
-    res.json({ items: withBooking(items, page.rows), total: page.total, bookingCounts: bookingIndex.counts });
+    res.json({ items: await attachPageBookings(tenantId, items, page.rows), total: page.total, bookingSummary });
     return;
   }
 
@@ -586,7 +556,7 @@ router.get('/', async (req, res) => {
     rows,
     rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
   );
-  res.json({ items: withBooking(items, rows), total, bookingCounts: bookingIndex.counts });
+  res.json({ items: await attachPageBookings(tenantId, items, rows), total, bookingSummary });
 });
 
 router.get('/hot-summary', async (req, res) => {

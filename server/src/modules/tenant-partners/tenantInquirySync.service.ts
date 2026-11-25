@@ -9,7 +9,7 @@ import {
 } from '../inquiry-change-logs/inquiryChangeLogWrite.service.js';
 import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
-import { syncFollowupsAfterInquiry } from '../order-followups/orderFollowupBooking.service.js';
+import { scheduleFollowupBookingSync } from '../order-followups/orderFollowupBooking.service.js';
 
 export const TENANT_SHARE_SYNC_LOG_PREFIX = '[파트너연계동기화]';
 
@@ -282,12 +282,10 @@ export async function syncTenantShareAfterInquiryPatch(opts: {
 
   if (payload.status) {
     const peerTenantId = share.sourceInquiryId === inquiryId ? share.targetTenantId : share.sourceTenantId;
-    void syncFollowupsAfterInquiry(prisma, {
+    scheduleFollowupBookingSync(prisma, {
       tenantId: peerTenantId,
       inquiryId: peerId,
       actorUserId: opts.actorId,
-    }).catch((error) => {
-      console.error('[tenant-share] followup booking sync failed', error instanceof Error ? error.message : error);
     });
   }
 

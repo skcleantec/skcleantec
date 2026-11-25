@@ -22,7 +22,7 @@ import { computeMarketplaceServiceBalanceAmount } from '../../lib/dbMarketplaceA
 import { clearInternalInquiryAssignments } from '../assignments/clearInternalInquiryAssignments.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { stampTenantShareCancelFeeDirection } from './tenantPartnerSettlement.service.js';
-import { syncFollowupsAfterInquiry } from '../order-followups/orderFollowupBooking.service.js';
+import { scheduleFollowupBookingSync, syncFollowupsAfterInquiry } from '../order-followups/orderFollowupBooking.service.js';
 
 export class TenantInquiryShareError extends Error {
   constructor(
@@ -606,12 +606,10 @@ export async function revokeTenantInquiryShare(opts: {
   });
 
   if (targetInquiry && targetInquiry.status !== 'CANCELLED') {
-    void syncFollowupsAfterInquiry(prisma, {
+    scheduleFollowupBookingSync(prisma, {
       tenantId: share.targetTenantId,
       inquiryId: share.targetInquiryId,
       actorUserId: opts.viewerUserId,
-    }).catch((error) => {
-      console.error('[tenant-share] followup booking restore failed', error instanceof Error ? error.message : error);
     });
   }
 

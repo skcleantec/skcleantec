@@ -1,14 +1,23 @@
+import { randomUUID } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import {
+  bookingNameKeys,
+  buildInquiryBookingIndex,
+  candidatesForFollowup,
+  buildInquiryBookingIndexYielding,
   closedStatusForBookedInquiry,
   dawnSweepDryRun,
   isOpenCallStatus,
   parseAutoCloseLog,
+  phoneTails,
   pickFollowupBooking,
-  statusAfterSweep,
+  pickFollowupBookingNarrowed,
+  pickFollowupBookingYielding,
+  preferredYmd,
   tallySweep,
   type FollowupBooking,
   type FollowupMatchInput,
+  type InquiryBookingIndex,
   type InquiryMatchInput,
   type SweepPlan,
 } from './orderFollowupBooking.logic.js';
@@ -120,13 +129,139 @@ function toFollowup(row: FollowupRow): FollowupMatchInput {
   };
 }
 
-export async function loadRecentBookingInquiries(db: Db, tenantId: string, now = new Date()): Promise<InquiryMatchInput[]> {
+const NAME_SQL = (column: string) => Prisma.sql`
+  regexp_replace(
+    regexp_replace(
+      regexp_replace(COALESCE(${Prisma.raw(column)}, ''), '\\([^)]*\\)|（[^）]*）', '', 'g'),
+      '님', '', 'g'
+    ),
+    '[[:space:]]', '', 'g'
+  )
+`;
+
+const PHONE_TAIL_SQL = (column: string) =>
+  Prisma.sql`right(regexp_replace(COALESCE(${Prisma.raw(column)}, ''), '[^0-9]', '', 'g'), 8)`;
+
+function yieldEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+type LookupKeys = { tails: string[]; names: string[]; ids: string[]; dateAreas: { ymd: string; min: number; max: number }[] };
+
+function keysForFollowups(followups: FollowupMatchInput[]): LookupKeys {
+  const tails = new Set<string>();
+  const names = new Set<string>();
+  const ids = new Set<string>();
+  const dateAreas: LookupKeys['dateAreas'] = [];
+  for (const row of followups) {
+    for (const tail of phoneTails(row.customerPhone, row.customerPhone2)) tails.add(tail);
+    for (const key of bookingNameKeys(row.customerName, row.nickname, row.leadSource)) names.add(key);
+    if (row.inquiryId) ids.add(row.inquiryId);
+    const ymd = preferredYmd(row.preferredMoveInCleaningDate);
+    if (ymd && row.areaPyeong != null && Number.isFinite(row.areaPyeong)) {
+      const rounded = Math.round(row.areaPyeong);
+      const area = { ymd, min: rounded - 1.5, max: rounded + 1.5 };
+      const token = `${area.ymd}|${area.min}|${area.max}`;
+      if (!dateAreas.some((item) => `${item.ymd}|${item.min}|${item.max}` === token)) dateAreas.push(area);
+    }
+  }
+  return { tails: [...tails], names: [...names], ids: [...ids], dateAreas: dateAreas.slice(0, 80) };
+}
+
+function keysForInquiry(inquiry: InquiryMatchInput): LookupKeys {
+  const dateAreas: LookupKeys['dateAreas'] = [];
+  const ymd = preferredYmd(inquiry.preferredDate);
+  if (ymd && inquiry.areaPyeong != null && Number.isFinite(inquiry.areaPyeong)) {
+    const rounded = Math.round(inquiry.areaPyeong);
+    dateAreas.push({ ymd, min: rounded - 1.5, max: rounded + 1.5 });
+  }
+  return {
+    tails: phoneTails(inquiry.customerPhone, inquiry.customerPhone2),
+    names: bookingNameKeys(inquiry.customerName, inquiry.nickname, inquiry.source),
+    ids: [inquiry.id],
+    dateAreas,
+  };
+}
+
+function candidateOrSql(keys: LookupKeys, linkedColumn: 'id' | 'inquiry_id', dateColumn: 'preferred_date' | 'preferred_move_in_cleaning_date'): Prisma.Sql | null {
+  const ors: Prisma.Sql[] = [];
+  if (keys.tails.length > 0) {
+    const list = Prisma.join(keys.tails);
+    ors.push(Prisma.sql`${PHONE_TAIL_SQL('"customer_phone"')} IN (${list})`);
+    ors.push(Prisma.sql`${PHONE_TAIL_SQL('"customer_phone_2"')} IN (${list})`);
+  }
+  if (keys.names.length > 0) {
+    const list = Prisma.join(keys.names);
+    ors.push(Prisma.sql`${NAME_SQL('"customer_name"')} IN (${list})`);
+    ors.push(Prisma.sql`${NAME_SQL('"nickname"')} IN (${list})`);
+  }
+  if (keys.ids.length > 0) {
+    ors.push(Prisma.sql`${Prisma.raw(linkedColumn)}::text IN (${Prisma.join(keys.ids)})`);
+  }
+  for (const area of keys.dateAreas) {
+    if (dateColumn === 'preferred_date') {
+      ors.push(
+        Prisma.sql`(to_char(preferred_date AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') = ${area.ymd} AND area_pyeong BETWEEN ${area.min} AND ${area.max})`,
+      );
+    } else {
+      ors.push(
+        Prisma.sql`(preferred_move_in_cleaning_date = ${area.ymd} AND area_pyeong BETWEEN ${area.min} AND ${area.max})`,
+      );
+    }
+  }
+  if (ors.length === 0) return null;
+  return Prisma.join(ors, ' OR ');
+}
+
+async function loadInquiryCandidates(
+  db: Db,
+  tenantId: string,
+  followups: FollowupMatchInput[],
+  now: Date,
+): Promise<InquiryMatchInput[]> {
+  const keys = keysForFollowups(followups);
+  const whereOr = candidateOrSql(keys, 'id', 'preferred_date');
+  if (!whereOr) return [];
   const since = new Date(now.getTime() - 120 * DAY_MS);
+  const found = await db.$queryRaw<{ id: string }[]>`
+    SELECT id FROM inquiries
+    WHERE tenant_id = ${tenantId}
+      AND deleted_at IS NULL
+      AND status <> 'CANCELLED'
+      AND created_at >= ${since}
+      AND (${whereOr})
+    LIMIT 4000
+  `;
+  if (found.length === 0) return [];
+  if (found.length >= 4000) {
+    console.warn('[order-followups] booking inquiry candidates hit 4000', tenantId);
+  }
   const rows = await db.inquiry.findMany({
-    where: { tenantId, deletedAt: null, status: { not: 'CANCELLED' }, createdAt: { gte: since } },
+    where: { tenantId, id: { in: found.map((row) => row.id) } },
     select: inquirySelect,
   });
   return rows.map(toInquiry);
+}
+
+async function loadFollowupCandidates(db: Db, tenantId: string, inquiry: InquiryMatchInput): Promise<FollowupRow[]> {
+  const keys = keysForInquiry(inquiry);
+  const whereOr = candidateOrSql(keys, 'inquiry_id', 'preferred_move_in_cleaning_date');
+  if (!whereOr) return [];
+  const found = await db.$queryRaw<{ id: string }[]>`
+    SELECT id FROM order_followups
+    WHERE tenant_id = ${tenantId}
+      AND status IN ('REQUESTED', 'ABSENT', 'ON_HOLD', 'DEPOSIT_PENDING')
+      AND (${whereOr})
+    LIMIT 4000
+  `;
+  if (found.length === 0) return [];
+  if (found.length >= 4000) {
+    console.warn('[order-followups] booking followup candidates hit 4000', tenantId);
+  }
+  return db.orderFollowup.findMany({
+    where: { tenantId, id: { in: found.map((row) => row.id) } },
+    select: followupSelect,
+  });
 }
 
 export async function bookingsForFollowups(
@@ -135,10 +270,24 @@ export async function bookingsForFollowups(
   followups: FollowupMatchInput[],
   now = new Date(),
 ): Promise<Map<number, FollowupBooking | null>> {
-  const inquiries = followups.length === 0 ? [] : await loadRecentBookingInquiries(db, tenantId, now);
   const out = new Map<number, FollowupBooking | null>();
-  followups.forEach((row, index) => out.set(index, pickFollowupBooking(row, inquiries)));
+  if (followups.length === 0) return out;
+  const inquiries = await loadInquiryCandidates(db, tenantId, followups, now);
+  const index = buildInquiryBookingIndex(inquiries);
+  followups.forEach((row, indexNo) => out.set(indexNo, pickFollowupBookingNarrowed(row, index)));
   return out;
+}
+
+/** 응답을 막지 않도록 이번 요청이 끝난 뒤에 정리한다. */
+export function scheduleFollowupBookingSync(
+  db: Db,
+  params: { tenantId: string; inquiryId: string; actorUserId?: string | null },
+): void {
+  setImmediate(() => {
+    void syncFollowupsAfterInquiry(db, params).catch((error) => {
+      console.error('[order-followups] scheduled booking sync failed', error instanceof Error ? error.message : error);
+    });
+  });
 }
 
 async function closeOne(
@@ -199,18 +348,21 @@ export async function syncFollowupsAfterInquiry(
     if (!row) return 0;
     const inquiry = toInquiry(row);
     if (inquiry.status === 'CANCELLED') return restoreFollowupsClosedByInquiry(db, params);
-    const open = await db.orderFollowup.findMany({
-      where: { tenantId: params.tenantId, status: { in: [...OPEN_STATUSES] } },
-      select: followupSelect,
-    });
+    const open = await loadFollowupCandidates(db, params.tenantId, inquiry);
     let changed = 0;
+    let sliceStart = Date.now();
     for (const followup of open) {
       const booking = pickFollowupBooking(toFollowup(followup), [inquiry]);
-      if (!booking || booking.level !== 'booked') continue;
-      try {
-        if (await closeOne(db, followup, inquiry, booking.reasons, params.actorUserId)) changed += 1;
-      } catch (error) {
-        console.error('[order-followups] booking close failed', error instanceof Error ? error.message : error);
+      if (booking?.level === 'booked') {
+        try {
+          if (await closeOne(db, followup, inquiry, booking.reasons, params.actorUserId)) changed += 1;
+        } catch (error) {
+          console.error('[order-followups] booking close failed', error instanceof Error ? error.message : error);
+        }
+      }
+      if (Date.now() - sliceStart >= 30) {
+        await yieldEventLoop();
+        sliceStart = Date.now();
       }
     }
     return changed;
@@ -265,47 +417,179 @@ export async function restoreFollowupsClosedByInquiry(
   return changed;
 }
 
+async function loadOpenFollowups(db: Db, tenantId: string): Promise<FollowupRow[]> {
+  return db.orderFollowup.findMany({
+    where: { tenantId, status: { in: [...OPEN_STATUSES] } },
+    select: followupSelect,
+  });
+}
+
+async function loadSweepInquiries(db: Db, tenantId: string, now: Date): Promise<InquiryMatchInput[]> {
+  const since = new Date(now.getTime() - 120 * DAY_MS);
+  const rows = await db.inquiry.findMany({
+    where: { tenantId, deletedAt: null, status: { not: 'CANCELLED' }, createdAt: { gte: since } },
+    select: inquirySelect,
+  });
+  return rows.map(toInquiry);
+}
+
 export async function sweepOpenFollowupBookings(
   db: Db,
   tenantId: string,
-  options: { dryRun?: boolean; actorUserId?: string | null; now?: Date } = {},
+  options: {
+    dryRun?: boolean;
+    actorUserId?: string | null;
+    now?: Date;
+    onProgress?: (done: number, total: number) => void;
+  } = {},
 ): Promise<SweepPlan> {
   const now = options.now ?? new Date();
+  const dryRun = options.dryRun !== false;
   const [open, inquiries] = await Promise.all([
-    db.orderFollowup.findMany({
-      where: { tenantId, status: { in: [...OPEN_STATUSES] } },
-      select: followupSelect,
-    }),
-    loadRecentBookingInquiries(db, tenantId, now),
+    loadOpenFollowups(db, tenantId),
+    loadSweepInquiries(db, tenantId, now),
   ]);
-  const judged = open.map((row) => {
-    const booking = pickFollowupBooking(toFollowup(row), inquiries);
-    return {
-      row,
+  const index: InquiryBookingIndex = await buildInquiryBookingIndexYielding(inquiries);
+  const judged: {
+    booking: FollowupBooking | null;
+    open: boolean;
+    sameBrandBooked: boolean;
+    followupStatus: string;
+  }[] = [];
+  const closable: { row: FollowupRow; inquiryId: string; reasons: string[] }[] = [];
+  let sliceStart = Date.now();
+  for (let i = 0; i < open.length; i += 1) {
+    const row = open[i]!;
+    const followup = toFollowup(row);
+    const booking = await pickFollowupBookingYielding(followup, candidatesForFollowup(index, followup));
+    judged.push({
       booking,
       open: isOpenCallStatus(row.status),
       sameBrandBooked: booking?.level === 'booked',
       followupStatus: row.status,
-    };
-  });
-  const plan = tallySweep(judged);
-  if (options.dryRun) {
-    judged.forEach((item) => {
-      statusAfterSweep(item.row.status, item.sameBrandBooked ? closedStatusForBookedInquiry(item.booking?.status ?? '') : null, true);
     });
-    return plan;
+    if (!dryRun && booking?.level === 'booked') {
+      closable.push({ row, inquiryId: booking.inquiryId, reasons: booking.reasons });
+    }
+    const done = i + 1;
+    if (done % 200 === 0 || Date.now() - sliceStart >= 30) {
+      options.onProgress?.(done, open.length);
+      await yieldEventLoop();
+      sliceStart = Date.now();
+    }
   }
-  for (const item of judged) {
-    if (!item.sameBrandBooked || !item.booking) continue;
-    const inquiry = inquiries.find((candidate) => candidate.id === item.booking?.inquiryId);
+  options.onProgress?.(open.length, open.length);
+  const plan = tallySweep(judged);
+  if (dryRun) return plan;
+  sliceStart = Date.now();
+  for (const item of closable) {
+    const inquiry = index.byId.get(item.inquiryId);
     if (!inquiry) continue;
     try {
-      await closeOne(db, item.row, inquiry, item.booking.reasons, options.actorUserId);
+      await closeOne(db, item.row, inquiry, item.reasons, options.actorUserId);
     } catch (error) {
       console.error('[order-followups] sweep close failed', error instanceof Error ? error.message : error);
     }
+    if (Date.now() - sliceStart >= 30) {
+      await yieldEventLoop();
+      sliceStart = Date.now();
+    }
   }
   return plan;
+}
+
+export type BookingSweepJob = {
+  id: string;
+  tenantId: string;
+  dryRun: boolean;
+  status: 'running' | 'done' | 'error';
+  done: number;
+  total: number;
+  result: SweepPlan | null;
+  error: string | null;
+};
+
+const sweepJobs = new Map<string, BookingSweepJob>();
+const tenantSweepJob = new Map<string, string>();
+const latestSweepSummary = new Map<string, SweepPlan>();
+
+export function latestBookingSummary(tenantId: string): SweepPlan | null {
+  return latestSweepSummary.get(tenantId) ?? null;
+}
+
+export function getBookingSweepJob(jobId: string): BookingSweepJob | null {
+  return sweepJobs.get(jobId) ?? null;
+}
+
+function rememberSweep(tenantId: string, plan: SweepPlan): void {
+  latestSweepSummary.set(tenantId, plan);
+  console.log(
+    '[order-followups] booking sweep summary',
+    tenantId,
+    JSON.stringify({
+      wouldClose: plan.wouldClose,
+      suspect: plan.suspect,
+      otherBrand: plan.otherBrand,
+      past: plan.past,
+      byInquiryStatus: plan.byInquiryStatus,
+      byFollowupStatus: plan.byFollowupStatus,
+      byReasonCombo: plan.byReasonCombo,
+    }),
+  );
+}
+
+export function startBookingSweepJob(
+  db: PrismaClient,
+  tenantId: string,
+  options: { dryRun?: boolean; actorUserId?: string | null; now?: Date } = {},
+): { jobId: string; dryRun: boolean; alreadyRunning: boolean } {
+  const dryRun = options.dryRun !== false;
+  const currentId = tenantSweepJob.get(tenantId);
+  const current = currentId ? sweepJobs.get(currentId) : undefined;
+  if (current && current.status === 'running') {
+    return { jobId: current.id, dryRun: current.dryRun, alreadyRunning: true };
+  }
+  const job: BookingSweepJob = {
+    id: randomUUID(),
+    tenantId,
+    dryRun,
+    status: 'running',
+    done: 0,
+    total: 0,
+    result: null,
+    error: null,
+  };
+  sweepJobs.set(job.id, job);
+  tenantSweepJob.set(tenantId, job.id);
+  if (sweepJobs.size > 100) {
+    for (const [id, stored] of sweepJobs) {
+      if (stored.status === 'running' || tenantSweepJob.get(stored.tenantId) === id) continue;
+      sweepJobs.delete(id);
+      if (sweepJobs.size <= 80) break;
+    }
+  }
+  setImmediate(() => {
+    void sweepOpenFollowupBookings(db, tenantId, {
+      dryRun,
+      actorUserId: options.actorUserId,
+      now: options.now,
+      onProgress: (done, total) => {
+        job.done = done;
+        job.total = total;
+      },
+    })
+      .then((plan) => {
+        job.status = 'done';
+        job.result = plan;
+        rememberSweep(tenantId, plan);
+      })
+      .catch((error) => {
+        job.status = 'error';
+        job.error = error instanceof Error ? error.message : '정리에 실패했습니다.';
+        console.error('[order-followups] sweep job failed', error instanceof Error ? error.message : error);
+      });
+  });
+  return { jobId: job.id, dryRun, alreadyRunning: false };
 }
 
 export async function sweepAllTenantFollowupBookings(db: PrismaClient, now = new Date()): Promise<void> {
@@ -315,24 +599,16 @@ export async function sweepAllTenantFollowupBookings(db: PrismaClient, now = new
     select: { tenantId: true },
   });
   for (const link of links) {
+    const runningId = tenantSweepJob.get(link.tenantId);
+    const running = runningId ? sweepJobs.get(runningId) : undefined;
+    if (running?.status === 'running') continue;
     try {
       const plan = await sweepOpenFollowupBookings(db, link.tenantId, { now, dryRun: dawnSweepDryRun() });
-      console.log(
-        '[order-followups] dawn booking sweep',
-        link.tenantId,
-        JSON.stringify({
-          wouldClose: plan.wouldClose,
-          suspect: plan.suspect,
-          otherBrand: plan.otherBrand,
-          past: plan.past,
-          byInquiryStatus: plan.byInquiryStatus,
-          byFollowupStatus: plan.byFollowupStatus,
-          byReasonCombo: plan.byReasonCombo,
-        }),
-      );
+      rememberSweep(link.tenantId, plan);
     } catch (error) {
       console.error('[order-followups] daily sweep skipped', error instanceof Error ? error.message : error);
     }
+    await yieldEventLoop();
   }
 }
 

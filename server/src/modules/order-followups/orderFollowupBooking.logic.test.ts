@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  buildInquiryBookingIndex,
   closedStatusForBookedInquiry,
   dawnSweepDryRun,
   isOpenCallStatus,
   matchFollowupToInquiry,
   parseAutoCloseLog,
   pickFollowupBooking,
+  pickFollowupBookingNarrowed,
   statusAfterSweep,
   tallySweep,
   type FollowupMatchInput,
@@ -301,5 +303,58 @@ describe('부재보류와 접수 맞추기', () => {
     assert.equal(plan.byFollowupStatus.ABSENT, 1);
     assert.equal(plan.byReasonCombo['name+address+structure'], 1);
     assert.equal(JSON.stringify(plan).includes('홍길동'), false);
+  });
+
+  it('후보만 대조해도 전체를 대조한 것과 같다', () => {
+    const inquiries: InquiryMatchInput[] = [];
+    const followups: FollowupMatchInput[] = [];
+    const names = ['홍길동', '김영희', '고객', '박철수', '이숨고'];
+    const dongs = ['역삼동', '잠실동', '합정동'];
+    for (let i = 0; i < 500; i += 1) {
+      const phone = `010${String(10000000 + ((i * 97) % 90000000)).slice(0, 8)}`;
+      inquiries.push(
+        inquiry({
+          id: `inq-${i}`,
+          customerName: names[i % names.length]!,
+          nickname: i % 11 === 0 ? '길동맘' : null,
+          customerPhone: phone,
+          customerPhone2: i % 17 === 0 ? `0504${String(10000000 + i).slice(0, 8)}` : null,
+          address: `서울특별시 강남구 ${dongs[i % dongs.length]} 래미안아파트 ${i}동`,
+          areaPyeong: 20 + (i % 8),
+          preferredDate: new Date(Date.UTC(2026, 10, 1 + (i % 27), 3)),
+          createdAt: new Date(Date.UTC(2026, 9, 1 + (i % 28), 3)),
+          status: i % 19 === 0 ? 'COMPLETED' : 'RECEIVED',
+          completedAt: i % 19 === 0 ? new Date(Date.UTC(2026, 9, 5, 3)) : null,
+          source: i % 13 === 0 ? '숨고' : '전화',
+          operatingCompanyId: i % 5 === 0 ? 'brand-b' : 'brand-a',
+        }),
+      );
+    }
+    for (let i = 0; i < 500; i += 1) {
+      const linked = i % 23 === 0 ? inquiries[i % 500]! : null;
+      followups.push(
+        followup({
+          inquiryId: linked?.id ?? null,
+          customerName: i % 3 === 0 ? inquiries[i % 500]!.customerName : names[(i + 2) % names.length]!,
+          nickname: i % 29 === 0 ? '길동맘' : null,
+          customerPhone: i % 4 === 0 ? inquiries[i % 500]!.customerPhone : `010${String(20000000 + i).padStart(8, '0')}`,
+          customerPhone2: i % 31 === 0 ? inquiries[(i + 3) % 500]!.customerPhone2 : null,
+          address: i % 6 === 0 ? inquiries[i % 500]!.address : `부산광역시 해운대구 우동 ${i}`,
+          areaPyeong: i % 7 === 0 ? inquiries[i % 500]!.areaPyeong : 30,
+          preferredMoveInCleaningDate: i % 8 === 0 ? '2026-11-20' : '2026-12-02',
+          createdAt: new Date(Date.UTC(2026, 10, 20, 1)),
+          leadSource: i % 9 === 0 ? '숨고' : null,
+          operatingCompanyId: 'brand-a',
+        }),
+      );
+    }
+    const index = buildInquiryBookingIndex(inquiries);
+    for (const row of followups) {
+      const full = pickFollowupBooking(row, inquiries);
+      const narrow = pickFollowupBookingNarrowed(row, index);
+      assert.equal(narrow?.level ?? null, full?.level ?? null);
+      assert.equal(narrow?.inquiryId ?? null, full?.inquiryId ?? null);
+      assert.deepEqual(narrow?.reasons ?? [], full?.reasons ?? []);
+    }
   });
 });
