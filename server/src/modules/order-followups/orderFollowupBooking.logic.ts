@@ -2,6 +2,7 @@ import { normalizeKrPhoneDigits } from '../cs/matchInquiryForCs.js';
 import { followupPhonesOverlap } from './orderFollowups.service.js';
 
 export type BookingReason = 'phone' | 'linked' | 'name' | 'address' | 'region' | 'building' | 'structure' | 'date';
+export type StructureConflict = 'pyeong' | 'rooms' | 'baths';
 export type MatchLevel = 'booked' | 'suspect';
 export type BookingLevel = MatchLevel | 'otherBrand' | 'past';
 
@@ -69,6 +70,8 @@ export type FollowupBooking = {
   operatingCompanyId: string;
   operatingCompanyName: string | null;
   marketerName: string | null;
+  /** 전화·연결 없이 예약으로 올리려다 구조가 어긋나 의심으로 남긴 항목. */
+  conflict?: StructureConflict[];
 };
 
 const OPEN_CALL = new Set(['REQUESTED', 'ABSENT', 'ON_HOLD', 'DEPOSIT_PENDING']);
@@ -285,6 +288,25 @@ function buildingsMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
   return Boolean(left && right && left === right);
 }
 
+function hasMeasure(value: number | null | undefined): value is number {
+  return value != null && Number.isFinite(value);
+}
+
+/** 양쪽 다 있을 때만. 평수는 3평 초과, 방·화장실은 값이 다르면 어긋남. */
+export function structureConflicts(followup: FollowupMatchInput, inquiry: InquiryMatchInput): StructureConflict[] {
+  const conflict: StructureConflict[] = [];
+  if (hasMeasure(followup.areaPyeong) && hasMeasure(inquiry.areaPyeong) && Math.abs(followup.areaPyeong - inquiry.areaPyeong) > 3) {
+    conflict.push('pyeong');
+  }
+  if (hasMeasure(followup.roomCount) && hasMeasure(inquiry.roomCount) && followup.roomCount !== inquiry.roomCount) {
+    conflict.push('rooms');
+  }
+  if (hasMeasure(followup.bathroomCount) && hasMeasure(inquiry.bathroomCount) && followup.bathroomCount !== inquiry.bathroomCount) {
+    conflict.push('baths');
+  }
+  return conflict;
+}
+
 function structuresMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
   if (a.areaPyeong == null || b.areaPyeong == null) return false;
   if (!Number.isFinite(a.areaPyeong) || !Number.isFinite(b.areaPyeong)) return false;
@@ -335,7 +357,7 @@ function withinCreatedWindow(followup: FollowupMatchInput, inquiry: InquiryMatch
 export function matchFollowupToInquiry(
   followup: FollowupMatchInput,
   inquiry: InquiryMatchInput,
-): { level: MatchLevel | null; reasons: BookingReason[] } {
+): { level: MatchLevel | null; reasons: BookingReason[]; conflict?: StructureConflict[] } {
   if (inquiry.status === 'CANCELLED') return { level: null, reasons: [] };
   const reasons: BookingReason[] = [];
   if (phonesOverlap(followup, inquiry)) reasons.push('phone');
@@ -349,15 +371,15 @@ export function matchFollowupToInquiry(
   if (datesMatch(followup, inquiry)) reasons.push('date');
   const has = (reason: BookingReason) => reasons.includes(reason);
   if (has('phone') || has('linked')) return { level: 'booked', reasons };
-  if (has('name') && has('address') && (has('structure') || (has('building') && has('date')))) {
-    return { level: 'booked', reasons };
-  }
-  if (
-    has('name') &&
-    has('date') &&
-    (has('structure') || has('region')) &&
-    withinCreatedWindow(followup, inquiry, NAME_DATE_BOOKED_WINDOW_MS)
-  ) {
+  const conflicts = structureConflicts(followup, inquiry);
+  const wouldBook =
+    (has('name') && has('address') && (has('structure') || (has('building') && has('date')))) ||
+    (has('name') &&
+      has('date') &&
+      (has('structure') || has('region')) &&
+      withinCreatedWindow(followup, inquiry, NAME_DATE_BOOKED_WINDOW_MS));
+  if (wouldBook) {
+    if (conflicts.length > 0) return { level: 'suspect', reasons, conflict: conflicts };
     return { level: 'booked', reasons };
   }
   if (has('name') && (has('address') || has('structure') || has('date'))) return { level: 'suspect', reasons };
@@ -410,6 +432,7 @@ function considerBooking(best: BookingPick | null, followup: FollowupMatchInput,
       operatingCompanyId: inquiry.operatingCompanyId,
       operatingCompanyName: inquiry.operatingCompanyName ?? null,
       marketerName: inquiry.marketerName ?? null,
+      ...(match.conflict?.length ? { conflict: match.conflict } : {}),
     },
   };
 }
@@ -487,6 +510,7 @@ export type SweepPlan = {
   byInquiryStatus: Record<string, number>;
   byFollowupStatus: Record<string, number>;
   byReasonCombo: Record<string, number>;
+  conflictDowngraded: number;
 };
 
 export function emptyReasonCounts(): Record<BookingReason, number> {
@@ -513,7 +537,9 @@ export function tallySweep(
   let suspect = 0;
   let otherBrand = 0;
   let past = 0;
+  let conflictDowngraded = 0;
   for (const row of rows) {
+    if (row.booking?.conflict?.length) conflictDowngraded += 1;
     if (row.sameBrandBooked && row.open) {
       wouldClose += 1;
       const reasons = row.booking?.reasons ?? [];
@@ -528,7 +554,7 @@ export function tallySweep(
     else if (row.booking?.level === 'otherBrand') otherBrand += 1;
     else if (row.booking?.level === 'past') past += 1;
   }
-  return { wouldClose, suspect, otherBrand, past, byReason, byInquiryStatus, byFollowupStatus, byReasonCombo };
+  return { wouldClose, suspect, otherBrand, past, byReason, byInquiryStatus, byFollowupStatus, byReasonCombo, conflictDowngraded };
 }
 
 export type InquiryBookingIndex = {

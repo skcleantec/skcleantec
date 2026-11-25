@@ -305,7 +305,64 @@ describe('부재보류와 접수 맞추기', () => {
     assert.equal(plan.byInquiryStatus.RECEIVED, 1);
     assert.equal(plan.byFollowupStatus.ABSENT, 1);
     assert.equal(plan.byReasonCombo['name+address+structure'], 1);
+    assert.equal(plan.conflictDowngraded, 0);
     assert.equal(JSON.stringify(plan).includes('홍길동'), false);
+  });
+
+  it('전화·연결 없이 구조가 어긋나면 예약으로 올리지 않는다', () => {
+    const made = new Date('2026-11-20T01:00:00.000Z');
+    const near = new Date('2026-11-10T01:00:00.000Z');
+    const road = {
+      customerPhone: '010-8888-2222',
+      address: '서울특별시 강남구 테헤란로 152',
+      buildingType: null as string | null,
+      memo: '',
+      createdAt: near,
+      preferredDate: new Date('2026-11-20T03:00:00.000Z'),
+    };
+    const jibun = {
+      customerPhone: '010-9999-1111',
+      address: '서울특별시 강남구 역삼동 123-4',
+      memo: '',
+      createdAt: made,
+      preferredMoveInCleaningDate: '2026-11-20',
+    };
+
+    const pyeong = pickFollowupBooking(
+      followup({ ...jibun, areaPyeong: 22, roomCount: 2, bathroomCount: 1 }),
+      [inquiry({ ...road, areaPyeong: 12, roomCount: 2, bathroomCount: 1 })],
+    );
+    assert.equal(pyeong?.level, 'suspect');
+    assert.ok(pyeong?.reasons.includes('name') && pyeong?.reasons.includes('date') && pyeong?.reasons.includes('region'));
+    assert.deepEqual(pyeong?.conflict, ['pyeong']);
+
+    const missing = pickFollowupBooking(
+      followup({ ...jibun, areaPyeong: null, roomCount: 2, bathroomCount: 1 }),
+      [inquiry({ ...road, areaPyeong: 12, roomCount: 2, bathroomCount: 1 })],
+    );
+    assert.equal(missing?.level, 'booked');
+    assert.equal(missing?.conflict, undefined);
+
+    const phone = pickFollowupBooking(
+      followup({ ...jibun, customerPhone: '010-1111-2222', areaPyeong: 22, roomCount: 2, bathroomCount: 1 }),
+      [inquiry({ ...road, customerPhone: '010-1111-2222', areaPyeong: 12, roomCount: 2, bathroomCount: 1 })],
+    );
+    assert.equal(phone?.level, 'booked');
+    assert.equal(phone?.conflict, undefined);
+
+    const rooms = pickFollowupBooking(
+      followup({ ...jibun, areaPyeong: 22, roomCount: 2, bathroomCount: 1 }),
+      [inquiry({ ...road, areaPyeong: 22, roomCount: 1, bathroomCount: 1 })],
+    );
+    assert.equal(rooms?.level, 'suspect');
+    assert.deepEqual(rooms?.conflict, ['rooms']);
+
+    const plan = tallySweep([
+      { booking: pyeong, open: true, sameBrandBooked: false, followupStatus: 'ABSENT' },
+    ]);
+    assert.equal(plan.conflictDowngraded, 1);
+    assert.equal(plan.suspect, 1);
+    assert.equal(plan.wouldClose, 0);
   });
 
   it('지번과 도로명에서 같은 시·군·구를 뽑고, 이름·희망일·30일 안이면 예약으로 본다', () => {
