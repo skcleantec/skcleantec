@@ -700,6 +700,8 @@ export async function finalizeTelecrmConsultationQuote(
       bathroomCount: true,
       isOneRoom: true,
       preferredMoveInCleaningDate: true,
+      createdAt: true,
+      leadSource: true,
     },
   });
   const booking = savedForBooking
