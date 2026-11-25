@@ -345,16 +345,16 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
 
   /** 같은 연락처 부재현황 자동 정리 · 050→010 연결 · 견적 학습 — 실패해도 접수 생성은 유지 */
   try {
-    if (inquiry.status !== 'PENDING' && inquiry.status !== 'CANCELLED') {
-      await closeOpenFollowupsForInquiry(db, {
-        tenantId,
-        operatingCompanyId: inquiry.operatingCompanyId,
-        customerPhone: inquiry.customerPhone,
-        customerPhone2: inquiry.customerPhone2,
-        inquiryId: inquiry.id,
-        inquiryStatus: inquiry.status,
-        actorUserId: userId ?? null,
-      });
+    await closeOpenFollowupsForInquiry(db, {
+      tenantId,
+      operatingCompanyId: inquiry.operatingCompanyId,
+      customerPhone: inquiry.customerPhone,
+      customerPhone2: inquiry.customerPhone2,
+      inquiryId: inquiry.id,
+      inquiryStatus: inquiry.status,
+      actorUserId: userId ?? null,
+    });
+    if (inquiry.status !== 'CANCELLED') {
       await bookOpenHotMarksForCustomerPhones(db, {
         tenantId,
         customerPhone: inquiry.customerPhone,

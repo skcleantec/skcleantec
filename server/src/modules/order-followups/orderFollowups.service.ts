@@ -261,11 +261,8 @@ export function followupTargetStatusForInquiry(
 }
 
 /**
- * 접수가 생성·진행되면 같은 연락처(010/050 어느 쪽이든)의 열린 부재현황을 자동 정리한다.
- * - 접수 입금대기 → 부재현황 예약금 대기
- * - 접수 입금완료 이후 → 부재현황 입금 완료
- * - 접수(RECEIVED) → 부재현황 처리 완료
- * best-effort: 예외를 밖으로 던지지 않는다.
+ * 접수가 생기면 같은 고객의 열린 부재·보류를 목록에서 내린다.
+ * 전화가 달라도 이름·주소 등으로 맞춘다. 예외는 삼킨다.
  */
 export async function closeOpenFollowupsForInquiry(
   db: PrismaClient | Prisma.TransactionClient,
@@ -279,82 +276,10 @@ export async function closeOpenFollowupsForInquiry(
     actorUserId?: string | null;
   },
 ): Promise<number> {
-  try {
-    const rule = followupTargetStatusForInquiry(params.inquiryStatus);
-    if (!rule) return 0;
-    const phone = (params.customerPhone ?? '').trim();
-    const phone2 = params.customerPhone2?.trim() || null;
-    const digits = collectFollowupPhoneDigits(phone, phone2);
-    if (digits.length === 0) return 0;
-    const tails = [...new Set(digits.map((d) => d.slice(-4)).filter((t) => t.length === 4))];
-    if (tails.length === 0) return 0;
-
-    const candidates = await db.orderFollowup.findMany({
-      where: {
-        tenantId: params.tenantId,
-        ...(params.operatingCompanyId ? { operatingCompanyId: params.operatingCompanyId } : {}),
-        status: { in: [...rule.from] },
-        OR: tails.flatMap((tail) => [
-          { customerPhone: { contains: tail } },
-          { customerPhone2: { contains: tail } },
-        ]),
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 50,
-      select: {
-        id: true,
-        status: true,
-        inquiryId: true,
-        customerPhone: true,
-        customerPhone2: true,
-        depositReceivedAt: true,
-        createdById: true,
-        handledById: true,
-      },
-    });
-    const matched = candidates.filter((row) =>
-      followupPhonesOverlap(phone, phone2, row.customerPhone, row.customerPhone2),
-    );
-    let changed = 0;
-    const inquiryLabel =
-      INQUIRY_STATUS_LABEL_KO[String(params.inquiryStatus)] ?? String(params.inquiryStatus);
-    for (const row of matched) {
-      if (row.status === rule.target) continue;
-      try {
-        const data: Prisma.OrderFollowupUncheckedUpdateInput = { status: rule.target };
-        if (!row.inquiryId) data.inquiryId = params.inquiryId;
-        if (rule.target === 'RESERVED' && !row.depositReceivedAt) data.depositReceivedAt = new Date();
-        await db.orderFollowup.update({ where: { id: row.id }, data });
-        const actorId = params.actorUserId || row.handledById || row.createdById;
-        const fromKo = FOLLOWUP_STATUS_LABEL_KO[row.status] ?? row.status;
-        const toKo = FOLLOWUP_STATUS_LABEL_KO[rule.target] ?? rule.target;
-        await appendFollowupLog(db, {
-          followupId: row.id,
-          actorId,
-          action: 'STATUS',
-          detail: JSON.stringify({
-            from: row.status,
-            to: rule.target,
-            auto: true,
-            note: `같은 연락처 접수가 「${inquiryLabel}」 상태가 되어 「${fromKo}」 → 「${toKo}」(으)로 자동 정리했습니다.`,
-          }),
-        });
-        if (!row.inquiryId) {
-          await appendFollowupLog(db, {
-            followupId: row.id,
-            actorId,
-            action: 'INQUIRY_LINK',
-            detail: JSON.stringify({ from: null, to: params.inquiryId, auto: true }),
-          });
-        }
-        changed += 1;
-      } catch (e) {
-        console.error('[order-followups] auto-close row failed', row.id, e instanceof Error ? e.message : e);
-      }
-    }
-    return changed;
-  } catch (e) {
-    console.error('[order-followups] closeOpenFollowupsForInquiry failed', e instanceof Error ? e.message : e);
-    return 0;
-  }
+  const { syncFollowupsAfterInquiry } = await import('./orderFollowupBooking.service.js');
+  return syncFollowupsAfterInquiry(db, {
+    tenantId: params.tenantId,
+    inquiryId: params.inquiryId,
+    actorUserId: params.actorUserId,
+  });
 }
