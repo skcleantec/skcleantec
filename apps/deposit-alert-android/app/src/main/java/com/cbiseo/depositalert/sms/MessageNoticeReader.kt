@@ -10,8 +10,10 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.cbiseo.depositalert.service.scheduleWake
 import com.cbiseo.depositalert.store.DeviceSettings
 import com.cbiseo.depositalert.store.NoticeLog
+import com.cbiseo.depositalert.work.HeartbeatPulse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,6 +30,11 @@ class MessageNoticeReader : NotificationListenerService() {
         instance = this
         connected = true
         readActive()
+        scheduleWake(this)
+        io.launch {
+            DepositIntake.sendQueued(applicationContext)
+            HeartbeatPulse.send(applicationContext)
+        }
     }
 
     override fun onListenerDisconnected() {

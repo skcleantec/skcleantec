@@ -28,6 +28,7 @@ import com.cbiseo.depositalert.sms.InboxScan
 import com.cbiseo.depositalert.R
 import com.cbiseo.depositalert.sms.MessageNoticeReader
 import com.cbiseo.depositalert.sms.SAMPLE_NH_SMS
+import com.cbiseo.depositalert.sms.dismissWakePrompt
 import com.cbiseo.depositalert.sms.formatNoticeLine
 import com.cbiseo.depositalert.sms.previewDeposit
 import com.cbiseo.depositalert.store.DeviceSettings
@@ -77,6 +78,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
         settings = DeviceSettings(this)
+        dismissWakePrompt(this)
         binding.serverProduction.isChecked = settings.serverBase() != DeviceSettings.STAGING
         binding.serverStaging.isChecked = settings.serverBase() == DeviceSettings.STAGING
         binding.pairButton.setOnClickListener { pair() }
