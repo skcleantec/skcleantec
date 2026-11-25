@@ -263,6 +263,8 @@ function followupMatchInput(row: {
   isOneRoom?: boolean | null;
   preferredMoveInCleaningDate?: string | null;
   status?: string | null;
+  createdAt?: string | Date | null;
+  leadSource?: string | null;
 }): FollowupMatchInput {
   return {
     inquiryId: row.inquiryId,
@@ -279,6 +281,8 @@ function followupMatchInput(row: {
     isOneRoom: row.isOneRoom,
     preferredMoveInCleaningDate: row.preferredMoveInCleaningDate,
     status: row.status,
+    createdAt: row.createdAt,
+    leadSource: row.leadSource,
   };
 }
 
@@ -298,6 +302,8 @@ const BOOKING_LIST_SELECT = {
   isOneRoom: true,
   preferredMoveInCleaningDate: true,
   status: true,
+  createdAt: true,
+  leadSource: true,
 } as const;
 
 async function bookingIndexForWhere(tenantId: string, where: import('@prisma/client').Prisma.OrderFollowupWhereInput) {
@@ -320,7 +326,7 @@ async function bookingIndexForWhere(tenantId: string, where: import('@prisma/cli
     const booking = found.get(index) ?? null;
     byId.set(row.id, booking);
     if (!booking) ids.none.push(row.id);
-    else {
+    else if (booking.level !== 'past') {
       counts[booking.level] += 1;
       ids[booking.level].push(row.id);
     }
