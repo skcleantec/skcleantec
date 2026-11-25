@@ -76,6 +76,22 @@ export interface OrderFollowupItem {
   myHotMarkEditable?: boolean;
   /** 다른 브랜드에 같은 고객으로 열린 건 */
   otherBrands?: OrderFollowupOtherBrand[];
+  /** 접수 목록에 이미 있는 고객이면 채워진다(목록을 읽는 순간 대조) */
+  booking?: OrderFollowupBooking | null;
+}
+
+export type OrderFollowupBookingReason = 'phone' | 'linked' | 'name' | 'address' | 'building' | 'structure' | 'date';
+
+export interface OrderFollowupBooking {
+  level: 'booked' | 'suspect' | 'otherBrand';
+  reasons: OrderFollowupBookingReason[];
+  inquiryId: string;
+  inquiryNumber?: string | null;
+  status?: string | null;
+  preferredDate?: string | null;
+  operatingCompanyId?: string | null;
+  operatingCompanyName?: string | null;
+  marketerName?: string | null;
 }
 
 export interface OrderFollowupOtherBrand {
