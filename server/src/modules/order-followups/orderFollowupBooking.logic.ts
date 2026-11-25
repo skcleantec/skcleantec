@@ -1,7 +1,7 @@
 import { normalizeKrPhoneDigits } from '../cs/matchInquiryForCs.js';
 import { followupPhonesOverlap } from './orderFollowups.service.js';
 
-export type BookingReason = 'phone' | 'linked' | 'name' | 'address' | 'building' | 'structure' | 'date';
+export type BookingReason = 'phone' | 'linked' | 'name' | 'address' | 'region' | 'building' | 'structure' | 'date';
 export type MatchLevel = 'booked' | 'suspect';
 export type BookingLevel = MatchLevel | 'otherBrand' | 'past';
 
@@ -9,9 +9,10 @@ export type BookingLevel = MatchLevel | 'otherBrand' | 'past';
 export const DAWN_FOLLOWUP_BOOKING_SWEEP_CLOSES = false;
 
 const SAFE_PHONE_WINDOW_MS = 72 * 60 * 60 * 1000;
+const NAME_DATE_BOOKED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const JUNK_PHONES = new Set(['01000000000', '01012345678']);
 const PLACEHOLDER_NAMES = new Set(['고객', '숨고', '숨고고객', '당근', '미소', '미상', '모름', '이름없음', '무명', '테스트']);
-const REASON_ORDER: BookingReason[] = ['phone', 'linked', 'name', 'address', 'building', 'structure', 'date'];
+const REASON_ORDER: BookingReason[] = ['phone', 'linked', 'name', 'address', 'region', 'building', 'structure', 'date'];
 
 export type FollowupMatchInput = {
   inquiryId?: string | null;
@@ -119,6 +120,7 @@ type InquiryPrep = {
   safe: string[];
   nameKeys: string[];
   region: { si: string; gu: string; dong: string } | null;
+  adminRegion: string | null;
   complexes: string[];
   building: string | null;
   preferred: string | null;
@@ -136,6 +138,7 @@ function prepInquiry(inquiry: InquiryMatchInput): InquiryPrep {
     safe: phones.safe,
     nameKeys: usableNameKeys(inquiry.customerName, inquiry.nickname, inquiry.source),
     region: regionOf(inquiry.address),
+    adminRegion: bookingRegionKey(inquiry.address),
     complexes: complexesOf(inquiry.address),
     building: buildingLabel(inquiry.buildingType || inquiry.propertyType, inquiry.address, inquiry.memo),
     preferred: preferredYmd(inquiry.preferredDate),
@@ -176,6 +179,66 @@ export function phoneTails(phone?: string | null, phone2?: string | null): strin
 function namesMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
   const left = usableNameKeys(a.customerName, a.nickname, a.leadSource);
   return left.some((key) => prepInquiry(b).nameKeys.includes(key));
+}
+
+const SI_CANON: { prefix: string; canon: string }[] = [
+  ['서울특별시', '서울특별시'],
+  ['부산광역시', '부산광역시'],
+  ['대구광역시', '대구광역시'],
+  ['인천광역시', '인천광역시'],
+  ['광주광역시', '광주광역시'],
+  ['대전광역시', '대전광역시'],
+  ['울산광역시', '울산광역시'],
+  ['세종특별자치시', '세종특별자치시'],
+  ['강원특별자치도', '강원특별자치도'],
+  ['전북특별자치도', '전북특별자치도'],
+  ['제주특별자치도', '제주특별자치도'],
+  ['충청북도', '충청북도'],
+  ['충청남도', '충청남도'],
+  ['전라북도', '전북특별자치도'],
+  ['전라남도', '전라남도'],
+  ['경상북도', '경상북도'],
+  ['경상남도', '경상남도'],
+  ['강원도', '강원특별자치도'],
+  ['제주도', '제주특별자치도'],
+  ['경기도', '경기도'],
+  ['서울시', '서울특별시'],
+  ['서울', '서울특별시'],
+  ['부산', '부산광역시'],
+  ['대구', '대구광역시'],
+  ['인천', '인천광역시'],
+  ['광주', '광주광역시'],
+  ['대전', '대전광역시'],
+  ['울산', '울산광역시'],
+  ['세종', '세종특별자치시'],
+  ['경기', '경기도'],
+  ['강원', '강원특별자치도'],
+  ['충북', '충청북도'],
+  ['충남', '충청남도'],
+  ['전북', '전북특별자치도'],
+  ['전남', '전라남도'],
+  ['경북', '경상북도'],
+  ['경남', '경상남도'],
+  ['제주', '제주특별자치도'],
+].map(([prefix, canon]) => ({ prefix, canon }));
+
+/** 시·광역시·도 + 시·군·구. 동·도로명은 빼서 지번과 도로명을 같은 키로 본다. */
+export function bookingRegionKey(address?: string | null): string | null {
+  const compact = (address ?? '').replace(/\s+/g, '');
+  if (!compact) return null;
+  const hit = SI_CANON.find((row) => compact.startsWith(row.prefix));
+  if (!hit) return null;
+  const rest = compact.slice(hit.prefix.length);
+  const siGu = /^([가-힣]{1,8}시)([가-힣]{1,8}구)/.exec(rest);
+  if (siGu) return `${hit.canon}|${siGu[1]}${siGu[2]}`;
+  const gun = /^([가-힣]{1,8}군)/.exec(rest);
+  if (gun) return `${hit.canon}|${gun[1]}`;
+  const gu = /^([가-힣]{1,8}구)/.exec(rest);
+  if (gu) return `${hit.canon}|${gu[1]}`;
+  const city = /^([가-힣]{1,8}시)/.exec(rest);
+  if (city) return `${hit.canon}|${city[1]}`;
+  if (hit.canon === '세종특별자치시') return hit.canon;
+  return null;
 }
 
 function regionOf(address?: string | null): { si: string; gu: string; dong: string } | null {
@@ -255,6 +318,19 @@ function datesMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
   return Boolean(left && right && left === right);
 }
 
+function regionsMatch(a: FollowupMatchInput, b: InquiryMatchInput): boolean {
+  const left = bookingRegionKey(a.address);
+  const right = prepInquiry(b).adminRegion;
+  return Boolean(left && right && left === right);
+}
+
+function withinCreatedWindow(followup: FollowupMatchInput, inquiry: InquiryMatchInput, windowMs: number): boolean {
+  const left = createdMs(followup.createdAt);
+  const right = createdMs(inquiry.createdAt);
+  if (!left || !right) return false;
+  return Math.abs(left - right) <= windowMs;
+}
+
 /** 부재·보류와 접수가 같은 고객인지. 약하면 null. */
 export function matchFollowupToInquiry(
   followup: FollowupMatchInput,
@@ -265,13 +341,23 @@ export function matchFollowupToInquiry(
   if (phonesOverlap(followup, inquiry)) reasons.push('phone');
   if (followup.inquiryId && followup.inquiryId === inquiry.id) reasons.push('linked');
   if (namesMatch(followup, inquiry)) reasons.push('name');
-  if (addressMatch(followup, inquiry)) reasons.push('address');
+  const matchedAddress = addressMatch(followup, inquiry);
+  if (matchedAddress) reasons.push('address');
+  if (matchedAddress || regionsMatch(followup, inquiry)) reasons.push('region');
   if (buildingsMatch(followup, inquiry)) reasons.push('building');
   if (structuresMatch(followup, inquiry)) reasons.push('structure');
   if (datesMatch(followup, inquiry)) reasons.push('date');
   const has = (reason: BookingReason) => reasons.includes(reason);
   if (has('phone') || has('linked')) return { level: 'booked', reasons };
   if (has('name') && has('address') && (has('structure') || (has('building') && has('date')))) {
+    return { level: 'booked', reasons };
+  }
+  if (
+    has('name') &&
+    has('date') &&
+    (has('structure') || has('region')) &&
+    withinCreatedWindow(followup, inquiry, NAME_DATE_BOOKED_WINDOW_MS)
+  ) {
     return { level: 'booked', reasons };
   }
   if (has('name') && (has('address') || has('structure') || has('date'))) return { level: 'suspect', reasons };
@@ -404,7 +490,7 @@ export type SweepPlan = {
 };
 
 export function emptyReasonCounts(): Record<BookingReason, number> {
-  return { phone: 0, linked: 0, name: 0, address: 0, building: 0, structure: 0, date: 0 };
+  return { phone: 0, linked: 0, name: 0, address: 0, region: 0, building: 0, structure: 0, date: 0 };
 }
 
 export function reasonCombo(reasons: BookingReason[]): string {
@@ -448,6 +534,7 @@ export function tallySweep(
 export type InquiryBookingIndex = {
   byPhone: Map<string, InquiryMatchInput[]>;
   byName: Map<string, InquiryMatchInput[]>;
+  byNameDate: Map<string, InquiryMatchInput[]>;
   byId: Map<string, InquiryMatchInput>;
   byDateArea: Map<string, InquiryMatchInput[]>;
   /** 같은 시각이면 앞선 접수가 이긴다. 전체 대조와 같은 순서. */
@@ -455,7 +542,7 @@ export type InquiryBookingIndex = {
 };
 
 function emptyInquiryIndex(): InquiryBookingIndex {
-  return { byPhone: new Map(), byName: new Map(), byId: new Map(), byDateArea: new Map(), order: new Map() };
+  return { byPhone: new Map(), byName: new Map(), byNameDate: new Map(), byId: new Map(), byDateArea: new Map(), order: new Map() };
 }
 
 function pushIndex(map: Map<string, InquiryMatchInput[]>, key: string, inquiry: InquiryMatchInput): void {
@@ -476,7 +563,10 @@ function addInquiryToIndex(index: InquiryBookingIndex, inquiry: InquiryMatchInpu
   if (!index.order.has(inquiry.id)) index.order.set(inquiry.id, index.order.size);
   index.byId.set(inquiry.id, inquiry);
   for (const tail of phoneTails(inquiry.customerPhone, inquiry.customerPhone2)) pushIndex(index.byPhone, tail, inquiry);
-  for (const key of prepared.nameKeys) pushIndex(index.byName, key, inquiry);
+  for (const key of prepared.nameKeys) {
+    pushIndex(index.byName, key, inquiry);
+    if (prepared.preferred) pushIndex(index.byNameDate, `${key}|${prepared.preferred}`, inquiry);
+  }
   for (const key of dateAreaKeys(prepared.preferred, inquiry.areaPyeong)) pushIndex(index.byDateArea, key, inquiry);
 }
 
@@ -518,11 +608,12 @@ export function candidatesForFollowup(index: InquiryBookingIndex, followup: Foll
   for (const tail of phoneTails(followup.customerPhone, followup.customerPhone2)) {
     for (const row of index.byPhone.get(tail) ?? []) add(row);
   }
+  const ymd = preferredYmd(followup.preferredMoveInCleaningDate);
   for (const key of usableNameKeys(followup.customerName, followup.nickname, followup.leadSource)) {
     for (const row of index.byName.get(key) ?? []) add(row);
+    if (ymd) for (const row of index.byNameDate.get(`${key}|${ymd}`) ?? []) add(row);
   }
   if (followup.inquiryId) add(index.byId.get(followup.inquiryId));
-  const ymd = preferredYmd(followup.preferredMoveInCleaningDate);
   for (const key of dateAreaKeys(ymd, followup.areaPyeong)) {
     for (const row of index.byDateArea.get(key) ?? []) add(row);
   }
