@@ -15,6 +15,19 @@ import { resolveFieldOwnerIds } from '../../lib/fieldOwner.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
 import { isSoloOperatorTenant } from '../../lib/soloOperator.js';
 
+/** 휴대폰 푸시 수신에서만 뺀다. 웹소켓 목록은 그대로 둔다. */
+export function staffChangePushUserIds(
+  leaderIds: string[],
+  opts: { actorId?: string | null; suppressChangePushUserIds?: string[] },
+): string[] {
+  const skip = new Set<string>();
+  if (opts.actorId) skip.add(opts.actorId);
+  for (const id of opts.suppressChangePushUserIds ?? []) {
+    if (id) skip.add(id);
+  }
+  return leaderIds.filter((id) => id && !skip.has(id));
+}
+
 /** 1인 업체만, 담당 목록에서 직접 고친 사람을 뺀다. 본사는 목록을 그대로 둔다. */
 async function omitSoloActor(
   tenantId: string,
@@ -87,6 +100,8 @@ async function notifyScheduleAlertToStaff(params: {
   actorId?: string | null;
   /** 취소·보류 PATCH 등으로 Assignment 행이 이미 지워진 뒤 알릴 담당 팀장 */
   affectedTeamLeaderIds?: string[];
+  /** 이번 저장에서 새로 배정된 팀장 — 배정 푸시만 받고 변경 푸시는 받지 않는다. */
+  suppressChangePushUserIds?: string[];
 }): Promise<void> {
   const wsPayload = buildScheduleAlertWsPayload(params);
   broadcastJsonToStaff(wsPayload, params.tenantId);
@@ -121,8 +136,10 @@ async function notifyScheduleAlertToStaff(params: {
     select: { id: true, role: true },
   });
   const pushByUserId: Record<string, StaffAppPushPayload> = {};
+  const pushIds = new Set(staffChangePushUserIds(leaderIds, params));
   if (params.inquiryId) {
     for (const u of users) {
+      if (!pushIds.has(u.id)) continue;
       pushByUserId[u.id] = buildScheduleAlertPushPayload({
         customerName: params.customerName,
         inquiryId: params.inquiryId,
@@ -133,7 +150,9 @@ async function notifyScheduleAlertToStaff(params: {
     }
   }
 
-  if (Object.keys(pushByUserId).length > 0) {
+  if (params.inquiryId) {
+    await notifyInboxRefresh(leaderIds, pushByUserId);
+  } else if (Object.keys(pushByUserId).length > 0) {
     await notifyInboxRefresh(leaderIds, pushByUserId);
   } else {
     await notifyStaffInboxRefresh(params.tenantId, leaderIds);
@@ -159,6 +178,8 @@ export function notifyChangeLogToStaff(params: {
   scheduleAlertKind?: ScheduleAlertKind | null;
   /** PATCH 직전 담당 팀장 — 취소·보류로 Assignment 삭제 후에도 알림 대상 유지 */
   affectedTeamLeaderIds?: string[];
+  /** 이번 저장에서 새로 배정된 팀장 — 배정 푸시만 받고 변경 푸시는 받지 않는다. */
+  suppressChangePushUserIds?: string[];
 }): void {
   const lines = params.lines.filter(Boolean);
   if (lines.length === 0) return;
@@ -182,6 +203,7 @@ export function notifyChangeLogToStaff(params: {
       lines,
       actorId: params.actorId,
       affectedTeamLeaderIds: params.affectedTeamLeaderIds,
+      suppressChangePushUserIds: params.suppressChangePushUserIds,
     }).catch((e) => console.error('[schedule-alert-notify] team leaders', e));
   }
 
@@ -210,7 +232,9 @@ export function notifyChangeLogToStaff(params: {
         select: { id: true, role: true },
       });
       const pushByUserId: Record<string, StaffAppPushPayload> = {};
+      const pushIds = new Set(staffChangePushUserIds(leaderIds, params));
       for (const u of users) {
+        if (!pushIds.has(u.id)) continue;
         pushByUserId[u.id] = buildInquiryChangePushPayload({
           customerName: params.customerName,
           inquiryId: params.inquiryId,
@@ -218,9 +242,7 @@ export function notifyChangeLogToStaff(params: {
           role: u.role,
         });
       }
-      if (Object.keys(pushByUserId).length > 0) {
-        await notifyInboxRefresh(leaderIds, pushByUserId);
-      }
+      await notifyInboxRefresh(leaderIds, pushByUserId);
     }
 
     for (const id of leaderIds) {

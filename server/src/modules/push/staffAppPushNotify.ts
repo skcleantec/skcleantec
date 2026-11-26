@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma.js';
 import { CBISEO_STAFF_APP_PACKAGE } from '../../lib/cbiseoStaffAppPolicy.constants.js';
 import {
   canReceiveHappyCallPush,
+  staffAppAndroidNotificationExtras,
   staffAppPushDataRecord,
   type StaffAppPushPayload,
 } from '../../lib/staffAppPush.helpers.js';
@@ -123,6 +124,7 @@ export async function notifyStaffAppFcmRefresh(
                   defaultSound: true,
                   defaultVibrateTimings: true,
                   visibility: 'private' as const,
+                  ...staffAppAndroidNotificationExtras(m.data),
                 },
               },
             };

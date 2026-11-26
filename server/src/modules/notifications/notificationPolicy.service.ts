@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   defaultTenantNotificationPolicy,
@@ -123,6 +124,29 @@ export async function recordNotificationDelivery(params: {
   });
 }
 
+/** 같은 키의 기록이 없을 때만 만든다. 이미 있으면 false. 발송은 이 값이 true 일 때만. */
+export async function claimNotificationDelivery(params: {
+  tenantId: string;
+  userId: string;
+  kind: string;
+  dedupeKey: string;
+}): Promise<boolean> {
+  try {
+    await prisma.notificationDeliveryLog.create({
+      data: {
+        tenantId: params.tenantId,
+        userId: params.userId,
+        kind: params.kind,
+        dedupeKey: params.dedupeKey,
+      },
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return false;
+    throw error;
+  }
+}
+
 export async function countNotificationDeliveries(params: {
   tenantId: string;
   userId: string;
@@ -142,14 +166,22 @@ export async function getLatestNotificationDelivery(params: {
   userId: string;
   dedupeKeyPrefix: string;
 }): Promise<Date | null> {
-  const row = await prisma.notificationDeliveryLog.findFirst({
+  const row = await getLatestNotificationDeliveryRow(params);
+  return row?.sentAt ?? null;
+}
+
+export async function getLatestNotificationDeliveryRow(params: {
+  tenantId: string;
+  userId: string;
+  dedupeKeyPrefix: string;
+}): Promise<{ id: string; sentAt: Date } | null> {
+  return prisma.notificationDeliveryLog.findFirst({
     where: {
       tenantId: params.tenantId,
       userId: params.userId,
       dedupeKey: { startsWith: params.dedupeKeyPrefix },
     },
     orderBy: { sentAt: 'desc' },
-    select: { sentAt: true },
+    select: { id: true, sentAt: true },
   });
-  return row?.sentAt ?? null;
 }

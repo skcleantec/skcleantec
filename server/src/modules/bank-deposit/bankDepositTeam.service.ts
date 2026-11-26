@@ -670,6 +670,7 @@ export async function remindOpenDeposits(db: Db, now = new Date()) {
         title: '누구 고객 입금인지 확인해 주세요',
         body: openPushBody(row.depositorName, row.amountWon),
         path: TEAM_PATH,
+        depositId: row.id,
       })),
     );
   }

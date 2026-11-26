@@ -18,9 +18,16 @@ export type StaffAppPushPayload = {
   title: string;
   body: string;
   path: string;
+  /** 있으면 같은 tag 의 알림은 알림창에서 한 줄로 덮어쓴다. */
+  tag?: string;
 };
 
 export const STAFF_APP_PUSH_DATA_TYPE = 'staff-app:navigate';
+
+/** tag 가 있을 때만 FCM android.notification.tag 로 넘긴다. */
+export function staffAppAndroidNotificationExtras(data: Record<string, string>): { tag?: string } {
+  return data.tag ? { tag: data.tag } : {};
+}
 
 export function staffAppPushDataRecord(payload: StaffAppPushPayload): Record<string, string> {
   return {
@@ -29,6 +36,7 @@ export function staffAppPushDataRecord(payload: StaffAppPushPayload): Record<str
     title: payload.title,
     body: payload.body,
     path: payload.path,
+    ...(payload.tag ? { tag: payload.tag } : {}),
   };
 }
 
@@ -233,12 +241,14 @@ export function buildHappyCallPushPayload(params: {
   const name = params.customerName.trim() || '고객';
   const q = `openInquiry=${encodeURIComponent(params.inquiryId)}`;
   const path = params.path ?? `/team/assignments?${q}`;
+  const tag = `happy_call:${params.inquiryId}`;
   if (params.variant === 'overdue') {
     return {
       kind: 'happy_call',
       title: '해피콜 미완',
       body: `${name}님 해피콜을 지금 진행해 주세요.`,
       path,
+      tag,
     };
   }
   return {
@@ -246,6 +256,7 @@ export function buildHappyCallPushPayload(params: {
     title: '해피콜 안내',
     body: `${name}님 해피콜을 진행해 주세요.`,
     path,
+    tag,
   };
 }
 

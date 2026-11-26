@@ -1992,6 +1992,10 @@ router.patch('/:id', async (req, res) => {
       void notifyStaffInboxRefresh(tenantId, leaderIds);
     }
     if (lines.length > 0) {
+      const previousLeaderIds = inquiry.assignments.map((a) => a.teamLeaderId);
+      const newlyAssignedLeaderIds = wantsTeamSync
+        ? teamLeaderIds.filter((leaderId) => !previousLeaderIds.includes(leaderId))
+        : [];
       notifyChangeLogToStaff({
         tenantId,
         customerName: inquiry.customerName,
@@ -2000,7 +2004,8 @@ router.patch('/:id', async (req, res) => {
         changeLogId: createdChangeLogId ?? undefined,
         actorId: user?.userId ?? null,
         scheduleAlertKind: createdChangeLogAlertKind,
-        affectedTeamLeaderIds: inquiry.assignments.map((a) => a.teamLeaderId),
+        affectedTeamLeaderIds: previousLeaderIds,
+        suppressChangePushUserIds: newlyAssignedLeaderIds,
       });
     }
     queueHouseholdLedgerInquirySync(prisma, { tenantId, inquiryId: id });
