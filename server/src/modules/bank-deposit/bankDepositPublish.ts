@@ -64,6 +64,8 @@ export async function publishBankDeposit(
     linkedKind: string | null;
     noOwner?: boolean;
     claimedByTeamLeaderName?: string | null;
+    /** 고정 입금처 — 화면 목록만 갱신하고 토스트·푸시는 보내지 않는다 */
+    muted?: boolean;
   },
 ) {
   const stored = await db.bankDeposit.findFirst({
@@ -86,9 +88,10 @@ export async function publishBankDeposit(
     linkedKind: row.linkedKind,
     noOwner: row.noOwner,
     claimedByTeamLeaderName: row.claimedByTeamLeaderName,
+    muted: row.muted,
     source: stored?.source === 'scan' || stored?.source === 'notification' ? stored.source : 'sms',
   });
-  if (row.event === 'new' && stored) {
+  if (row.event === 'new' && stored && !row.muted) {
     try {
       await notifyStaffOfNewBankDeposit(db, {
         tenantId: row.tenantId,

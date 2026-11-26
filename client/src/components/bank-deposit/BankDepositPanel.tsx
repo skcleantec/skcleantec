@@ -22,8 +22,10 @@ import { addDaysToKstYmd, kstTodayYmd } from '../../utils/dateFormat';
 import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import { Button } from '../ui/Button';
 import { StatusChip, Tag } from '../ui/StatusChip';
+import { toast } from '../ui/Toast';
 import { BankDepositLinkDialog } from './BankDepositLinkDialog';
 import { BankDepositManualDialog } from './BankDepositManualDialog';
+import { BankDepositMuteDialog } from './BankDepositMuteDialog';
 import { BankDepositSetupDialog } from './BankDepositSetupDialog';
 import { notifyBankDepositNavBadgeRefresh } from './bankDepositNavBadge';
 import {
@@ -169,6 +171,7 @@ function RowButtons({
   deleteArmed,
   onFind,
   onIgnore,
+  onMute,
   onUnlink,
   onArmDelete,
   onDelete,
@@ -182,6 +185,8 @@ function RowButtons({
   deleteArmed: boolean;
   onFind: () => void;
   onIgnore: () => void;
+  /** 고정 입금처로 등록 (PG사·협력업체) */
+  onMute: () => void;
   onUnlink: () => void;
   onArmDelete: (armed: boolean) => void;
   onDelete: () => void;
@@ -241,6 +246,15 @@ function RowButtons({
           청소와 무관
         </Button>
         {cancelBtn}
+        <button
+          type="button"
+          onClick={onMute}
+          disabled={busy}
+          title="PG사·협력업체처럼 늘 들어오는 입금자면 등록해 두세요. 다음부터 알림 없이 쌓입니다"
+          className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-lg bg-blue-50 px-2.5 text-fluid-2xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          고정 입금처
+        </button>
         {del}
       </span>
     );
@@ -296,6 +310,7 @@ export function BankDepositPanel({ token }: { token: string }) {
   const [linkTarget, setLinkTarget] = useState<BankDepositItem | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [muteTarget, setMuteTarget] = useState<BankDepositItem | null>(null);
   const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [summary, setSummary] = useState<BankDepositSummary | null>(null);
@@ -777,6 +792,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                           onDelete={() => void act(row, () => deleteBankDeposit(token, row.id)).then(() => setArmedDeleteId(null))}
                           onFind={() => setLinkTarget(row)}
                           onIgnore={() => void act(row, () => ignoreBankDeposit(token, row.id))}
+                          onMute={() => setMuteTarget(row)}
                           onUnlink={() => void act(row, () => unlinkBankDeposit(token, row.id))}
                         />
                       </td>
@@ -827,6 +843,7 @@ export function BankDepositPanel({ token }: { token: string }) {
                       onDelete={() => void act(row, () => deleteBankDeposit(token, row.id)).then(() => setArmedDeleteId(null))}
                       onFind={() => setLinkTarget(row)}
                       onIgnore={() => void act(row, () => ignoreBankDeposit(token, row.id))}
+                      onMute={() => setMuteTarget(row)}
                       onUnlink={() => void act(row, () => unlinkBankDeposit(token, row.id))}
                     />
                   </div>
@@ -872,6 +889,20 @@ export function BankDepositPanel({ token }: { token: string }) {
           onClose={() => setManualOpen(false)}
           onCreated={() => {
             setManualOpen(false);
+            void afterChange();
+          }}
+        />
+      ) : null}
+      {muteTarget ? (
+        <BankDepositMuteDialog
+          token={token}
+          brands={brandOptions}
+          initial={{ depositorName: muteTarget.depositorName, operatingCompanyId: muteTarget.operatingCompanyId }}
+          openSameNameCount={items.filter((x) => x.status === 'NEEDS_REVIEW' && x.depositorName.replace(/\s/g, '') === muteTarget.depositorName.replace(/\s/g, '')).length}
+          onClose={() => setMuteTarget(null)}
+          onSaved={(item, ignoredIds) => {
+            setMuteTarget(null);
+            toast.success(ignoredIds.length > 0 ? `「${item.displayName}」을 고정 입금처로 등록하고 ${ignoredIds.length}건을 접었어요.` : `「${item.displayName}」을 고정 입금처로 등록했어요.`);
             void afterChange();
           }}
         />

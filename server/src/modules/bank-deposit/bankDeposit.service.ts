@@ -20,6 +20,7 @@ import { depositListCounts } from './bankDepositCancel.logic.js';
 import { manualDepositProblems, tombstoneBlocks } from './bankDepositSettings.logic.js';
 import { matchStoredDeposit } from './bankDepositMatch.service.js';
 import { publishBankDeposit } from './bankDepositPublish.js';
+import { findMutedRuleFor, touchMutedRule } from './bankDepositMuted.service.js';
 import {
   decorateStaffDeposits,
   expectationForCandidates,
@@ -495,6 +496,8 @@ export async function ingestBankDeposits(
       continue;
     }
     const operatingCompanyId = await resolveBrand(db, device.tenantId, parsed.accountMask);
+    // 고정 입금처(PG사·협력업체)면 알림 없이 IGNORED 로 쌓는다
+    const muted = await findMutedRuleFor(db, device.tenantId, parsed.depositorName, operatingCompanyId);
     try {
       const created = await db.bankDeposit.create({
         data: {
@@ -512,9 +515,28 @@ export async function ingestBankDeposits(
           depositedAt: parsed.depositedAt,
           receivedAt,
           rawText: parsed.rawText,
-          status: 'NEEDS_REVIEW',
+          status: muted ? 'IGNORED' : 'NEEDS_REVIEW',
+          ...(muted ? { note: muted.note, openReminderStoppedAt: now } : {}),
         },
       });
+      if (muted) {
+        await touchMutedRule(db, device.tenantId, muted.id, now);
+        await publishBankDeposit(db, {
+          tenantId: device.tenantId,
+          event: 'new',
+          id: created.id,
+          status: 'IGNORED',
+          amountWon: parsed.amountWon,
+          depositorName: parsed.depositorName,
+          operatingCompanyId,
+          linkedInquiryId: null,
+          linkedFollowupId: null,
+          linkedKind: null,
+          muted: true,
+        });
+        results.push({ dedupeKey, result: 'stored', status: 'IGNORED' });
+        continue;
+      }
       const settled = await arriveDeposit(db, {
         tenantId: device.tenantId,
         depositId: created.id,
