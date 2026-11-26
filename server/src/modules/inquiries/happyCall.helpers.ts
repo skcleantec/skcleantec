@@ -67,10 +67,13 @@ export function happyCallReminderWindowStart(preferredDate: Date): Date {
   return new Date(`${prevYmd}T18:00:00+09:00`);
 }
 
+/** 같은 사람·같은 접수에 해피콜 푸시를 다시 보내기까지 기다리는 시간 */
+export const HAPPY_CALL_PUSH_GAP_MS = 55 * 60 * 1000;
+
 /**
- * 시간당 푸시 후보: 전날 18:00 이후·미완.
+ * 푸시 창: 작업일 전날 18:00~23:59(KST). 마감 이후(작업 당일 포함)는 보내지 않는다.
  * 마감 이후 생긴 접수(당일 예약)는 전날 창이 없으므로 제외.
- * 마감 이후 반복은 호출측에서 `repeatEnabled`·횟수 상한을 검사한다.
+ * 미완 표시(isHappyCallOverdue)와는 따로다.
  */
 export function isHappyCallInHourlyReminderWindow(
   now: Date,
@@ -82,24 +85,29 @@ export function isHappyCallInHourlyReminderWindow(
   if (!isHappyCallEligible(status, preferredDate) || happyCallCompletedAt) return false;
   if (!preferredDate) return false;
   if (wasCreatedAfterHappyCallDeadline(preferredDate, createdAt)) return false;
-  return now >= happyCallReminderWindowStart(preferredDate);
+  return now >= happyCallReminderWindowStart(preferredDate) && now <= happyCallDeadlineEnd(preferredDate);
 }
 
-/** 15분 cron DB 조회용 — 오늘·내일 예약만 (지난 예약일 미완은 푸시 제외) */
+/** 마지막 발송에서 55분 이상 지났거나, 한 번도 안 보냈으면 다시 보낼 수 있다. */
+export function isHappyCallPushGapElapsed(now: Date, lastSentAt: Date | null): boolean {
+  if (!lastSentAt) return true;
+  return now.getTime() - lastSentAt.getTime() >= HAPPY_CALL_PUSH_GAP_MS;
+}
+
+/** 직전 기록 id 를 넣어, 동시에 두 번 호출돼도 같은 키로 한 번만 기록되게 한다. */
+export function happyCallPushDedupeKey(inquiryId: string, lastLogId: string | null): string {
+  return `happy_call:${inquiryId}:since:${lastLogId ?? 'start'}`;
+}
+
+/** 15분 cron DB 조회용 — 18:00(KST) 이후에는 내일 작업만. 그 전에는 대상 없음. */
 export function happyCallCronPreferredDateRange(now: Date): { gte: Date; lte: Date } | null {
   const todayYmd = kstYmdFromDate(now);
   const tomorrowYmd = addDaysToYmdKst(todayYmd, 1);
-  const todayRange = kstDayRangeYmd(todayYmd);
   const tomorrowRange = kstDayRangeYmd(tomorrowYmd);
-  if (!todayRange || !tomorrowRange) return null;
-
+  if (!tomorrowRange) return null;
   const eveStart = new Date(`${todayYmd}T18:00:00+09:00`);
-  if (now >= eveStart) {
-    /** 오늘 18:00~ — 내일 작업(전날 18:00 알림 창) + 오늘 작업(당일 미완) */
-    return { gte: todayRange.gte, lte: tomorrowRange.lte };
-  }
-  /** 18:00 이전 — 「오늘」 예약일 미완만 (내일 작업 전날 알림은 18:00부터) */
-  return { gte: todayRange.gte, lte: todayRange.lte };
+  if (now < eveStart) return null;
+  return { gte: tomorrowRange.gte, lte: tomorrowRange.lte };
 }
 
 export const HAPPY_CALL_INELIGIBLE_STATUSES: InquiryStatus[] = [...HAPPY_CALL_BLOCK];

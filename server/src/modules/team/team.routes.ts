@@ -1336,6 +1336,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         customerName: inquiry.customerName,
         inquiryId: id,
         lines: logLines,
+        actorId: userId,
       });
       res.json(await respondTeamInquiryOne(updated, inquiry.tenantId, userId));
       return;
@@ -1434,6 +1435,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
       customerName: inquiry.customerName,
       inquiryId: id,
       lines: logLines,
+      actorId: userId,
     });
     res.json(await respondTeamInquiryOne(updated, inquiry.tenantId, userId));
   } catch (e: unknown) {
