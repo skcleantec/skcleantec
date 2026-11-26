@@ -289,7 +289,7 @@ export function AdminLayout() {
     document.documentElement.classList.remove('cbiseo-team-app');
     if (location.pathname.startsWith('/admin')) clearTeamPreviewSession();
   }, [location.pathname]);
-  useStaffAppPushNavigation(Boolean(adminToken));
+  const pushPrompt = useStaffAppPushNavigation(Boolean(adminToken));
   useEffect(() => {
     if (isCbiseoStaffNativeApp()) {
       document.documentElement.classList.add('cbiseo-staff-app');
@@ -924,6 +924,7 @@ export function AdminLayout() {
     <StaffAppUpdateProvider>
     <NavFavoritesProvider app="admin" tenantSlug={tenantSlug} userId={meUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
+    {pushPrompt}
       <CardPaymentApprovedAlert token={adminToken} enabled={Boolean(adminToken)} />
       <BankDepositLiveToast
         token={adminToken}
