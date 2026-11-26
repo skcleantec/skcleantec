@@ -33,6 +33,7 @@ import {
   pickQuotationOperatingCompanyId,
   resolveQuotationSupplierRegistration,
 } from '../../components/quotations/quotationBrandResolve';
+import { quotationDraftMark } from '../../components/quotations/quotationDraftMark';
 import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
@@ -106,6 +107,7 @@ export function TeamQuotationEditorPage() {
   const [lines, setLines] = useState<EditableQuotationLine[]>([emptyQuotationLine()]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [savedDraftMark, setSavedDraftMark] = useState<string | null>(null);
   const [sentAt, setSentAt] = useState<string | null>(null);
   const [lastEmailedAt, setLastEmailedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -248,13 +250,31 @@ export function TeamQuotationEditorPage() {
               quantity: String(li.quantity),
             }))
           : linesFromCatalog(defaults.catalog);
-      setLines(syncLinesWithCatalog(mapped, defaults.catalog));
+      const syncedLines = syncLinesWithCatalog(mapped, defaults.catalog);
+      setLines(syncedLines);
+      setSavedDraftMark(
+        quotationDraftMark({
+          customerName: row.customerName,
+          customerPhone: row.customerPhone ?? '',
+          customerAddress: row.customerAddress ?? '',
+          memo: row.memo ?? '',
+          discountAmount: row.discountAmount > 0 ? String(row.discountAmount) : '',
+          validUntil: row.validUntil ?? '',
+          documentType: row.documentType ?? 'QUOTATION',
+          vatMode: row.vatMode ?? 'VAT_SEPARATE',
+          operatingCompanyId: pickDefaultOperatingCompanyId(
+            defaults.operatingCompanies,
+            row.operatingCompanyId || seedOperatingCompanyId,
+          ),
+          lines: syncedLines,
+        }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : '견적서를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
     }
-  }, [token, isNew, id, applyEditorDefaults]);
+  }, [token, isNew, id, applyEditorDefaults, seedOperatingCompanyId]);
 
   useEffect(() => {
     void loadNewDefaults();
@@ -347,6 +367,35 @@ export function TeamQuotationEditorPage() {
     if (next === 'RECEIPT') setValidUntil('');
   }, []);
 
+  const draftMark = useMemo(
+    () =>
+      quotationDraftMark({
+        customerName,
+        customerPhone,
+        customerAddress,
+        memo,
+        discountAmount,
+        validUntil,
+        documentType,
+        vatMode,
+        operatingCompanyId,
+        lines,
+      }),
+    [
+      customerName,
+      customerPhone,
+      customerAddress,
+      memo,
+      discountAmount,
+      validUntil,
+      documentType,
+      vatMode,
+      operatingCompanyId,
+      lines,
+    ],
+  );
+  const hasUnsavedEdits = savedDraftMark != null && savedDraftMark !== draftMark;
+
   const totals = useMemo(() => {
     let subtotal = 0;
     for (const li of lines) {
@@ -425,6 +474,20 @@ export function TeamQuotationEditorPage() {
         const updated = await updateTeamQuotation(token, id, body);
         setQuoteNumber(updated.quoteNumber);
         setStatus(updated.status);
+        setSavedDraftMark(
+          quotationDraftMark({
+            customerName,
+            customerPhone,
+            customerAddress,
+            memo,
+            discountAmount,
+            validUntil,
+            documentType,
+            vatMode,
+            operatingCompanyId,
+            lines,
+          }),
+        );
         alert('저장되었습니다.');
       }
     } catch (e) {
@@ -542,6 +605,7 @@ export function TeamQuotationEditorPage() {
               sentAt={sentAt}
               lastEmailedAt={lastEmailedAt}
               canEmail={canEmail}
+              hasUnsavedEdits={hasUnsavedEdits}
               apiScope="team"
               onRecipientEmailChange={setCustomerEmail}
               onSent={(patch) => {
@@ -603,6 +667,7 @@ export function TeamQuotationEditorPage() {
             sentAt={sentAt}
             lastEmailedAt={lastEmailedAt}
             canEmail={canEmail}
+            hasUnsavedEdits={hasUnsavedEdits}
             apiScope="team"
             onRecipientEmailChange={setCustomerEmail}
             onSent={(patch) => {
@@ -642,6 +707,7 @@ export function TeamQuotationEditorPage() {
                 quotationId={id}
                 quoteNumber={quoteNumber}
                 disabled={saving}
+                hasUnsavedEdits={hasUnsavedEdits}
                 apiScope="team"
               />
             )}

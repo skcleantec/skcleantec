@@ -9,6 +9,8 @@ type Props = {
   quotationId: string | null;
   quoteNumber: string | null;
   disabled?: boolean;
+  /** 저장 전 수정이 있으면 PDF는 마지막 저장본만 나간다 */
+  hasUnsavedEdits?: boolean;
   /** admin: /api/quotations, team: /api/team/quotations */
   apiScope?: 'admin' | 'team';
 };
@@ -18,7 +20,14 @@ function toPdfBlob(blob: Blob): Blob {
   return new Blob([blob], { type: 'application/pdf' });
 }
 
-export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled, apiScope = 'admin' }: Props) {
+export function QuotationPdfActions({
+  token,
+  quotationId,
+  quoteNumber,
+  disabled,
+  hasUnsavedEdits = false,
+  apiScope = 'admin',
+}: Props) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const previewUrlRef = useRef<string | null>(null);
@@ -73,6 +82,10 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled,
       alert('먼저 저장해 주세요.');
       return;
     }
+    if (hasUnsavedEdits) {
+      alert('저장하지 않은 수정이 있습니다. 저장을 누른 뒤 다시 열어 주세요.');
+      return;
+    }
     setLoading(true);
     setError(null);
     clearPreviewUrl();
@@ -98,6 +111,10 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled,
   async function handleDownload() {
     if (!token || !quotationId) {
       alert('먼저 저장해 주세요.');
+      return;
+    }
+    if (hasUnsavedEdits) {
+      alert('저장하지 않은 수정이 있습니다. 저장을 누른 뒤 다시 받아 주세요.');
       return;
     }
     setLoading(true);

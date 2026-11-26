@@ -33,6 +33,7 @@ import {
   pickQuotationOperatingCompanyId,
   resolveQuotationSupplierRegistration,
 } from '../../components/quotations/quotationBrandResolve';
+import { quotationDraftMark } from '../../components/quotations/quotationDraftMark';
 import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { QuotationHelpModal } from '../../components/admin/quotation-help/QuotationHelpModal';
@@ -111,6 +112,7 @@ export function AdminQuotationEditorPage() {
   const [lines, setLines] = useState<EditableQuotationLine[]>([emptyQuotationLine()]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [savedDraftMark, setSavedDraftMark] = useState<string | null>(null);
   const [sentAt, setSentAt] = useState<string | null>(null);
   const [lastEmailedAt, setLastEmailedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -250,13 +252,34 @@ export function AdminQuotationEditorPage() {
               quantity: String(li.quantity),
             }))
           : linesFromCatalog(defaults.catalog);
-      setLines(syncLinesWithCatalog(mapped, defaults.catalog));
+      const syncedLines = syncLinesWithCatalog(mapped, defaults.catalog);
+      setLines(syncedLines);
+      setSavedDraftMark(
+        quotationDraftMark({
+          customerName: row.customerName,
+          customerPhone: row.customerPhone ?? '',
+          customerAddress: row.customerAddress ?? '',
+          recipientKind: row.recipientKind ?? 'CUSTOMER',
+          customerBizNo: row.customerBizNo ? formatQuotationBizNo(row.customerBizNo) : '',
+          customerRepName: row.customerRepName ?? '',
+          memo: row.memo ?? '',
+          discountAmount: row.discountAmount > 0 ? String(row.discountAmount) : '',
+          validUntil: row.validUntil ?? '',
+          documentType: row.documentType ?? 'QUOTATION',
+          vatMode: row.vatMode ?? 'VAT_SEPARATE',
+          operatingCompanyId: pickDefaultOperatingCompanyId(
+            defaults.operatingCompanies,
+            row.operatingCompanyId || seedOperatingCompanyId,
+          ),
+          lines: syncedLines,
+        }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : '견적서를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
     }
-  }, [token, isNew, id, applyEditorDefaults]);
+  }, [token, isNew, id, applyEditorDefaults, seedOperatingCompanyId]);
 
   useEffect(() => {
     void loadNewDefaults();
@@ -360,6 +383,41 @@ export function AdminQuotationEditorPage() {
     });
   }, []);
 
+  const draftMark = useMemo(
+    () =>
+      quotationDraftMark({
+        customerName,
+        customerPhone,
+        customerAddress,
+        recipientKind,
+        customerBizNo,
+        customerRepName,
+        memo,
+        discountAmount,
+        validUntil,
+        documentType,
+        vatMode,
+        operatingCompanyId,
+        lines,
+      }),
+    [
+      customerName,
+      customerPhone,
+      customerAddress,
+      recipientKind,
+      customerBizNo,
+      customerRepName,
+      memo,
+      discountAmount,
+      validUntil,
+      documentType,
+      vatMode,
+      operatingCompanyId,
+      lines,
+    ],
+  );
+  const hasUnsavedEdits = savedDraftMark != null && savedDraftMark !== draftMark;
+
   const totals = useMemo(() => {
     let subtotal = 0;
     for (const li of lines) {
@@ -440,6 +498,23 @@ export function AdminQuotationEditorPage() {
         const updated = await updateQuotation(token, id, body);
         setQuoteNumber(updated.quoteNumber);
         setStatus(updated.status);
+        setSavedDraftMark(
+          quotationDraftMark({
+            customerName,
+            customerPhone,
+            customerAddress,
+            recipientKind,
+            customerBizNo,
+            customerRepName,
+            memo,
+            discountAmount,
+            validUntil,
+            documentType,
+            vatMode,
+            operatingCompanyId,
+            lines,
+          }),
+        );
         alert('저장되었습니다.');
       }
     } catch (e) {
@@ -556,6 +631,7 @@ export function AdminQuotationEditorPage() {
               sentAt={sentAt}
               lastEmailedAt={lastEmailedAt}
               canEmail={canEmail}
+              hasUnsavedEdits={hasUnsavedEdits}
               onRecipientEmailChange={setCustomerEmail}
               onSent={(patch) => {
                 setStatus(patch.status);
@@ -623,6 +699,7 @@ export function AdminQuotationEditorPage() {
             sentAt={sentAt}
             lastEmailedAt={lastEmailedAt}
             canEmail={canEmail}
+            hasUnsavedEdits={hasUnsavedEdits}
             onRecipientEmailChange={setCustomerEmail}
             onSent={(patch) => {
               setStatus(patch.status);
@@ -660,6 +737,7 @@ export function AdminQuotationEditorPage() {
               quotationId={id}
               quoteNumber={quoteNumber}
               disabled={saving}
+              hasUnsavedEdits={hasUnsavedEdits}
             />
           )}
         </div>

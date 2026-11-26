@@ -218,20 +218,57 @@ export async function buildQuotationPdfBuffer(
 
         const boxW = (pageWidth - 12) / 2;
         const rightLines = quotationRecipientLines(quotation);
-        const supplierLineCount =
-          (companyName && companyName !== '—' ? 1 : 0) +
-          (company?.representativeName?.trim() ? 1 : 0) +
-          [
-            company?.businessRegistrationNo?.trim(),
-            company?.addressLine?.trim(),
-            company?.phone?.trim(),
-            company?.contactEmail?.trim(),
-          ].filter(Boolean).length;
         const sealPt = resolveQuotationSealDisplayWidth(company?.sealDisplayWidthPx);
         const sealUrl = company?.sealSecureUrl?.trim();
         const hasSealSlot = Boolean(sealUrl && company?.representativeName?.trim());
-        /* 줄 간격은 동일. 직인은 absolute처럼 그려 줄 높이를 키우지 않음 — 칸만 도장이 안 잘리게 키움 */
-        const contentH = 22 + Math.max(supplierLineCount, rightLines.length) * 13 + 8;
+
+        doc.fontSize(9).fillColor('#111');
+        let sealBuf: Buffer | null = null;
+        if (sealUrl) {
+          const raw = await fetchImageBuffer(sealUrl);
+          if (raw) sealBuf = await trimTransparentPngToSquare(raw);
+        }
+
+        const boxInnerLeft = ml + 8;
+        const boxInnerRight = ml + boxW - 8;
+        /* 글자 영역: 오른쪽 직인 칸(sealPt) + 간격 4pt — 글자와 도장 겹침 방지 */
+        const textMaxW = sealBuf ? Math.max(40, boxW - 16 - sealPt - 4) : boxW - 16;
+        const rightTextW = boxW - 16;
+        const lineGap = 1;
+        const blockGap = 2;
+        /** 칸 너비 때문에 주소가 두 줄이 되면, 한 줄 높이만 내리면 전화번호와 겹친다. */
+        const measure = (text: string, width: number) =>
+          doc.heightOfString(text, { width, lineGap });
+
+        const repName = company?.representativeName?.trim();
+        let drawRep = '';
+        if (repName) {
+          const repText = `대표 ${repName}`;
+          drawRep = repText;
+          while (drawRep.length > 1 && doc.widthOfString(drawRep) > textMaxW) {
+            drawRep = drawRep.slice(0, -1);
+          }
+          if (drawRep !== repText) drawRep = `${drawRep.slice(0, -1)}…`;
+        }
+        const tailLines = [
+          company?.businessRegistrationNo?.trim()
+            ? `사업자 ${company.businessRegistrationNo.trim()}`
+            : null,
+          company?.addressLine?.trim() ?? null,
+          company?.phone?.trim() ? `Tel ${company.phone.trim()}` : null,
+          company?.contactEmail?.trim() ?? null,
+        ].filter(Boolean) as string[];
+
+        let supplierStack = 0;
+        if (companyName && companyName !== '—') supplierStack += measure(companyName, textMaxW) + blockGap;
+        if (drawRep) supplierStack += doc.currentLineHeight() + blockGap;
+        for (const line of tailLines) supplierStack += measure(line, textMaxW) + blockGap;
+
+        let recipientStack = 0;
+        for (const line of rightLines) recipientStack += measure(line, rightTextW) + blockGap;
+
+        /* 줄 간격은 측정값. 직인은 absolute처럼 그려 줄 높이를 키우지 않음 — 칸만 도장이 안 잘리게 키움 */
+        const contentH = 18 + Math.max(supplierStack, recipientStack) + 8;
         const boxH = Math.max(88, contentH, hasSealSlot ? contentH + Math.ceil(sealPt * 0.35) : 0);
         const boxY = doc.y;
 
@@ -244,30 +281,13 @@ export async function buildQuotationPdfBuffer(
 
         doc.fontSize(9).fillColor('#111');
         let leftY = boxY + 18;
-        let sealBuf: Buffer | null = null;
-        if (sealUrl) {
-          const raw = await fetchImageBuffer(sealUrl);
-          if (raw) sealBuf = await trimTransparentPngToSquare(raw);
-        }
-
-        const boxInnerLeft = ml + 8;
-        const boxInnerRight = ml + boxW - 8;
-        /* 글자 영역: 오른쪽 직인 칸(sealPt) + 간격 4pt — 글자와 도장 겹침 방지 */
-        const textMaxW = sealBuf ? Math.max(40, boxW - 16 - sealPt - 4) : boxW - 16;
-
-        const repName = company?.representativeName?.trim();
         if (companyName && companyName !== '—') {
-          doc.text(companyName, boxInnerLeft, leftY, { width: textMaxW, lineGap: 1 });
-          leftY += doc.currentLineHeight() + 1;
+          const h = measure(companyName, textMaxW);
+          doc.text(companyName, boxInnerLeft, leftY, { width: textMaxW, lineGap });
+          leftY += h + blockGap;
         }
-        if (repName) {
-          const repText = `대표 ${repName}`;
+        if (drawRep) {
           const lineH = doc.currentLineHeight();
-          let drawRep = repText;
-          while (drawRep.length > 1 && doc.widthOfString(drawRep) > textMaxW) {
-            drawRep = drawRep.slice(0, -1);
-          }
-          if (drawRep !== repText) drawRep = `${drawRep.slice(0, -1)}…`;
           doc.text(drawRep, boxInnerLeft, leftY, { lineBreak: false });
           if (sealBuf) {
             // 「(인)」은 오른쪽, 직인은 그 중앙에 겹침 — leftY 증분은 일반 줄과 동일
@@ -285,25 +305,19 @@ export async function buildQuotationPdfBuffer(
               /* ignore broken image */
             }
           }
-          leftY += lineH + 1;
+          leftY += lineH + blockGap;
         }
-        const tailLines = [
-          company?.businessRegistrationNo?.trim()
-            ? `사업자 ${company.businessRegistrationNo.trim()}`
-            : null,
-          company?.addressLine?.trim() ?? null,
-          company?.phone?.trim() ? `Tel ${company.phone.trim()}` : null,
-          company?.contactEmail?.trim() ?? null,
-        ].filter(Boolean) as string[];
         for (const line of tailLines) {
-          doc.text(line, boxInnerLeft, leftY, { width: textMaxW, lineGap: 1 });
-          leftY += doc.currentLineHeight() + 1;
+          const h = measure(line, textMaxW);
+          doc.text(line, boxInnerLeft, leftY, { width: textMaxW, lineGap });
+          leftY += h + blockGap;
         }
 
         let rightY = boxY + 18;
         for (const line of rightLines) {
-          doc.text(line, ml + boxW + 20, rightY, { width: boxW - 16, lineGap: 1 });
-          rightY += doc.currentLineHeight() + 1;
+          const h = measure(line, rightTextW);
+          doc.text(line, ml + boxW + 20, rightY, { width: rightTextW, lineGap });
+          rightY += h + blockGap;
         }
 
         doc.y = boxY + boxH + 14;
