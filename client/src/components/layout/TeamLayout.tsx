@@ -423,7 +423,7 @@ export function TeamLayout() {
     });
   };
 
-  useStaffAppPushNavigation(Boolean(teamToken));
+  const pushPrompt = useStaffAppPushNavigation(Boolean(teamToken));
   useEffect(() => {
     if (isCbiseoStaffNativeApp()) {
       document.documentElement.classList.add('cbiseo-staff-app');
@@ -870,6 +870,7 @@ export function TeamLayout() {
     <StaffAppUpdateProvider>
     <NavFavoritesProvider app="team" tenantSlug={tenantSlug} userId={viewerUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
+    {pushPrompt}
       <CardPaymentApprovedAlert token={teamToken} enabled={Boolean(teamToken)} />
       <TeamBankDepositCenter
         token={teamToken}
