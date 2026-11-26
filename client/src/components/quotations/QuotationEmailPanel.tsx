@@ -28,6 +28,8 @@ type Props = {
   sentAt: string | null;
   lastEmailedAt: string | null;
   canEmail: boolean;
+  /** 저장 전 수정이 있으면 PDF는 마지막 저장본만 나간다 */
+  hasUnsavedEdits?: boolean;
   /** admin: /api/quotations, team: /api/team/quotations */
   apiScope?: 'admin' | 'team';
   /** 손님 칸 수신 이메일과 같이 맞출 때 */
@@ -53,6 +55,7 @@ export function QuotationEmailPanel({
   sentAt,
   lastEmailedAt,
   canEmail,
+  hasUnsavedEdits = false,
   apiScope = 'admin',
   onRecipientEmailChange,
   onSent,
@@ -127,6 +130,10 @@ export function QuotationEmailPanel({
     }
     if (!isValidCustomerEmail(to)) {
       alert('수신 이메일 형식이 올바르지 않습니다. 예: name@example.com');
+      return;
+    }
+    if (hasUnsavedEdits) {
+      alert('저장하지 않은 수정이 있습니다. 저장을 누른 뒤 다시 보내 주세요.');
       return;
     }
     setSending(true);
