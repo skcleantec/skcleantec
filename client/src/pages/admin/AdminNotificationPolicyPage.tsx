@@ -169,70 +169,14 @@ export function AdminNotificationPolicyPage() {
                   </label>
 
                   {showRepeat ? (
-                    <div className="border-t border-gray-100 pt-3 space-y-3">
-                      <label className="flex items-center justify-between gap-3 text-sm">
-                        <span className="flex flex-col gap-0.5">
-                          <span>마감 초과 후 반복 알림</span>
-                          <span className="text-fluid-2xs font-normal text-gray-500">
-                            전날 마감 전에 접수된 건만. 당일 예약은 보내지 않습니다.
-                          </span>
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={rule.repeatEnabled}
-                          onChange={(e) => patchKind(kind, { repeatEnabled: e.target.checked })}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                      </label>
-                      {rule.repeatEnabled ? (
-                        <>
-                          <label className="block text-sm space-y-1">
-                            <span className="text-gray-700">반복 간격 (분)</span>
-                            <input
-                              type="number"
-                              min={5}
-                              step={5}
-                              value={rule.repeatIntervalMinutes}
-                              onChange={(e) =>
-                                patchKind(kind, {
-                                  repeatIntervalMinutes: Math.max(5, parseInt(e.target.value, 10) || 60),
-                                })
-                              }
-                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                            />
-                          </label>
-                          <label className="block text-sm space-y-1">
-                            <span className="text-gray-700">접수당 최대 반복 횟수</span>
-                            <input
-                              type="number"
-                              min={1}
-                              max={20}
-                              value={rule.repeatMaxPerInquiry}
-                              onChange={(e) =>
-                                patchKind(kind, {
-                                  repeatMaxPerInquiry: Math.max(1, parseInt(e.target.value, 10) || 3),
-                                })
-                              }
-                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                            />
-                          </label>
-                        </>
-                      ) : null}
-                      <label className="block text-sm space-y-1">
-                        <span className="text-gray-700">마감 전 알림 (분, 쉼표 구분)</span>
-                        <p className="text-fluid-2xs text-gray-500">
-                          예: 720, 120 → 마감 12시간 전·2시간 전 (cron 15~20분 주기 권장)
-                        </p>
-                        <input
-                          type="text"
-                          value={remindDraft[kind] ?? ''}
-                          onChange={(e) =>
-                            setRemindDraft((d) => ({ ...d, [kind]: e.target.value }))
-                          }
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                          placeholder="720, 120"
-                        />
-                      </label>
+                    <div className="border-t border-gray-100 pt-3 text-xs leading-relaxed text-gray-600">
+                      <p className="font-medium text-gray-800">보내는 때</p>
+                      <p className="mt-1">
+                        작업 전날 저녁 6시부터 자정까지, 「해피콜 완료」를 누를 때까지 약 1시간마다 보냅니다.
+                      </p>
+                      <p className="mt-0.5">
+                        작업 당일에는 보내지 않습니다. 완료하지 않은 건은 화면에 미완료로 계속 표시됩니다.
+                      </p>
                     </div>
                   ) : null}
                 </>
