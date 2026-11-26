@@ -68,6 +68,7 @@ export function BankDepositLiveToast({
     (p) => {
       const isNew = p.event ? p.event === 'new' : !seenIds.has(p.id);
       seenIds.add(p.id);
+      if (p.muted) return; // 고정 입금처는 조용히
       // 팀장 확인·주인 없음은 뒤따르는 변경이어도 알린다.
       const teamNews = Boolean(p.noOwner || p.claimedByTeamLeaderName);
       if (!isNew && !teamNews) return;

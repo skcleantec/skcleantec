@@ -12,6 +12,13 @@ import { readBankDepositSettings, saveBankDepositSettings } from './bankDepositS
 import { applyOpenSettings } from './bankDepositTeam.service.js';
 import { cancelBankDeposit, uncancelBankDeposit } from './bankDepositCancel.service.js';
 import { listGuideAccounts, writeGuideAccount } from './bankDepositGuide.service.js';
+import {
+  createMutedDepositor,
+  deleteMutedDepositor,
+  ignorePastDepositsOfMuted,
+  listMutedDepositors,
+  updateMutedDepositor,
+} from './bankDepositMuted.service.js';
 import { DEPOSIT_KINDS, type DepositKind } from './bankDepositMatch.js';
 import {
   createBankAccount,
@@ -433,6 +440,73 @@ bankDepositRouter.put('/settings', async (req, res) => {
   }
   await applyOpenSettings(prisma, tenantId, saved.before);
   res.json({ settings: saved.settings });
+});
+
+// ---- 고정 입금처 (알림 제외 목록) ----
+bankDepositRouter.get('/muted-depositors', requireStaffPermission('inquiry.view'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  res.json({ items: await listMutedDepositors(prisma, tenantId) });
+});
+
+bankDepositRouter.post('/muted-depositors', requireStaffPermission('inquiry.edit.basic'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const created = await createMutedDepositor(prisma, tenantId, userOf(req)?.userId ?? null, {
+    depositorName: clip(body.depositorName, 80),
+    displayName: clip(body.displayName, 80),
+    kind: clip(body.kind, 16),
+    matchMode: clip(body.matchMode, 16),
+    operatingCompanyId: typeof body.operatingCompanyId === 'string' ? body.operatingCompanyId : null,
+    memo: clip(body.memo, 200) || null,
+    enabled: body.enabled !== false,
+  });
+  if (!created.ok) {
+    res.status(created.status).json({ error: created.error });
+    return;
+  }
+  const ignoredIds = body.ignorePast === true ? await ignorePastDepositsOfMuted(prisma, tenantId, created.item.id, new Date()) : [];
+  res.status(201).json({ item: created.item, ignoredIds });
+});
+
+bankDepositRouter.patch('/muted-depositors/:id', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  if (!(await userHasStaffAdminAccess(userOf(req)))) {
+    res.status(403).json({ error: '고정 입금처 수정은 관리자만 할 수 있어요.' });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  if (typeof body.depositorName === 'string') patch.depositorName = clip(body.depositorName, 80);
+  if (typeof body.displayName === 'string') patch.displayName = clip(body.displayName, 80);
+  if (typeof body.kind === 'string') patch.kind = clip(body.kind, 16);
+  if (typeof body.matchMode === 'string') patch.matchMode = clip(body.matchMode, 16);
+  if (body.operatingCompanyId === null || typeof body.operatingCompanyId === 'string') patch.operatingCompanyId = body.operatingCompanyId;
+  if (body.memo === null || typeof body.memo === 'string') patch.memo = body.memo === null ? null : clip(body.memo, 200);
+  if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+  const updated = await updateMutedDepositor(prisma, tenantId, req.params.id, patch);
+  if (!updated.ok) {
+    res.status(updated.status).json({ error: updated.error });
+    return;
+  }
+  res.json({ item: updated.item });
+});
+
+bankDepositRouter.delete('/muted-depositors/:id', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, userOf(req));
+  if (!tenantId) return;
+  if (!(await userHasStaffAdminAccess(userOf(req)))) {
+    res.status(403).json({ error: '고정 입금처 삭제는 관리자만 할 수 있어요.' });
+    return;
+  }
+  const ok = await deleteMutedDepositor(prisma, tenantId, req.params.id);
+  if (!ok) {
+    res.status(404).json({ error: '없는 항목이에요.' });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 bankDepositRouter.post('/manual', requireStaffPermission('inquiry.edit.basic'), async (req, res) => {

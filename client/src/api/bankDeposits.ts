@@ -529,3 +529,64 @@ export async function sendBankDepositPushTest(token: string): Promise<{ ok: true
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
+
+// ---- 고정 입금처 (알림 제외 목록) ----
+export type BankDepositMutedKind = 'PG' | 'PARTNER' | 'OTHER';
+export type BankDepositMutedMatchMode = 'exact' | 'prefix';
+export type BankDepositMutedItem = {
+  id: string;
+  operatingCompanyId: string | null;
+  operatingCompanyName: string | null;
+  /** 공백을 뺀 입금자명 (매칭 키) */
+  depositorName: string;
+  displayName: string;
+  kind: BankDepositMutedKind | string;
+  matchMode: BankDepositMutedMatchMode | string;
+  enabled: boolean;
+  memo: string | null;
+  matchCount: number;
+  lastMatchedAt: string | null;
+  createdAt: string;
+};
+export type BankDepositMutedInput = {
+  depositorName: string;
+  displayName?: string;
+  kind?: BankDepositMutedKind;
+  matchMode?: BankDepositMutedMatchMode;
+  operatingCompanyId?: string | null;
+  memo?: string | null;
+  enabled?: boolean;
+  /** 아직 확인 안 한 같은 이름 입금도 함께 접기 (등록 때만) */
+  ignorePast?: boolean;
+};
+
+export async function listBankDepositMuted(token: string): Promise<{ items: BankDepositMutedItem[] }> {
+  const res = await fetch(`${base}/muted-depositors`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function createBankDepositMuted(
+  token: string,
+  body: BankDepositMutedInput,
+): Promise<{ item: BankDepositMutedItem; ignoredIds: string[] }> {
+  const res = await fetch(`${base}/muted-depositors`, { method: 'POST', headers: headers(token), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function updateBankDepositMuted(
+  token: string,
+  id: string,
+  body: Partial<BankDepositMutedInput>,
+): Promise<{ item: BankDepositMutedItem }> {
+  const res = await fetch(`${base}/muted-depositors/${id}`, { method: 'PATCH', headers: headers(token), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function deleteBankDepositMuted(token: string, id: string): Promise<{ ok: true }> {
+  const res = await fetch(`${base}/muted-depositors/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}

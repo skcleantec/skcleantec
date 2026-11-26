@@ -14,6 +14,7 @@ import {
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { Button } from '../ui/Button';
 import { BankDepositAlertSettings } from './BankDepositAlertSettings';
+import { BankDepositMutedList } from './BankDepositMutedList';
 import { deviceSeen } from './bankDepositFormat';
 
 type Brand = { id: string; name: string };
@@ -52,6 +53,7 @@ export function BankDepositSetupDialog({
   const [bankName, setBankName] = useState('농협');
   const [accountMask, setAccountMask] = useState('');
   const [adding, setAdding] = useState(false);
+  const [tab, setTab] = useState<'phone' | 'alerts' | 'muted'>('phone');
   const now = useNow(1000);
 
   const load = useCallback(async () => {
@@ -150,10 +152,31 @@ export function BankDepositSetupDialog({
           <ModalCloseButton onClick={onClose} />
         </div>
 
+        <div className="flex gap-1 px-4 pt-2.5" role="tablist" aria-label="입금 확인 설정 구분">
+          {(
+            [
+              ['phone', '폰·통장'],
+              ['alerts', '알림 설정'],
+              ['muted', '고정 입금처'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={`h-7 rounded-lg px-2.5 text-fluid-xs font-semibold transition-colors ${tab === key ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
           {loading ? <p className="py-6 text-center text-fluid-xs text-slate-500">불러오는 중이에요.</p> : null}
 
-          {!loading ? (
+          {!loading && tab === 'phone' ? (
             <section>
               <p className="text-fluid-xs font-bold text-slate-900">입금 문자를 받는 폰</p>
               {activeDevices.length === 0 ? (
@@ -253,7 +276,7 @@ export function BankDepositSetupDialog({
             </section>
           ) : null}
 
-          {!loading ? (
+          {!loading && tab === 'phone' ? (
             <section>
               <p className="text-fluid-xs font-bold text-slate-900">입금 받는 통장</p>
               <p className="mt-0.5 text-fluid-2xs leading-relaxed text-slate-600">
@@ -323,7 +346,8 @@ export function BankDepositSetupDialog({
 
           {error ? <p className="text-fluid-2xs text-rose-700">{error}</p> : null}
 
-          {!loading ? <BankDepositAlertSettings token={token} onSaved={onChanged} /> : null}
+          {!loading && tab === 'alerts' ? <BankDepositAlertSettings token={token} onSaved={onChanged} /> : null}
+          {!loading && tab === 'muted' ? <BankDepositMutedList token={token} brands={brands} canManage onChanged={onChanged} /> : null}
         </div>
       </div>
     </div>,

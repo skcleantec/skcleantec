@@ -381,6 +381,7 @@ model Tenant {
   bankDepositSettings BankDepositSettings?
   bankDepositTombstones BankDepositTombstone[]
   bankDepositGuideAccounts BankDepositGuideAccount[]
+  bankDepositMutedDepositors BankDepositMutedDepositor[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
   telecrmAiQuoteRules TelecrmAiQuoteRule[]
@@ -1808,6 +1809,7 @@ model OperatingCompany {
   bankDepositAccounts        BankDepositAccount[]
   bankDeposits               BankDeposit[]
   bankDepositGuideAccounts  BankDepositGuideAccount[]
+  bankDepositMutedDepositors BankDepositMutedDepositor[]
   telecrmAiQuoteCorrections  TelecrmAiQuoteCorrection[]
   telecrmAiQuoteLoftSettings TelecrmAiQuoteLoftSetting[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
@@ -2296,6 +2298,7 @@ model User {
   telecrmWorkEntries           TelecrmWorkEntry[]
   bankDepositsLinked           BankDeposit[] @relation("BankDepositLinkedBy")
   bankDepositsCreated          BankDeposit[] @relation("BankDepositCreatedBy")
+  bankDepositMutedDepositorsCreated BankDepositMutedDepositor[] @relation("BankDepositMutedCreatedBy")
   bankDepositsCancelled        BankDeposit[] @relation("BankDepositCancelledBy")
   bankDepositTombstonesDeleted BankDepositTombstone[] @relation("BankDepositTombstoneDeletedBy")
   bankDepositGuideAccountsUpdated BankDepositGuideAccount[] @relation("BankDepositGuideAccountUpdatedBy")
@@ -6598,4 +6601,34 @@ model BankDepositGuideAccount {
 
   @@unique([tenantId, operatingCompanyId])
   @@map("bank_deposit_guide_accounts")
+}
+
+/// 고정 입금처 — PG사·협력업체처럼 늘 들어오는 입금자. 맞으면 알림 없이 IGNORED 로 쌓는다.
+model BankDepositMutedDepositor {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// null 이면 모든 브랜드 공통
+  operatingCompanyId String?  @map("operating_company_id")
+  operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  /// 공백을 뺀 입금자명. 매칭 키.
+  nameNorm           String   @map("name_norm") @db.VarChar(80)
+  /// 화면 표시 이름 (예: 토스페이먼츠)
+  displayName        String   @map("display_name") @db.VarChar(80)
+  /// PG | PARTNER | OTHER
+  kind               String   @default("OTHER") @db.VarChar(16)
+  /// exact | prefix — prefix 는 "KSNET_1234" 처럼 뒤에 붙는 숫자를 무시
+  matchMode          String   @default("exact") @map("match_mode") @db.VarChar(16)
+  enabled            Boolean  @default(true)
+  memo               String?  @db.VarChar(200)
+  matchCount         Int      @default(0) @map("match_count")
+  lastMatchedAt      DateTime? @map("last_matched_at")
+  createdByUserId    String?  @map("created_by_user_id")
+  createdBy          User?    @relation("BankDepositMutedCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, operatingCompanyId, nameNorm])
+  @@index([tenantId, enabled])
+  @@map("bank_deposit_muted_depositors")
 }

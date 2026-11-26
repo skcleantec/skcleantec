@@ -16,6 +16,8 @@ export type BankDepositRtPayload = {
   operatingCompanyName?: string | null;
   /** 재직 팀장 전원이 「내 건 아니에요」 */
   noOwner?: boolean;
+  /** 고정 입금처(PG사·협력업체) — 목록만 갱신, 알림은 띄우지 않는다 */
+  muted?: boolean;
   /** 팀장이 자기 고객 입금으로 확인했으면 그 이름 */
   claimedByTeamLeaderName?: string | null;
   /** 새 입금인지, 연결이 바뀐 것인지, 지워진 것인지. 서버가 안 주면 undefined */
@@ -53,6 +55,7 @@ function parse(detail: unknown): BankDepositRtPayload | null {
     operatingCompanyName:
       typeof o.operatingCompanyName === 'string' && o.operatingCompanyName.trim() ? o.operatingCompanyName.trim() : null,
     ...(o.noOwner === true ? { noOwner: true } : {}),
+    ...(o.muted === true ? { muted: true } : {}),
     claimedByTeamLeaderName:
       typeof o.claimedByTeamLeaderName === 'string' && o.claimedByTeamLeaderName.trim() ? o.claimedByTeamLeaderName.trim() : null,
     ...(o.event === 'new' || o.event === 'changed' || o.event === 'deleted' ? { event: o.event } : {}),
