@@ -16,6 +16,12 @@ import { dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
 import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
 import { expandEcTokenValues } from './eContractSigner.expand.js';
+import {
+  contractHtmlForSelfie,
+  decideSelfieOnSubmit,
+  readSelfieDeferred,
+  selfieDeferredPayload,
+} from './eContractSelfieDeferred.js';
 import { assertTenantAllowsPublicService, PublicTenantAccessError } from '../tenants/publicTenantAccess.js';
 
 export type PublicSignSession = {
@@ -46,7 +52,7 @@ async function issuanceByToken(rawToken: string) {
       version: true,
       teamLeader: { select: { id: true, name: true, isActive: true, role: true } },
       teamMember: { select: { id: true, name: true, isActive: true } },
-      submission: { select: { id: true, signedAt: true, mergedContractHtml: true } },
+      submission: { select: { id: true, signedAt: true, mergedContractHtml: true, payload: true } },
     },
   });
 }
@@ -171,7 +177,9 @@ export async function getPublicSignSession(rawToken: string): Promise<
 
   let bodyMarkdown: string;
   if (merged) {
-    bodyMarkdown = dedupeTrailingPartyAppendices(merged);
+    bodyMarkdown = contractHtmlForSelfie(dedupeTrailingPartyAppendices(merged), {
+      deferred: readSelfieDeferred(row.submission?.payload),
+    });
   } else if (!alreadySigned) {
     bodyMarkdown = await composePublishedVersionHtmlWithLiveIssuer(row.definition.tenantId, row.version);
     const audience = row.definition.audience;
@@ -260,8 +268,9 @@ export async function completeSubmissionByToken(
     signerValuesByToken?: Record<string, string>;
     challengeEntered: string;
     agree: boolean;
-    selfiePublicId: string;
-    selfieUrl: string;
+    selfiePublicId?: string;
+    selfieUrl?: string;
+    selfieDeferred?: boolean;
     signaturePublicId: string;
     signatureUrl: string;
     signerUserAgent?: string | null;
@@ -281,11 +290,19 @@ export async function completeSubmissionByToken(
     throw Object.assign(new Error('challenge'), { code: 'bad_request' as const });
   }
 
-  if (
-    !isLikelyCloudinaryUrl(input.selfieUrl, input.selfiePublicId) ||
-    !isLikelyCloudinaryUrl(input.signatureUrl, input.signaturePublicId)
-  ) {
+  if (!isLikelyCloudinaryUrl(input.signatureUrl, input.signaturePublicId)) {
     throw Object.assign(new Error('cloudinary_meta'), { code: 'bad_request' as const });
+  }
+
+  const signedAtDate = new Date();
+  const selfie = decideSelfieOnSubmit({
+    selfiePublicId: input.selfiePublicId,
+    selfieUrl: input.selfieUrl,
+    selfieDeferred: input.selfieDeferred,
+    signedAtIso: signedAtDate.toISOString(),
+  });
+  if (!selfie.ok) {
+    throw Object.assign(new Error(selfie.error), { code: 'bad_request' as const });
   }
 
   const issuance = await validateIssuanceWritable(rawToken);
@@ -293,7 +310,6 @@ export async function completeSubmissionByToken(
   const recipientRole = issuance.teamLeader?.role;
 
   const submissionId = randomUUID();
-  const signedAtDate = new Date();
 
   const versionBodyWithAppendix = await composePublishedVersionHtmlWithLiveIssuer(
     issuance.definition!.tenantId,
@@ -325,7 +341,9 @@ export async function completeSubmissionByToken(
     signatureUrl: input.signatureUrl.trim(),
     challengeDigits: expected,
   });
-  const mergedHtml = expandEcTokenValues(bodyText, valueMap);
+  const mergedHtml = contractHtmlForSelfie(expandEcTokenValues(bodyText, valueMap), {
+    deferred: selfie.deferred,
+  });
 
   const payloadObj: Record<string, unknown> = {
     agree: true,
@@ -341,6 +359,7 @@ export async function completeSubmissionByToken(
     signerValuesByToken: signerValues,
     mergeFields: issuance.mergeFields ?? null,
     ...(typeof input.payloadExtras === 'object' && input.payloadExtras ? input.payloadExtras : {}),
+    ...(selfie.deferred ? selfieDeferredPayload(selfie.deferredAt) : {}),
   };
   const payload = payloadObj as Prisma.InputJsonValue;
 
@@ -360,8 +379,8 @@ export async function completeSubmissionByToken(
           issuanceId: issuance.id,
           versionId: issuance.versionId,
           versionContentHash: issuance.version.contentHash,
-          selfiePublicId: input.selfiePublicId.trim(),
-          selfieUrl: input.selfieUrl.trim(),
+          selfiePublicId: selfie.selfiePublicId,
+          selfieUrl: selfie.selfieUrl,
           signaturePublicId: input.signaturePublicId.trim(),
           signatureUrl: input.signatureUrl.trim(),
           mergedContractHtml: mergedHtml,

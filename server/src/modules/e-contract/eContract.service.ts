@@ -11,6 +11,7 @@ import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { issuerSnapshotBlockForPublish } from './eContractIssuer.profile.service.js';
 import { buildAdminSubmissionBodyHtml } from './eContractSubmissionDisplayHtml.js';
 import { resolveSubmissionChallengeDigits } from './eContract.challenge.js';
+import { contractHtmlForSelfie, isSelfieMissing, readSelfieDeferred } from './eContractSelfieDeferred.js';
 import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices, stripPartyAppendixFromContractHtml } from './eContractPartyAppendix.js';
 import { editorBodyHasMeaningfulContent } from './eContractBodyContent.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
@@ -577,6 +578,7 @@ export async function listAllContractRecipientsForPicker(tenantId: string) {
 const submissionListSelect = {
   id: true,
   signedAt: true,
+  selfieUrl: true,
   versionContentHash: true,
   issuance: {
     select: {
@@ -627,6 +629,7 @@ function mapSubmissionRecipient(issuance: {
 function mapSubmissionListRow(s: {
   id: string;
   signedAt: Date;
+  selfieUrl: string | null;
   versionContentHash: string | null;
   issuance: {
     token: string;
@@ -649,6 +652,7 @@ function mapSubmissionListRow(s: {
     issuanceToken: s.issuance.token,
     issuanceStatus: s.issuance.status,
     versionContentHash: s.versionContentHash,
+    selfieMissing: isSelfieMissing(s.selfieUrl),
     ...recipient,
   };
 }
@@ -752,24 +756,7 @@ export async function listSubmissionsByTeamLeader(userId: string) {
   const submissions = await prisma.eContractSubmission.findMany({
     where: { issuance: { teamLeaderId: userId } },
     orderBy: { signedAt: 'desc' },
-    select: {
-      id: true,
-      signedAt: true,
-      versionContentHash: true,
-      issuance: {
-        select: {
-          token: true,
-          status: true,
-          recipientLabel: true,
-          teamLeader: { select: { id: true, name: true, email: true, role: true } },
-          teamMember: { select: { id: true, name: true, phone: true } },
-          definition: { select: { id: true, title: true, audience: true } },
-        },
-      },
-      version: {
-        select: { id: true, publishedOrdinal: true, titleSnapshot: true },
-      },
-    },
+    select: submissionListSelect,
   });
 
   return submissions.map(mapSubmissionListRow);
@@ -870,9 +857,10 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
     versionTitle: s.version.titleSnapshot,
     /** true면 체결 시점 을·서명 반영 확정본 */
     mergedUsed,
-    bodyHtml,
+    bodyHtml: contractHtmlForSelfie(bodyHtml, { deferred: readSelfieDeferred(s.payload) }),
     challengeDigits,
     selfieUrl: s.selfieUrl?.trim() || null,
+    selfieDeferred: readSelfieDeferred(s.payload),
     signatureUrl: s.signatureUrl?.trim() || null,
     signerIp: s.signerIp?.trim() || null,
     signerUserAgent: s.signerUserAgent?.trim() || null,

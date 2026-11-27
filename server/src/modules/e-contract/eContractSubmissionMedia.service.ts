@@ -1,5 +1,7 @@
+import { Prisma } from '@prisma/client';
 import { isLikelyStoredContractImage } from '../../lib/storedObjectUrl.js';
 import { prisma } from '../../lib/prisma.js';
+import { withSelfieUploadRecord } from './eContractSelfieDeferred.js';
 
 const SUBMISSION_MEDIA_FOLDER_PREFIX = 'e_contract/issuance/';
 
@@ -38,12 +40,14 @@ export async function patchSubmissionMediaForAdmin(
     selfieUrl?: string | null;
     signaturePublicId?: string | null;
     signatureUrl?: string | null;
+    actorUserId?: string | null;
   },
 ): Promise<{ id: string }> {
   const row = await prisma.eContractSubmission.findFirst({
     where: { id: submissionId, issuance: { definition: { tenantId } } },
     select: {
       id: true,
+      payload: true,
       selfiePublicId: true,
       selfieUrl: true,
       signaturePublicId: true,
@@ -61,6 +65,7 @@ export async function patchSubmissionMediaForAdmin(
     signaturePublicId?: string;
     signatureUrl?: string;
     mergedContractHtml?: string;
+    payload?: Prisma.InputJsonValue;
   } = {};
 
   if (input.selfiePublicId !== undefined || input.selfieUrl !== undefined) {
@@ -69,6 +74,10 @@ export async function patchSubmissionMediaForAdmin(
     }
     data.selfiePublicId = String(input.selfiePublicId).trim().slice(0, 512);
     data.selfieUrl = String(input.selfieUrl).trim().slice(0, 2048);
+    const actorId = (input.actorUserId ?? '').trim();
+    if (actorId) {
+      data.payload = withSelfieUploadRecord(row.payload, new Date().toISOString(), actorId) as Prisma.InputJsonValue;
+    }
   }
 
   if (input.signaturePublicId !== undefined || input.signatureUrl !== undefined) {
