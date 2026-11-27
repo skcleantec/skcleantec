@@ -3,7 +3,6 @@ import { getToken } from '../../stores/auth';
 import { getInquiries } from '../../api/inquiries';
 import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
 import type { OrderForm } from '../../api/orderform';
-import { sendOrderFormOrderLinkAlimtalk } from '../../api/orderform';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
@@ -20,6 +19,7 @@ import {
 } from '../../constants/internalCustomerTone';
 import { OrderFormPage, type OrderFormEditorContext } from '../../pages/order/OrderFormPage';
 import { OrderFormIssueCompleteCard } from './OrderFormIssueCompleteCard';
+import { useOrderLinkSend } from './useOrderLinkSend';
 import { OrderFormExtraWorkNoticeCheckbox } from './OrderFormExtraWorkNoticeCheckbox';
 import {
   buildOrderFormCustomerMessage,
@@ -31,7 +31,6 @@ import {
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
 import { HelpTooltip } from '../ui/HelpTooltip';
-import { alimtalkChargeStatusLabel } from '@shared/alimtalkPolicy';
 import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
 
 export type CrmOrderIssueSeed = {
@@ -127,8 +126,7 @@ export function OrderIssueInlinePanel({
 
   const [issueFormKey, setIssueFormKey] = useState(0);
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
-  const [alimtalkSending, setAlimtalkSending] = useState(false);
-  const [alimtalkHint, setAlimtalkHint] = useState('');
+  const orderLinkSend = useOrderLinkSend(token);
   const hasAlimtalk = useHasTenantFeature('mod_alimtalk');
   const { map: brandMsgConfigMap, tenantFallback: brandMsgTenantFallback } =
     useOrderFormBrandCustomerLinkConfigs(token);
@@ -245,7 +243,6 @@ export function OrderIssueInlinePanel({
 
   const handleOrderCreated = useCallback(
     (order: OrderForm) => {
-      setAlimtalkHint('');
       setNewOrder(order);
       onIssued?.(order);
     },
@@ -263,7 +260,6 @@ export function OrderIssueInlinePanel({
 
   const startNewIssue = useCallback(() => {
     setNewOrder(null);
-    setAlimtalkHint('');
     setPendingLinkId('');
     setIssueLeadSource(defaultScheduleLeadSourceLabel(staffTenantSlug) || '');
     setIssueCollaborationMarketerId('');
@@ -281,23 +277,6 @@ export function OrderIssueInlinePanel({
     if (!newOrder) return;
     const ok = await copyTextToClipboard(getOrderLink(newOrder.token, brandSlugForOrder(newOrder)));
     if (!ok) alert('복사에 실패했습니다.');
-  };
-
-  const handleSendOrderLinkAlimtalk = async () => {
-    if (!token || !newOrder) return;
-    setAlimtalkSending(true);
-    setAlimtalkHint('');
-    try {
-      const result = await sendOrderFormOrderLinkAlimtalk(token, newOrder.id, {
-        toPhone: newOrder.customerPhone,
-      });
-      const chargeLabel = alimtalkChargeStatusLabel(result.chargeStatus);
-      setAlimtalkHint(`알림톡을 발송했습니다. (${chargeLabel})`);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '알림톡 발송에 실패했습니다.');
-    } finally {
-      setAlimtalkSending(false);
-    }
   };
 
   if (!token) {
@@ -477,12 +456,14 @@ export function OrderIssueInlinePanel({
             onNewIssue={startNewIssue}
             showPrefill={false}
             showAlimtalk={hasAlimtalk}
-            alimtalkSending={alimtalkSending}
-            alimtalkHint={alimtalkHint}
-            onSendAlimtalk={handleSendOrderLinkAlimtalk}
+            alimtalkSending={orderLinkSend.alimtalkBusyId === newOrder.id}
+            onSendAlimtalk={() => void orderLinkSend.sendAlimtalk(newOrder)}
+            onSendSms={() => orderLinkSend.askSms(newOrder)}
+            sendStatus={orderLinkSend.statusFor(newOrder.id) ?? newOrder.orderLinkSend ?? null}
           />
         </div>
       ) : null}
+      {orderLinkSend.dialogs}
     </div>
   );
 }

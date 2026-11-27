@@ -66,6 +66,40 @@ export interface OrderForm {
   operatingCompanyId?: string | null;
   operatingCompany?: { id: string; slug: string; name: string; displayName?: string } | null;
   submissionEmail?: OrderFormSubmissionEmailInfo | null;
+  /** 발주서 안내(알림톡·문자)를 마지막으로 보낸 결과. 보낸 적 없으면 null */
+  orderLinkSend?: OrderLinkSendInfo | null;
+}
+
+/** 발주서 안내 발송 상태 — awaiting: 도착 확인 중, delivered: 알림톡 도착, failed: 알림톡 실패, sms_sent: 문자로 나감 */
+export type OrderLinkSendStatus = 'awaiting' | 'delivered' | 'failed' | 'sms_sent';
+
+export interface OrderLinkSendInfo {
+  status: OrderLinkSendStatus;
+  channel?: 'ATA' | 'SMS' | 'LMS' | null;
+  /** 보낸 시각(ISO) */
+  at: string;
+  /** 실패 이유 등 화면에 그대로 보여 줄 문장 */
+  message?: string | null;
+}
+
+/** 문자로 보낼 때 미리 보여 주는 내용과 비용 */
+export interface OrderLinkSmsQuote {
+  toPhone: string;
+  kind: 'SMS' | 'LMS';
+  priceKrw: number;
+  freeUnits: number;
+  subject?: string | null;
+  body: string;
+}
+
+/** 알림톡 발송 실패. smsAvailable 이 false 면 문자로도 보낼 수 없다(연락처 없음 등). */
+export class OrderLinkAlimtalkError extends Error {
+  readonly smsAvailable: boolean;
+  constructor(message: string, smsAvailable: boolean) {
+    super(message);
+    this.name = 'OrderLinkAlimtalkError';
+    this.smsAvailable = smsAvailable;
+  }
 }
 
 /** 고객 공개 화면 — 영업 브랜드 표시명·부제 */
@@ -944,9 +978,63 @@ export async function sendOrderFormOrderLinkAlimtalk(
     chargeStatus?: string;
   };
   if (!res.ok) {
-    throw new Error(data.error || '알림톡 발송에 실패했습니다.');
+    throw new OrderLinkAlimtalkError(
+      data.error || '알림톡 발송에 실패했습니다.',
+      (data as { smsAvailable?: boolean }).smsAvailable !== false,
+    );
   }
   return data as { ok: boolean; logId: string; messageId?: string; chargeStatus: string };
+}
+
+/** 문자로 보내기 전 — 받는 번호·문자 내용·비용 */
+export async function getOrderLinkSmsQuote(authToken: string, orderFormId: string): Promise<OrderLinkSmsQuote> {
+  const res = await fetch(`${API}/orderforms/${encodeURIComponent(orderFormId)}/sms/order-link/preview`, {
+    headers: headers(authToken),
+  });
+  const data = (await res.json().catch(() => ({}))) as Partial<OrderLinkSmsQuote> & { error?: string };
+  if (!res.ok || typeof data.body !== 'string') {
+    throw new Error(data.error || '문자 내용을 불러오지 못했습니다.');
+  }
+  return data as OrderLinkSmsQuote;
+}
+
+/** 발주서 안내를 문자로 보낸다 */
+export async function sendOrderFormOrderLinkSms(
+  authToken: string,
+  orderFormId: string,
+  body?: { toPhone?: string | null },
+): Promise<{ ok: boolean; kind: 'SMS' | 'LMS'; chargeStatus?: string; chargedKrw?: number }> {
+  const res = await fetch(`${API}/orderforms/${encodeURIComponent(orderFormId)}/sms/order-link`, {
+    method: 'POST',
+    headers: headers(authToken),
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    ok?: boolean;
+    kind?: 'SMS' | 'LMS';
+    chargeStatus?: string;
+    chargedKrw?: number;
+  };
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error || (res.status === 404 ? '문자 보내기를 아직 쓸 수 없습니다.' : '문자 발송에 실패했습니다.'),
+    );
+  }
+  return { ok: true, kind: data.kind ?? 'LMS', chargeStatus: data.chargeStatus, chargedKrw: data.chargedKrw };
+}
+
+/** 발주서 안내 발송 상태 한 건. 아직 서버가 모르면 null */
+export async function getOrderLinkSendStatus(
+  authToken: string,
+  orderFormId: string,
+): Promise<OrderLinkSendInfo | null> {
+  const res = await fetch(`${API}/orderforms/${encodeURIComponent(orderFormId)}/alimtalk/order-link/status`, {
+    headers: headers(authToken),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json().catch(() => ({}))) as { orderLinkSend?: OrderLinkSendInfo | null };
+  return data.orderLinkSend ?? null;
 }
 
 /** 공개: 고객 발주서 — 전문 시공 옵션 (활성만) */

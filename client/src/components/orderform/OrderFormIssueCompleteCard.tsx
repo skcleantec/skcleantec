@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import type { OrderLinkSendInfo } from '../../api/orderform';
 import { OrderFormLinkPlaceholderPicker } from './OrderFormLinkPlaceholderPicker';
+import { OrderLinkSendStatusLine } from './OrderLinkSendDialogs';
 
 type Props = {
   customerName: string;
@@ -17,6 +19,10 @@ type Props = {
   alimtalkSending?: boolean;
   alimtalkHint?: string;
   onSendAlimtalk?: () => void | Promise<void>;
+  /** 문자로 보내기(내용·비용 확인 팝업을 연다) */
+  onSendSms?: () => void;
+  /** 발주서 안내 발송 상태 */
+  sendStatus?: OrderLinkSendInfo | null;
 };
 
 export function OrderFormIssueCompleteCard({
@@ -35,6 +41,8 @@ export function OrderFormIssueCompleteCard({
   alimtalkSending = false,
   alimtalkHint,
   onSendAlimtalk,
+  onSendSms,
+  sendStatus,
 }: Props) {
   return (
     <div
@@ -104,6 +112,16 @@ export function OrderFormIssueCompleteCard({
             {alimtalkSending ? '알림톡 발송 중…' : '알림톡 발송'}
           </button>
         ) : null}
+        {showAlimtalk && onSendSms ? (
+          <button
+            type="button"
+            onClick={onSendSms}
+            disabled={alimtalkSending}
+            className="rounded-md border border-violet-300 bg-white px-4 py-2 text-fluid-sm font-medium text-violet-800 shadow-sm hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            문자로 보내기
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onNewIssue}
@@ -112,6 +130,8 @@ export function OrderFormIssueCompleteCard({
           새로 발급
         </button>
       </div>
+
+      <OrderLinkSendStatusLine info={sendStatus} onSendSms={onSendSms} />
 
       <p className="text-fluid-2xs text-gray-600">
         {alimtalkHint ? <span className="block mb-1 text-emerald-800">{alimtalkHint}</span> : null}

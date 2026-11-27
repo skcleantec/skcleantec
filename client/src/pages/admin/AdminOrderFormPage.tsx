@@ -18,13 +18,14 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { CustomerOrderSubmissionSnapshotModal } from '../../components/orderform/CustomerOrderSubmissionSnapshotModal';
 import { OrderFormListActionsModal } from '../../components/orderform/OrderFormListActionsModal';
 import { OrderFormIssueCompleteCard } from '../../components/orderform/OrderFormIssueCompleteCard';
+import { OrderLinkSendChip } from '../../components/orderform/OrderLinkSendDialogs';
+import { useOrderLinkSend } from '../../components/orderform/useOrderLinkSend';
 import { OrderFormExtraWorkNoticeCheckbox } from '../../components/orderform/OrderFormExtraWorkNoticeCheckbox';
 import {
   getOrderForms,
   deleteOrderForm,
   getAdminOrderFormPhotos,
   resendOrderFormSubmissionEmail,
-  sendOrderFormOrderLinkAlimtalk,
   type OrderForm,
   type OrderFormIssuerOption,
   type OrderFormListDatePreset,
@@ -40,7 +41,6 @@ import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateForma
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
-import { alimtalkChargeStatusLabel } from '@shared/alimtalkPolicy';
 import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
@@ -345,10 +345,8 @@ export function AdminOrderFormPage() {
 
   // 발급 폼 — 선택 양식의 폼을 인라인으로 렌더(OrderFormPage create 모드)
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
-  const [alimtalkSending, setAlimtalkSending] = useState(false);
-  const [alimtalkListBusyId, setAlimtalkListBusyId] = useState<string | null>(null);
-  const [alimtalkHint, setAlimtalkHint] = useState('');
   const hasAlimtalk = useHasTenantFeature('mod_alimtalk');
+  const orderLinkSend = useOrderLinkSend(token);
   /** 발급 완료 후 인라인 폼을 초기화하기 위한 remount 키 */
   const [issueFormKey, setIssueFormKey] = useState(0);
   const issueCompleteRef = useRef<HTMLDivElement>(null);
@@ -582,14 +580,12 @@ export function AdminOrderFormPage() {
   /** 인라인 발급 폼에서 발주서가 생성되면 호출 — 완료 카드 표시(폼 remount 없음 → 스크롤 유지) */
   const handleOrderCreated = (order: OrderForm) => {
     pendingIssueScrollRef.current = true;
-    setAlimtalkHint('');
     setNewOrder(order);
   };
 
   const startNewIssue = () => {
     pendingIssueScrollRef.current = false;
     setNewOrder(null);
-    setAlimtalkHint('');
     setPendingLinkId('');
     setIssueLeadSource(defaultScheduleLeadSourceLabel(staffTenantSlug) || '');
     setIssueExtraWorkNotice(false);
@@ -626,36 +622,6 @@ export function AdminOrderFormPage() {
       brandSlug,
       brandDisplayName,
     );
-  };
-
-  const handleSendOrderLinkAlimtalk = async (order: OrderForm, opts?: { closeListModal?: boolean }) => {
-    if (!token) return;
-    const setBusy = (busy: boolean) => {
-      if (opts?.closeListModal) {
-        setAlimtalkListBusyId(busy ? order.id : null);
-      } else {
-        setAlimtalkSending(busy);
-      }
-    };
-    setBusy(true);
-    if (!opts?.closeListModal) setAlimtalkHint('');
-    try {
-      const result = await sendOrderFormOrderLinkAlimtalk(token, order.id, {
-        toPhone: order.customerPhone,
-      });
-      const chargeLabel = alimtalkChargeStatusLabel(result.chargeStatus);
-      const msg = `알림톡을 발송했습니다. (${chargeLabel})`;
-      if (opts?.closeListModal) {
-        alert(msg);
-        setListActionsOrder(null);
-      } else {
-        setAlimtalkHint(msg);
-      }
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '알림톡 발송에 실패했습니다.');
-    } finally {
-      setBusy(false);
-    }
   };
 
   const handleCopyPreviewModal = async () => {
@@ -966,9 +932,10 @@ export function AdminOrderFormPage() {
                     onPrefill={() => navigate(`/admin/order-prefill/${newOrder.id}`)}
                     onNewIssue={startNewIssue}
                     showAlimtalk={hasAlimtalk}
-                    alimtalkSending={alimtalkSending}
-                    alimtalkHint={alimtalkHint}
-                    onSendAlimtalk={hasAlimtalk && newOrder ? () => void handleSendOrderLinkAlimtalk(newOrder) : undefined}
+                    alimtalkSending={orderLinkSend.alimtalkBusyId === newOrder.id}
+                    onSendAlimtalk={hasAlimtalk ? () => void orderLinkSend.sendAlimtalk(newOrder) : undefined}
+                    onSendSms={hasAlimtalk ? () => orderLinkSend.askSms(newOrder) : undefined}
+                    sendStatus={orderLinkSend.statusFor(newOrder.id) ?? newOrder.orderLinkSend ?? null}
                   />
                 </div>
               ) : null}
@@ -1153,6 +1120,9 @@ export function AdminOrderFormPage() {
                                 {orderFormSubmissionEmailColumnLabel(o)}
                               </StatusChip>
                             ) : null}
+                            {hasAlimtalk ? (
+                              <OrderLinkSendChip info={orderLinkSend.statusFor(o.id) ?? o.orderLinkSend ?? null} />
+                            ) : null}
                           </div>
                         </div>
                         <div className="mt-3.5 flex justify-end border-t border-slate-100 pt-3">
@@ -1179,6 +1149,7 @@ export function AdminOrderFormPage() {
                         <col className="w-[11%]" />
                         <col className="w-[8%]" />
                         <col className="w-[10%]" />
+                        {hasAlimtalk ? <col className="w-[10%]" /> : null}
                         <col className="w-[13%]" />
                         <col className="w-[8%]" />
                       </colgroup>
@@ -1202,6 +1173,11 @@ export function AdminOrderFormPage() {
                           <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             이메일발송
                           </th>
+                          {hasAlimtalk ? (
+                            <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
+                              알림톡
+                            </th>
+                          ) : null}
                           <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             발급일
                           </th>
@@ -1214,6 +1190,7 @@ export function AdminOrderFormPage() {
                         {orderForms.map((o) => {
                           const issuer = labelOrderFormIssuer(o.createdBy ?? undefined);
                           const resv = formatOrderFormReservationCell(o, timeSlotLabels);
+                          const sendInfo = orderLinkSend.statusFor(o.id) ?? o.orderLinkSend ?? null;
                           return (
                             <tr key={o.id} className="group hover:bg-slate-50/80 transition-colors">
                               <td
@@ -1269,6 +1246,26 @@ export function AdminOrderFormPage() {
                                   )}
                                 </div>
                               </td>
+                              {hasAlimtalk ? (
+                                <td className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center xl:px-1.5 xl:py-2.5">
+                                  {sendInfo ? (
+                                    <div className="flex flex-col items-center gap-1">
+                                      <OrderLinkSendChip info={sendInfo} />
+                                      {sendInfo.status === 'failed' && o.customerPhone?.trim() ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => orderLinkSend.askSms(o)}
+                                          className="rounded-md border border-violet-300 bg-white px-1.5 py-0.5 text-fluid-2xs font-semibold text-violet-800 hover:bg-violet-50"
+                                        >
+                                          문자로 보내기
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                  ) : (
+                                    <span className="text-fluid-2xs text-slate-300">—</span>
+                                  )}
+                                </td>
+                              ) : null}
                               <td
                                 className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center tabular-nums text-slate-500 xl:px-1.5 xl:py-2.5"
                                 title={formatDateCompactWithWeekday(o.createdAt)}
@@ -1379,11 +1376,12 @@ export function AdminOrderFormPage() {
           </div>,
           document.body
         )}
+      {orderLinkSend.dialogs}
       {listActionsOrderResolved ? (
         <OrderFormListActionsModal
           order={listActionsOrderResolved}
           resendBusy={resendEmailBusyId === listActionsOrderResolved.id}
-          alimtalkBusy={alimtalkListBusyId === listActionsOrderResolved.id}
+          alimtalkBusy={orderLinkSend.alimtalkBusyId === listActionsOrderResolved.id}
           showAlimtalk={hasAlimtalk}
           canResendEmail={canResendOrderFormSubmissionEmail(listActionsOrderResolved)}
           onClose={() => setListActionsOrder(null)}
@@ -1401,9 +1399,12 @@ export function AdminOrderFormPage() {
             })
           }
           onResendEmail={() => void handleResendSubmissionEmail(listActionsOrderResolved)}
-          onSendAlimtalk={() =>
-            void handleSendOrderLinkAlimtalk(listActionsOrderResolved, { closeListModal: true })
-          }
+          onSendAlimtalk={() => {
+            const target = listActionsOrderResolved;
+            setListActionsOrder(null);
+            void orderLinkSend.sendAlimtalk(target);
+          }}
+          onSendSms={() => orderLinkSend.askSms(listActionsOrderResolved)}
           onDelete={() => openDeleteModal(listActionsOrderResolved)}
         />
       ) : null}
