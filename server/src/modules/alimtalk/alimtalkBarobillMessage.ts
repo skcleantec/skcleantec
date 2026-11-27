@@ -112,12 +112,14 @@ function readButtons(value: unknown): BarobillKakaoButton[] {
 export function prepareBarobillMessage(
   template: TemplateFields,
   variables: Record<string, string>,
+  options?: { omitSmsFallback?: boolean },
 ): { ok: true; message: BarobillPreparedMessage } | { ok: false; error: string } {
   const content = template.barobillContent ?? '';
   if (!content.trim()) return { ok: false, error: '알림톡 본문이 없습니다.' };
-  const smsBody = template.barobillSmsMessage ?? '';
-  const smsSubject = template.barobillSmsSubject ?? '';
-  if (!smsBody.trim() || !smsSubject.trim()) {
+  const omitSmsFallback = options?.omitSmsFallback === true;
+  const smsBody = omitSmsFallback ? '' : (template.barobillSmsMessage ?? '');
+  const smsSubject = omitSmsFallback ? '' : (template.barobillSmsSubject ?? '');
+  if (!omitSmsFallback && (!smsBody.trim() || !smsSubject.trim())) {
     return { ok: false, error: '대체문자 제목 또는 본문이 없습니다.' };
   }
 

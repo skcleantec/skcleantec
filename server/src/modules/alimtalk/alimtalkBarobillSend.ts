@@ -1,5 +1,11 @@
 import { BarobillCallError } from '../../lib/barobill/soap.js';
-import { barobillKakaoChannelId, describeBarobillKakaoConfigGap, sendAT } from '../../lib/barobill/kakaotalk.js';
+import {
+  barobillKakaoChannelId,
+  describeBarobillKakaoConfigGap,
+  sendAT,
+  type BarobillAtAccept,
+} from '../../lib/barobill/kakaotalk.js';
+import { shouldOmitBarobillSmsFallback } from '../../lib/barobill/kakaotalkSmsPermission.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AlimtalkTemplateCode } from '../../lib/alimtalkPolicy.js';
 import { notifyAlimtalkOpsOnceToday, safeOpsSentence } from './alimtalkBarobillOpsMail.js';
@@ -8,6 +14,68 @@ import { chooseAlimtalkSendChannel, isBrandChannelTemplateCode } from './alimtal
 import type { TriggerAlimtalkResult } from './alimtalkSend.service.js';
 
 const BALANCE_ERROR_CODES = new Set([-26006, -26011]);
+const NO_SMS_FALLBACK_MAIL_KEY = 'barobill-no-sms-fallback';
+
+export async function notifyAlimtalkSmsFallbackPaused(): Promise<void> {
+  await notifyAlimtalkOpsOnceToday(
+    NO_SMS_FALLBACK_MAIL_KEY,
+    '[청소비서] 알림톡 대체문자 없이 발송 중',
+    [
+      '바로빌 문자 사용 권한이 없어 알림톡만 보내고 있습니다.',
+      '실패해도 문자로 다시 보내지 않습니다.',
+      '권한이 승인되면 10분 안에 대체문자를 다시 붙여 확인합니다.',
+    ].join('\n'),
+  );
+}
+
+type SendLogPatch = {
+  provider: 'barobill';
+  chargeStatus: 'AWAITING_RESULT' | 'FAILED';
+  barobillSendKey?: string;
+  errorMessage?: string;
+  resultMessage?: string;
+};
+
+/** 발송 시도 1건의 기록만 갱신한다. 성공 키는 하나이고, 여기서 지갑을 차감하지 않는다. */
+export async function commitBarobillSendLog(input: {
+  pendingId: string;
+  smsBytes: number;
+  update: (data: SendLogPatch) => Promise<void>;
+  send: () => Promise<BarobillAtAccept>;
+  notifyOmitted: () => Promise<void>;
+  notifyBalance: (message: string) => Promise<void>;
+}): Promise<TriggerAlimtalkResult> {
+  try {
+    const accepted = await input.send();
+    await input.update({
+      provider: 'barobill',
+      barobillSendKey: accepted.sendKey,
+      chargeStatus: 'AWAITING_RESULT',
+      resultMessage: `sms-bytes:${input.smsBytes}`,
+    });
+    if (accepted.omittedSmsFallback) {
+      try {
+        await input.notifyOmitted();
+      } catch {
+        console.info('[alimtalk] sms-fallback mail failed');
+      }
+    }
+    console.info('[alimtalk] barobill accepted');
+    return { ok: true, logId: input.pendingId, chargeStatus: 'AWAITING_RESULT' };
+  } catch (err) {
+    const failed = failureSentence(err);
+    await input.update({
+      provider: 'barobill',
+      chargeStatus: 'FAILED',
+      errorMessage: failed.message,
+      resultMessage: failed.message,
+    });
+    if (failed.code != null && BALANCE_ERROR_CODES.has(failed.code)) {
+      await input.notifyBalance(failed.message);
+    }
+    return { ok: false, error: failed.message };
+  }
+}
 
 function failureSentence(err: unknown): { message: string; code: number | null } {
   if (err instanceof BarobillCallError) {
@@ -74,7 +142,10 @@ export async function sendAlimtalkViaBarobill(params: {
           barobillSmsMessage: template.barobillSmsMessage,
         }
       : template;
-  const prepared = messageSource ? prepareBarobillMessage(messageSource, params.variables) : null;
+  const omitSmsFallback = shouldOmitBarobillSmsFallback();
+  const prepared = messageSource
+    ? prepareBarobillMessage(messageSource, params.variables, { omitSmsFallback })
+    : null;
   const templateName =
     brandChoice.route === 'brand' ? brandChoice.templateName : template?.barobillTemplateName?.trim() ?? '';
   const blocked = !template
@@ -105,52 +176,38 @@ export async function sendAlimtalkViaBarobill(params: {
     data: { ...baseLog, chargeStatus: 'PENDING', sentChannelId },
   });
 
-  try {
-    const sendKey = await sendAT({
-      templateName,
-      yellowId: brandChoice.route === 'brand' ? brandChoice.channelId : undefined,
-      smsReply: 'A',
-      message: {
-        ReceiverNum: params.toPhone,
-        ReceiverName: (params.variables['#{고객명}'] ?? '').trim().slice(0, 20),
-        Title: prepared.message.title,
-        Message: prepared.message.message,
-        SmsSubject: prepared.message.smsSubject,
-        SmsMessage: prepared.message.smsMessage,
-        Buttons: prepared.message.buttons,
-      },
-    });
-    await prisma.alimtalkSendLog.update({
-      where: { id: pending.id },
-      data: {
-        provider: 'barobill',
-        barobillSendKey: sendKey,
-        chargeStatus: 'AWAITING_RESULT',
-        resultMessage: `sms-bytes:${prepared.message.smsBytes}`,
-      },
-    });
-    console.info('[alimtalk] barobill accepted');
-    return { ok: true, logId: pending.id, chargeStatus: 'AWAITING_RESULT' };
-  } catch (err) {
-    const failed = failureSentence(err);
-    await prisma.alimtalkSendLog.update({
-      where: { id: pending.id },
-      data: {
-        provider: 'barobill',
-        chargeStatus: 'FAILED',
-        errorMessage: failed.message,
-        resultMessage: failed.message,
-      },
-    });
-    if (failed.code != null && BALANCE_ERROR_CODES.has(failed.code)) {
-      await notifyAlimtalkOpsOnceToday(
+  return commitBarobillSendLog({
+    pendingId: pending.id,
+    smsBytes: prepared.message.smsBytes,
+    update: async (data) => {
+      await prisma.alimtalkSendLog.updateMany({
+        where: { id: pending.id, tenantId: params.billingTenantId },
+        data,
+      });
+    },
+    send: () =>
+      sendAT({
+        templateName,
+        yellowId: brandChoice.route === 'brand' ? brandChoice.channelId : undefined,
+        smsReply: 'A',
+        message: {
+          ReceiverNum: params.toPhone,
+          ReceiverName: (params.variables['#{고객명}'] ?? '').trim().slice(0, 20),
+          Title: prepared.message.title,
+          Message: prepared.message.message,
+          SmsSubject: prepared.message.smsSubject,
+          SmsMessage: prepared.message.smsMessage,
+          Buttons: prepared.message.buttons,
+        },
+      }),
+    notifyOmitted: notifyAlimtalkSmsFallbackPaused,
+    notifyBalance: (message) =>
+      notifyAlimtalkOpsOnceToday(
         'barobill-balance',
         '[청소비서] 바로빌 잔액 부족',
-        `바로빌 알림톡 잔액이 부족합니다.\n${failed.message}`,
-      );
-    }
-    return { ok: false, error: failed.message };
-  }
+        `바로빌 알림톡 잔액이 부족합니다.\n${message}`,
+      ),
+  });
 }
 
 function safePlatformChannelId(): string | null {

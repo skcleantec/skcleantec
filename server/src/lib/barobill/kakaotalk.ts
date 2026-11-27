@@ -1,4 +1,5 @@
 import { SERVICE_BRIDGE_CORP_NUM } from './env.js';
+import { clearedSmsFallback, sendWithSmsPermissionRetry } from './kakaotalkSmsPermission.js';
 import { callBarobill } from './soap.js';
 
 const MAX_BATCH = 100;
@@ -115,17 +116,44 @@ function readButtons(value: unknown): BarobillKakaoButton[] {
   }));
 }
 
-function toSoapMessage(message: BarobillAtMessage): Record<string, unknown> {
+function toSoapMessage(message: BarobillAtMessage, omitSmsFallback: boolean): Record<string, unknown> {
   const buttons = message.Buttons.filter((button) => button.Name.trim() || button.Url1.trim());
+  const cleared = omitSmsFallback ? clearedSmsFallback() : null;
   return {
     ReceiverNum: message.ReceiverNum,
     ReceiverName: message.ReceiverName,
     Title: message.Title,
     Message: message.Message,
-    SmsSubject: message.SmsSubject,
-    SmsMessage: message.SmsMessage,
+    SmsSubject: cleared ? cleared.SmsSubject : message.SmsSubject,
+    SmsMessage: cleared ? cleared.SmsMessage : message.SmsMessage,
     ...(buttons.length > 0 ? { Buttons: { KakaotalkButton: buttons } } : {}),
   };
+}
+
+export type BarobillAtAccept = {
+  sendKey: string;
+  /** 이번 접수는 대체문자 없이 알림톡만 보냈다. */
+  omittedSmsFallback: boolean;
+};
+
+function smsEnvelope(omitSmsFallback: boolean, smsReply: BarobillSmsReply | undefined): {
+  SmsReply: BarobillSmsReply;
+  SmsSenderNum: string;
+} {
+  if (omitSmsFallback) {
+    const cleared = clearedSmsFallback();
+    return { SmsReply: cleared.SmsReply, SmsSenderNum: cleared.SmsSenderNum };
+  }
+  return {
+    SmsReply: smsReply ?? 'E',
+    SmsSenderNum: readEnv('BAROBILL_KAKAO_SMS_FROM'),
+  };
+}
+
+function readSendKey(value: unknown): string {
+  const sendKey = asText(value).trim();
+  if (!sendKey) throw new Error('바로빌 발송키가 비어 있습니다.');
+  return sendKey;
 }
 
 function assertBatchSize(count: number): void {
@@ -203,15 +231,18 @@ export function getHistoryUrl(id: string): Promise<string> {
   return managementUrl('GetKakaotalkHistoryURL', id);
 }
 
-export async function sendAT(input: {
-  templateName: string;
-  sendDt?: string;
-  smsReply?: BarobillSmsReply;
-  /** 브랜드 채널. 없으면 청소비서 채널. 실패 시 다른 채널로 다시 보내지 않는다. */
-  yellowId?: string;
-  message: BarobillAtMessage;
-}): Promise<string> {
+async function postSendAT(
+  input: {
+    templateName: string;
+    sendDt?: string;
+    smsReply?: BarobillSmsReply;
+    yellowId?: string;
+    message: BarobillAtMessage;
+  },
+  omitSmsFallback: boolean,
+): Promise<string> {
   const yellowId = input.yellowId?.trim() || readEnv('BAROBILL_KAKAO_CHANNEL_ID');
+  const sms = smsEnvelope(omitSmsFallback, input.smsReply);
   const value = await callBarobill(
     'KAKAOTALK',
     'SendATKakaotalkEx',
@@ -221,24 +252,37 @@ export async function sendAT(input: {
       YellowId: yellowId,
       TemplateName: input.templateName,
       SendDT: input.sendDt ?? '',
-      SmsReply: input.smsReply ?? 'E',
-      SmsSenderNum: readEnv('BAROBILL_KAKAO_SMS_FROM'),
-      KakaotalkMessage: toSoapMessage(input.message),
+      SmsReply: sms.SmsReply,
+      SmsSenderNum: sms.SmsSenderNum,
+      KakaotalkMessage: toSoapMessage(input.message, omitSmsFallback),
     },
     { redact: [input.message.ReceiverNum] },
   );
-  const sendKey = asText(value).trim();
-  if (!sendKey) throw new Error('바로빌 발송키가 비어 있습니다.');
-  return sendKey;
+  return readSendKey(value);
 }
 
-export async function sendATMany(input: {
+export async function sendAT(input: {
   templateName: string;
   sendDt?: string;
   smsReply?: BarobillSmsReply;
-  messages: BarobillAtMessage[];
-}): Promise<string> {
-  assertBatchSize(input.messages.length);
+  /** 브랜드 채널. 없으면 청소비서 채널. 실패 시 다른 채널로 다시 보내지 않는다. */
+  yellowId?: string;
+  message: BarobillAtMessage;
+}): Promise<BarobillAtAccept> {
+  const accepted = await sendWithSmsPermissionRetry((omitSmsFallback) => postSendAT(input, omitSmsFallback));
+  return { sendKey: accepted.value, omittedSmsFallback: accepted.omittedSmsFallback };
+}
+
+async function postSendATMany(
+  input: {
+    templateName: string;
+    sendDt?: string;
+    smsReply?: BarobillSmsReply;
+    messages: BarobillAtMessage[];
+  },
+  omitSmsFallback: boolean,
+): Promise<string> {
+  const sms = smsEnvelope(omitSmsFallback, input.smsReply);
   const value = await callBarobill(
     'KAKAOTALK',
     'SendATKakaotalksEx',
@@ -248,17 +292,26 @@ export async function sendATMany(input: {
       YellowId: readEnv('BAROBILL_KAKAO_CHANNEL_ID'),
       TemplateName: input.templateName,
       SendDT: input.sendDt ?? '',
-      SmsReply: input.smsReply ?? 'E',
-      SmsSenderNum: readEnv('BAROBILL_KAKAO_SMS_FROM'),
+      SmsReply: sms.SmsReply,
+      SmsSenderNum: sms.SmsSenderNum,
       KakaotalkMessages: {
-        KakaotalkATMessageEx: input.messages.map(toSoapMessage),
+        KakaotalkATMessageEx: input.messages.map((message) => toSoapMessage(message, omitSmsFallback)),
       },
     },
     { redact: input.messages.map((message) => message.ReceiverNum) },
   );
-  const sendKey = asText(value).trim();
-  if (!sendKey) throw new Error('바로빌 발송키가 비어 있습니다.');
-  return sendKey;
+  return readSendKey(value);
+}
+
+export async function sendATMany(input: {
+  templateName: string;
+  sendDt?: string;
+  smsReply?: BarobillSmsReply;
+  messages: BarobillAtMessage[];
+}): Promise<BarobillAtAccept> {
+  assertBatchSize(input.messages.length);
+  const accepted = await sendWithSmsPermissionRetry((omitSmsFallback) => postSendATMany(input, omitSmsFallback));
+  return { sendKey: accepted.value, omittedSmsFallback: accepted.omittedSmsFallback };
 }
 
 function readSendResult(row: Record<string, unknown>): BarobillKakaoSendResult {
