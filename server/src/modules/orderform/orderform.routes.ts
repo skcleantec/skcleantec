@@ -92,6 +92,13 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { ALIMTALK_MODULE_ID } from '../../lib/alimtalkPolicy.js';
 import { triggerAlimtalkOrderDone, triggerAlimtalkOrderLink } from '../alimtalk/alimtalkSend.service.js';
+import { orderLinkSmsAvailable, publicOrderLinkSendMessage } from '../alimtalk/alimtalkOrderLinkSms.js';
+import {
+  loadOrderLinkSend,
+  loadOrderLinkSendMap,
+  previewOrderLinkSms,
+  sendOrderLinkSms,
+} from '../alimtalk/alimtalkOrderLinkSms.service.js';
 import {
   assertTenantAllowsPublicService,
   PublicTenantAccessError,
@@ -1293,10 +1300,12 @@ router.get('/', authMiddleware, requireStaffPermission('orderform.issue', 'order
   }));
 
   const items = await attachReviewPaybackTokensToOrderForms(prisma, list);
+  const sendMap = await loadOrderLinkSendMap(tenantId, list.map((row) => row.id));
   const itemsWithEmail = items.map(({ submissionEmailLog, ...row }) =>
     mapOrderFormOperatingCompany({
       ...row,
       submissionEmail: serializeSubmissionEmailLog(submissionEmailLog),
+      orderLinkSend: sendMap.get(row.id) ?? null,
     }),
   );
   res.json({ items: itemsWithEmail, issuers: issuerOptions, total });
@@ -1424,7 +1433,11 @@ router.post(
       actorUserId: user.userId,
     });
     if (!result.ok) {
-      res.status(400).json({ error: result.error });
+      const smsAvailable = await orderLinkSmsAvailableFor(tenantId, rawId, body?.toPhone);
+      res.status(400).json({
+        error: publicOrderLinkSendMessage(result.error) ?? '알림톡 발송에 실패했습니다.',
+        smsAvailable,
+      });
       return;
     }
     res.json({
@@ -1434,6 +1447,111 @@ router.post(
       chargeStatus: result.chargeStatus,
       publicUrl: result.publicUrl,
     });
+  },
+);
+
+function orderFormIdParam(raw: unknown): string | null {
+  const id = typeof raw === 'string' ? raw.trim() : '';
+  return /^[0-9a-f-]{36}$/i.test(id) ? id : null;
+}
+
+async function orderLinkSmsAvailableFor(
+  tenantId: string,
+  orderFormId: string,
+  toPhone: string | null | undefined,
+): Promise<boolean> {
+  if (typeof toPhone === 'string' && toPhone.trim()) return orderLinkSmsAvailable(toPhone);
+  const form = await prisma.orderForm.findFirst({
+    where: { id: orderFormId, tenantId },
+    select: { customerPhone: true },
+  });
+  return orderLinkSmsAvailable(form?.customerPhone);
+}
+
+/** 관리자/마케터: 발주 안내 문자 미리보기 */
+router.get(
+  '/:id/sms/order-link/preview',
+  authMiddleware,
+  requireStaffPermission('orderform.issue', 'orderform.edit'),
+  requireFeature(ALIMTALK_MODULE_ID),
+  async (req, res) => {
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = await requireTenantIdFromAuth(res, user);
+    if (!tenantId) return;
+    const rawId = orderFormIdParam(req.params.id);
+    if (!rawId) {
+      res.status(400).json({ error: '유효한 발주서 id가 필요합니다.' });
+      return;
+    }
+    const quote = await previewOrderLinkSms(tenantId, rawId);
+    if (!quote.ok) {
+      res.status(400).json({ error: quote.error });
+      return;
+    }
+    res.json({
+      toPhone: quote.toPhone,
+      kind: quote.kind,
+      priceKrw: quote.priceKrw,
+      freeUnits: quote.freeUnits,
+      subject: quote.subject,
+      body: quote.body,
+    });
+  },
+);
+
+/** 관리자/마케터: 발주 안내를 문자로 1건 보낸다 */
+router.post(
+  '/:id/sms/order-link',
+  authMiddleware,
+  requireStaffPermission('orderform.issue', 'orderform.edit'),
+  requireFeature(ALIMTALK_MODULE_ID),
+  async (req, res) => {
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = await requireTenantIdFromAuth(res, user);
+    if (!tenantId) return;
+    const rawId = orderFormIdParam(req.params.id);
+    if (!rawId) {
+      res.status(400).json({ error: '유효한 발주서 id가 필요합니다.' });
+      return;
+    }
+    const body = req.body as { toPhone?: string | null };
+    const result = await sendOrderLinkSms(tenantId, rawId, body?.toPhone);
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.json({
+      ok: true,
+      kind: result.kind,
+      chargeStatus: result.chargeStatus,
+      chargedKrw: result.chargedKrw,
+    });
+  },
+);
+
+/** 관리자/마케터: 발주 안내 최신 발송 상태 */
+router.get(
+  '/:id/alimtalk/order-link/status',
+  authMiddleware,
+  requireStaffPermission('orderform.issue', 'orderform.edit'),
+  async (req, res) => {
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = await requireTenantIdFromAuth(res, user);
+    if (!tenantId) return;
+    const rawId = orderFormIdParam(req.params.id);
+    if (!rawId) {
+      res.status(400).json({ error: '유효한 발주서 id가 필요합니다.' });
+      return;
+    }
+    const form = await prisma.orderForm.findFirst({
+      where: { id: rawId, tenantId },
+      select: { id: true },
+    });
+    if (!form) {
+      res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+      return;
+    }
+    res.json({ orderLinkSend: await loadOrderLinkSend(tenantId, rawId) });
   },
 );
 
@@ -1843,7 +1961,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
       if (leaderIds.length > 0) {
         notifyInboxRefresh(leaderIds);
       }
-      res.json(orderForm);
+      res.json({ ...orderForm, orderLinkSend: null });
       return;
     }
 
@@ -1978,7 +2096,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
         actorUserId: userId,
       });
     }
-    res.json(orderForm);
+    res.json({ ...orderForm, orderLinkSend: null });
   } catch (e) {
     const ocErr = mapOperatingCompanyResolveError(e);
     if (ocErr) {
