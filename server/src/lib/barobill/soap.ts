@@ -11,13 +11,14 @@ debugNs.disable?.('soap');
 
 const CALL_TIMEOUT_MS = 20_000;
 
-export type BarobillServiceName = 'TI' | 'CASHBILL' | 'CORPSTATE' | 'KAKAOTALK';
+export type BarobillServiceName = 'TI' | 'CASHBILL' | 'CORPSTATE' | 'KAKAOTALK' | 'SMS';
 
 const WSDL_FILE: Record<BarobillServiceName, string> = {
   TI: 'TI.asmx',
   CASHBILL: 'CASHBILL.asmx',
   CORPSTATE: 'CORPSTATE.asmx',
   KAKAOTALK: 'KAKAOTALK.asmx',
+  SMS: 'SMS.asmx',
 };
 
 const clients = new Map<string, Promise<Client>>();
