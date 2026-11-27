@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 
 function fitCanvasDpi(canvas: HTMLCanvasElement): void {
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
@@ -23,6 +23,15 @@ export type SignaturePadProps = {
   saveButtonClassName?: string;
   hint?: string;
   canvasHeightClass?: string;
+  /** 저장 버튼을 숨기고 바깥(예: 「다음」 버튼)에서 actionRef.save() 로 저장한다 */
+  hideSaveButton?: boolean;
+  clearButtonLabel?: string;
+  /** 바깥에서 저장을 부를 때 — 저장에 성공하면 true */
+  actionRef?: MutableRefObject<SignaturePadActions | null>;
+};
+
+export type SignaturePadActions = {
+  save: () => Promise<boolean>;
 };
 
 /** 마우스·펜·터치로 서명을 그려 PNG blob으로보내는 패드 */
@@ -36,6 +45,9 @@ export function SignaturePad({
   saveButtonClassName,
   hint = '마우스·펜·손가락으로 박스 안에 서명을 그려 주세요.',
   canvasHeightClass = 'h-44',
+  hideSaveButton = false,
+  clearButtonLabel = '지우기',
+  actionRef,
 }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
@@ -124,14 +136,14 @@ export function SignaturePad({
     lastPtRef.current = null;
   };
 
-  const saveAsPng = async () => {
-    if (disabled || busy || saving) return;
+  const saveAsPng = async (): Promise<boolean> => {
+    if (disabled || busy || saving) return false;
     if (sketchEventsRef.current < minStrokePoints) {
-      setPadErr('서명을 충분히 그린 뒤 다시 저장해 주세요.');
-      return;
+      setPadErr(hideSaveButton ? '칸 안에 서명을 그려 주세요.' : '서명을 충분히 그린 뒤 다시 저장해 주세요.');
+      return false;
     }
     const c = canvasRef.current;
-    if (!c) return;
+    if (!c) return false;
     setSaving(true);
     setPadErr(null);
     try {
@@ -153,12 +165,26 @@ export function SignaturePad({
           1
         );
       });
+      return true;
     } catch (e) {
       setPadErr(e instanceof Error ? e.message : '저장하지 못했습니다.');
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  const saveRef = useRef(saveAsPng);
+  useEffect(() => {
+    saveRef.current = saveAsPng;
+  });
+  useEffect(() => {
+    if (!actionRef) return;
+    actionRef.current = { save: () => saveRef.current() };
+    return () => {
+      actionRef.current = null;
+    };
+  }, [actionRef]);
 
   const controlsDisabled = disabled || busy || saving;
 
@@ -187,19 +213,21 @@ export function SignaturePad({
           onClick={() => clearCanvas()}
           className="rounded border border-gray-300 bg-white px-4 py-2 text-fluid-xs text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         >
-          지우기
+          {clearButtonLabel}
         </button>
-        <button
-          type="button"
-          disabled={controlsDisabled}
-          onClick={() => void saveAsPng()}
-          className={
-            saveButtonClassName ??
-            'rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-          }
-        >
-          {saving ? '저장 중…' : saveButtonLabel}
-        </button>
+        {hideSaveButton ? null : (
+          <button
+            type="button"
+            disabled={controlsDisabled}
+            onClick={() => void saveAsPng()}
+            className={
+              saveButtonClassName ??
+              'rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+            }
+          >
+            {saving ? '저장 중…' : saveButtonLabel}
+          </button>
+        )}
       </div>
     </div>
   );
