@@ -15,6 +15,7 @@ import {
   validateDynamicSignerFields,
   validateSignerSubmissionBody,
 } from './eContractSigner.input.js';
+import { SELFIE_REQUIRED_ERROR } from './eContractSelfieDeferred.js';
 
 const router = Router();
 
@@ -200,6 +201,7 @@ router.post('/sign/:token/submit', async (req, res) => {
         agree: b.agree === true,
         selfiePublicId: typeof b.selfiePublicId === 'string' ? b.selfiePublicId : '',
         selfieUrl: typeof b.selfieUrl === 'string' ? b.selfieUrl : '',
+        selfieDeferred: b.selfieDeferred === true,
         signaturePublicId: typeof b.signaturePublicId === 'string' ? b.signaturePublicId : '',
         signatureUrl: typeof b.signatureUrl === 'string' ? b.signatureUrl : '',
         signerUserAgent: ua,
@@ -222,9 +224,11 @@ router.post('/sign/:token/submit', async (req, res) => {
           ? '본인확인 번호가 맞지 않습니다.'
           : message === 'agree_required'
             ? '동의가 필요합니다.'
-            : message === 'cloudinary_meta'
-              ? '업로드된 파일 정보가 올바르지 않습니다.'
-              : '입력값을 확인해 주세요.';
+            : message === 'selfie_required'
+              ? SELFIE_REQUIRED_ERROR
+              : message === 'cloudinary_meta'
+                ? '업로드된 파일 정보가 올바르지 않습니다.'
+                : '입력값을 확인해 주세요.';
       res.status(400).json({ error: txt });
       return;
     }

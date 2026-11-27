@@ -750,6 +750,7 @@ router.patch('/submissions/:submissionId/media', async (req, res) => {
         ? {
             selfiePublicId: typeof b.selfiePublicId === 'string' ? b.selfiePublicId : null,
             selfieUrl: typeof b.selfieUrl === 'string' ? b.selfieUrl : null,
+            actorUserId: uid,
           }
         : {}),
       ...(patchSignature
