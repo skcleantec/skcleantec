@@ -611,19 +611,21 @@ export function EContractPublicSignPage() {
                         className="max-h-64 w-auto rounded-xl border border-slate-200"
                       />
                     </div>
-                    <p className="mt-3 text-center text-fluid-2xs text-slate-500">다시 찍으려면 아래 버튼을 누르세요.</p>
-                  </>
+                                      </>
                 ) : null}
-                <div className="mt-4">
-                  <EContractSelfiePicker busy={busy} onPicked={(file) => void onSelfieSelected(file)} />
-                </div>
                 <button
                   type="button"
+                  disabled={busy}
                   onClick={() => setSelfieGuideOpen(true)}
-                  className="mt-2 w-full py-1.5 text-center text-fluid-2xs font-medium text-blue-700 underline underline-offset-2"
+                  className={`mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl px-3 py-3.5 text-fluid-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                    selfieUploaded ? 'border border-slate-300 bg-white text-slate-900' : 'bg-slate-900 text-white'
+                  }`}
                 >
-                  어떻게 찍는지 예시 보기
+                  {busy ? '올리는 중…' : selfieUploaded ? '사진 다시 제출하기' : '사진 제출하기'}
                 </button>
+                <p className="mt-2 text-center text-fluid-2xs text-slate-500">
+                  누르면 찍는 방법 예시가 먼저 나옵니다.
+                </p>
                 {selfieUploaded ? null : (
                   <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-300 bg-white px-3 py-3">
                     <input
