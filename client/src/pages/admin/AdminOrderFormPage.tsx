@@ -1251,7 +1251,7 @@ export function AdminOrderFormPage() {
                                   {sendInfo ? (
                                     <div className="flex flex-col items-center gap-1">
                                       <OrderLinkSendChip info={sendInfo} />
-                                      {sendInfo.status === 'failed' && o.customerPhone?.trim() ? (
+                                      {sendInfo.status === 'failed' && !o.submittedAt && o.customerPhone?.trim() ? (
                                         <button
                                           type="button"
                                           onClick={() => orderLinkSend.askSms(o)}
