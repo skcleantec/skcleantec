@@ -1593,6 +1593,7 @@ export function CrmPage() {
     downloadUrl: misoDownloadUrl,
     refreshStatus: refreshMisoStatus,
     startEmulator: startMisoEmulator,
+    showPhone: showMisoPhone,
     openInstall: openMisoInstall,
     openPartnerApp: openMisoPartnerApp,
   } = misoBridge;
@@ -2406,6 +2407,7 @@ export function CrmPage() {
                     onOpenMiso={() => void openMiso()}
                     onRefresh={() => void refreshMisoStatus()}
                     onStartEmulator={() => void startMisoEmulator()}
+                    onShowPhone={() => void showMisoPhone()}
                     onOpenInstall={() => void openMisoInstall()}
                     onOpenMisoApp={() => void openMisoPartnerApp()}
                     downloadUrl={misoDownloadUrl}

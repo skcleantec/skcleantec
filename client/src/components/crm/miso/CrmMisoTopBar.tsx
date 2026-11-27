@@ -12,6 +12,7 @@ export function CrmMisoTopBar({
   onOpenMiso,
   onRefresh,
   onStartEmulator,
+  onShowPhone,
   onOpenInstall,
   onOpenMisoApp,
   downloadUrl,
@@ -29,6 +30,7 @@ export function CrmMisoTopBar({
   onOpenMiso: () => void;
   onRefresh: () => void;
   onStartEmulator?: () => void;
+  onShowPhone?: () => void;
   onOpenInstall?: () => void;
   onOpenMisoApp?: () => void;
   downloadUrl?: string | null;
@@ -150,6 +152,15 @@ export function CrmMisoTopBar({
               {busy ? '연결 중…' : nextLabel}
             </button>
           )}
+          {bridgeUp && onShowPhone && stage !== 'no_emulator' && stage !== 'emulator_off' ? (
+            <button
+              type="button"
+              onClick={() => void onShowPhone()}
+              className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-fluid-2xs font-semibold text-violet-800 hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+            >
+              가상폰 화면
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onClose}
@@ -163,13 +174,13 @@ export function CrmMisoTopBar({
 
       {automationActive ? (
         <p className="border-t border-amber-200 bg-amber-50 px-4 py-1.5 text-fluid-2xs font-medium text-amber-900">
-          연동 프로그램이 동작 중입니다. 에뮬레이터 화면을 건드리지 말고 끝날 때까지 기다려 주세요.
+          연동 프로그램이 동작 중입니다. 가상폰 화면을 건드리지 말고 끝날 때까지 기다려 주세요.
         </p>
       ) : null}
       {busyLabel ? (
         <p className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2 text-fluid-2xs font-medium text-amber-900">
           <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" aria-hidden />
-          {busyLabel} 에뮬레이터·미소 앱을 건드리지 마세요.
+          {busyLabel} 가상폰·미소 앱을 건드리지 마세요.
         </p>
       ) : null}
       {ready && listCount > 0 ? (

@@ -209,7 +209,22 @@ export async function startMisoEmulator(): Promise<{ ok: boolean; message?: stri
       body: '{}',
     });
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : '에뮬레이터 시작 요청에 실패했습니다.' };
+    return { ok: false, error: e instanceof Error ? e.message : '가상폰을 켜지 못했습니다.' };
+  }
+}
+
+/** 숨어 있는 가상폰 화면을 앞으로 띄운다. (연동 프로그램 0.3.8부터) */
+export async function showMisoEmulatorWindow(): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    return await bridgeFetch<{ ok: boolean; message?: string; error?: string }>('/emulator/show', {
+      method: 'POST',
+      body: '{}',
+    });
+  } catch {
+    return {
+      ok: false,
+      error: '가상폰 화면을 열지 못했습니다. 미소 연동 프로그램을 최신으로 업데이트해 주세요.',
+    };
   }
 }
 

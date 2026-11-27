@@ -10,6 +10,7 @@ import {
   MISO_BUSY_LABELS,
   openMisoChats,
   openMisoInstallScreen,
+  showMisoEmulatorWindow,
   openMisoPartnerApp,
   sendMisoBridgeMessage,
   startMisoEmulator,
@@ -215,6 +216,12 @@ export function useCrmMisoBridge({
     }
   }, [notify, refreshStatus]);
 
+  const showPhone = useCallback(async () => {
+    const res = await showMisoEmulatorWindow();
+    notify(res.ok ? (res.message ?? '가상폰 화면을 열었습니다.') : (res.error ?? '가상폰 화면을 열지 못했습니다.'));
+    return res.ok;
+  }, [notify]);
+
   const openInstall = useCallback(async () => {
     setError(null);
     try {
@@ -266,6 +273,7 @@ export function useCrmMisoBridge({
     extract,
     sendMessage,
     startEmulator,
+    showPhone,
     openInstall,
     openPartnerApp,
   };
