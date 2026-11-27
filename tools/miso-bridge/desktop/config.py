@@ -76,6 +76,17 @@ def save_config(data: dict) -> None:
     CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
+def emulator_always_visible() -> bool:
+    """상태 창 「가상폰 화면 항상 보이기」. 없으면 꺼짐."""
+    return bool(load_config().get('emulatorAlwaysVisible'))
+
+
+def set_emulator_always_visible(enabled: bool) -> None:
+    cfg = load_config()
+    cfg['emulatorAlwaysVisible'] = bool(enabled)
+    save_config(cfg)
+
+
 def load_setup_state() -> dict:
     if not SETUP_STATE_PATH.is_file():
         return {}

@@ -102,6 +102,41 @@ def consume_show_window_request() -> bool:
     return True
 
 
+def _show_emulator_flag():
+    from desktop.config import APP_DATA_DIR
+
+    return APP_DATA_DIR / 'show.emulator'
+
+
+def request_show_emulator_window() -> None:
+    """서버 프로세스가 트레이에 가상폰 창을 띄워 달라고 남긴다."""
+    from desktop.config import ensure_app_data
+
+    ensure_app_data()
+    try:
+        _show_emulator_flag().write_text('1', encoding='utf-8')
+    except OSError:
+        pass
+
+
+def consume_show_emulator_request() -> bool:
+    path = _show_emulator_flag()
+    if not path.is_file():
+        return False
+    try:
+        path.unlink()
+    except OSError:
+        return False
+    return True
+
+
+def emulator_show_response(*, online: bool) -> tuple[int, dict]:
+    if not online:
+        return 503, {'ok': False, 'error': '가상폰이 켜진 뒤에 화면을 볼 수 있습니다.'}
+    request_show_emulator_window()
+    return 200, {'ok': True, 'message': '가상폰 화면을 열었습니다.'}
+
+
 def _install_dir() -> str:
     from desktop.config import BRIDGE_DIR
 

@@ -14,7 +14,12 @@ from urllib.parse import parse_qs, urlparse
 from automation.chat_extract import extract_current_chat
 from automation.chat_list import CHAT_REQUIRED_MESSAGE, open_chats
 from automation.chat_send import send_chat_message
-from automation.emulator_launcher import open_miso_app, open_miso_install_screen, start_emulator_detached
+from automation.emulator_launcher import (
+    open_miso_app,
+    open_miso_install_screen,
+    our_emulator_online,
+    start_emulator_detached,
+)
 from automation.status_probe import build_status_payload
 from bridge_config import HOST, PORT
 from version_info import APP_VERSION, BRIDGE_API_VERSION
@@ -206,6 +211,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'code': 'UI_CHANGED',
                     },
                 )
+            return
+
+        if path == '/emulator/show':
+            from desktop.single_instance import emulator_show_response
+
+            status, payload = emulator_show_response(online=our_emulator_online())
+            _json_response(self, status, payload)
             return
 
         if path == '/emulator/start':

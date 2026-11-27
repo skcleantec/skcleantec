@@ -141,4 +141,10 @@ def open_miso_install_screen() -> tuple[bool, str]:
         )
     except RuntimeError:
         return False, '미소 설치 화면을 열지 못했습니다. 가상폰에서 Play 스토어가 보이는지 확인해 주세요.'
+    try:
+        from desktop.emulator_window import note_install_screen_opened
+
+        note_install_screen_opened()
+    except Exception:
+        pass
     return True, '가상폰에서 미소 설치 화면을 열었습니다. 구글 로그인 후 「설치」를 눌러 주세요.'

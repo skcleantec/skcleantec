@@ -10,7 +10,7 @@ from tkinter import scrolledtext, ttk
 
 import requests
 
-from desktop.config import BRIDGE_STATUS_URL
+from desktop.config import BRIDGE_STATUS_URL, emulator_always_visible, set_emulator_always_visible
 from desktop.emulator_window import bring_emulator_to_front
 
 _POLL_SEC = 4.0
@@ -83,6 +83,7 @@ class StatusWindow:
         self._last_fetch = 0.0
         self._latest: dict | None = None
         self._log: scrolledtext.ScrolledText | None = None
+        self._always_visible: tk.BooleanVar | None = None
 
     def bind_actions(
         self,
@@ -98,6 +99,9 @@ class StatusWindow:
     def latest_status(self) -> dict | None:
         return self._latest
 
+    def anchor(self):
+        return self._root
+
     def show(self) -> None:
         self._requests.put(('show', None))
 
@@ -112,8 +116,8 @@ class StatusWindow:
         self._root = root
         self._guide = tk.StringVar(master=root, value='상태를 확인하는 중입니다.')
         root.title('청소비서 미소 연동')
-        root.geometry('460x520')
-        root.minsize(400, 420)
+        root.geometry('460x560')
+        root.minsize(400, 460)
         header = ttk.Label(root, text='청소비서 미소 연동', font=('Segoe UI', 12, 'bold'))
         header.pack(anchor='w', padx=12, pady=(12, 4))
         ttk.Label(root, textvariable=self._guide, wraplength=420).pack(anchor='w', padx=12, pady=4)
@@ -150,6 +154,13 @@ class StatusWindow:
             wraplength=420,
             foreground='#475569',
         ).pack(anchor='w', padx=12, pady=(0, 8))
+        self._always_visible = tk.BooleanVar(master=root, value=emulator_always_visible())
+        ttk.Checkbutton(
+            root,
+            text='가상폰 화면 항상 보이기',
+            variable=self._always_visible,
+            command=self._save_always_visible,
+        ).pack(anchor='w', padx=12, pady=(0, 6))
         buttons = ttk.Frame(root)
         buttons.pack(fill='x', padx=12, pady=(0, 12))
         ttk.Button(buttons, text='가상폰 화면 보기', command=self._show_phone).pack(side='left', padx=(0, 6))
@@ -182,6 +193,11 @@ class StatusWindow:
         self._log.insert('end', text + '\n', tag)
         self._log.see('end')
         self._log.configure(state='disabled')
+
+    def _save_always_visible(self) -> None:
+        if self._always_visible is None:
+            return
+        set_emulator_always_visible(bool(self._always_visible.get()))
 
     def _show_phone(self) -> None:
         ok, message = bring_emulator_to_front(self._root)

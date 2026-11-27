@@ -18,17 +18,24 @@ from desktop.config import (
     APP_DATA_DIR,
     append_tray_event,
     bridge_python_env,
+    emulator_always_visible,
     ensure_app_data,
     setup_finished,
 )
 from desktop.console_quiet import hide_miso_consoles, spawn_hidden
-from desktop.emulator_window import minimize_emulator_window
+from desktop.emulator_window import (
+    bring_emulator_to_front,
+    clear_install_reveal,
+    install_reveal_pending,
+    sync_emulator_visibility,
+)
 from desktop.fault_log import install_fault_hooks, log_exception
 from desktop.python_runtime import resolve_python_exe
 from desktop.watch_task import register_watch_task
 from desktop.manifest_client import fetch_manifest, is_update_available, update_should_install
 from desktop.setup_wizard import run_setup_wizard
 from desktop.single_instance import (
+    consume_show_emulator_request,
     consume_show_window_request,
     release_single_instance,
     resolve_single_instance,
@@ -155,6 +162,22 @@ class TrayApp:
                 self._proc.terminate()
             restart_self(installer_pid)
 
+    def _sync_phone_window(self) -> None:
+        status = self._window.latest_status() or {}
+        pending = install_reveal_pending()
+        action = sync_emulator_visibility(
+            setup_stage=str(status.get('setupStage') or ''),
+            automation_active=bool(status.get('automationActive')),
+            always_visible=emulator_always_visible(),
+            install_reveal=pending,
+        )
+        if pending and action == 'show':
+            clear_install_reveal()
+
+    def _show_phone_from_crm(self) -> None:
+        ok, message = bring_emulator_to_front(self._window.anchor())
+        self._log(message if ok else message)
+
     def _watch_server(self) -> None:
         while not self._stop.wait(2):
             try:
@@ -201,9 +224,11 @@ class TrayApp:
                 if now - last_beat >= 5:
                     touch_heartbeat()
                     last_beat = now
+                if consume_show_emulator_request():
+                    self._show_phone_from_crm()
                 if now - last_quiet >= 1:
                     hide_miso_consoles()
-                    minimize_emulator_window()
+                    self._sync_phone_window()
                     last_quiet = now
                 if consume_show_window_request():
                     self._window.show()
