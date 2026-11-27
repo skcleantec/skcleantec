@@ -98,6 +98,8 @@ export type EContractSubmissionRow = {
   teamLeaderName: string;
   teamLeaderEmail: string;
   recipientRole?: 'TEAM_LEADER' | 'MARKETER' | 'TEAM_MEMBER' | 'ADMIN' | 'EXTERNAL_PARTNER';
+  /** 셀카 없이 체결됨(사진 따로 제출 예정) — 아직 올리지 않았으면 true */
+  selfieMissing?: boolean;
 };
 
 export type EContractTeamMemberPicker = {
@@ -124,6 +126,8 @@ export type EContractSubmissionDetailDto = {
   /** 셀카 촬영 시 함께 찍어야 한 6자리 본인확인 번호 */
   challengeDigits: string;
   selfieUrl: string | null;
+  /** 체결할 때 본인이 「사진은 따로 제출」을 골랐는지 */
+  selfieDeferred?: boolean;
   signatureUrl: string | null;
   signerIp: string | null;
   signerUserAgent: string | null;

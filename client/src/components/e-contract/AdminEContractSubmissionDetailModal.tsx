@@ -260,11 +260,15 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                   </button>
                   <button
                     type="button"
-                    disabled={!detail.selfieUrl}
-                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={!detail.selfieUrl && !token}
+                    className={`rounded-lg border px-3 py-2 text-fluid-xs font-medium disabled:cursor-not-allowed disabled:opacity-45 ${
+                      detail.selfieUrl
+                        ? 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                        : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                    }`}
                     onClick={() => setMediaPanel('selfie')}
                   >
-                    셀카 보기
+                    {detail.selfieUrl ? '셀카 보기' : '셀카 미제출 · 올리기'}
                   </button>
                   <button
                     type="button"
@@ -484,7 +488,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
         </div>
       </div>
 
-      {mediaPanel === 'selfie' && selfieDisplayUrl ? (
+      {mediaPanel === 'selfie' && (selfieDisplayUrl || token) ? (
         <div
           className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
           role="dialog"
@@ -498,7 +502,11 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
               <div className="min-w-0">
                 <h3 className="text-fluid-sm font-semibold text-gray-900">본인확인 셀카</h3>
-                <p className="mt-0.5 text-fluid-2xs text-gray-500">체결 후 잘못 올린 셀카만 교체할 수 있습니다.</p>
+                <p className="mt-0.5 text-fluid-2xs text-gray-500">
+                  {detail?.selfieUrl
+                    ? '체결 후 잘못 올린 셀카만 교체할 수 있습니다.'
+                    : '체결할 때 「사진은 따로 제출」을 고른 계약입니다. 따로 받은 사진을 올려 주세요.'}
+                </p>
                 {detail?.challengeDigits ? (
                   <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5">
                     <span className="text-fluid-2xs font-medium text-amber-950">촬영 번호</span>
@@ -519,11 +527,18 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                <img
-                  src={selfieDisplayUrl}
-                  alt="본인 확인 셀카"
-                  className="mx-auto max-h-[min(50vh,420px)] w-full object-contain"
-                />
+                {selfieDisplayUrl ? (
+                  <img
+                    src={selfieDisplayUrl}
+                    alt="본인 확인 셀카"
+                    className="mx-auto max-h-[min(50vh,420px)] w-full object-contain"
+                  />
+                ) : (
+                  <p className="px-4 py-10 text-center text-fluid-xs leading-relaxed text-gray-600">
+                    아직 셀카가 없습니다.
+                    <br />위 촬영 번호와 얼굴이 함께 보이는 사진을 받아 「사진 올리기」로 올려 주세요.
+                  </p>
+                )}
               </div>
               {pendingSelfie ? (
                 <p className="mt-2 text-fluid-2xs font-medium text-amber-800">새 사진이 선택되었습니다. 저장을 눌러 반영해 주세요.</p>
@@ -552,16 +567,18 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                     onClick={() => selfieInputRef.current?.click()}
                     className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
                   >
-                    {mediaBusy ? '업로드 중…' : '사진 교체'}
+                    {mediaBusy ? '업로드 중…' : detail?.selfieUrl ? '사진 교체' : '사진 올리기'}
                   </button>
-                  <a
-                    href={selfieDisplayUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50"
-                  >
-                    새 탭에서 열기
-                  </a>
+                  {selfieDisplayUrl ? (
+                    <a
+                      href={selfieDisplayUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50"
+                    >
+                      새 탭에서 열기
+                    </a>
+                  ) : null}
                   <button
                     type="button"
                     disabled={mediaBusy || !pendingSelfie}
