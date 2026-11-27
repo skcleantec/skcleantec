@@ -6,7 +6,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from bridge_config import MISO_PACKAGE, resolve_adb
+from bridge_config import MISO_PACKAGES, resolve_adb
 
 
 @dataclass
@@ -56,27 +56,46 @@ def first_online_emulator() -> AdbDevice | None:
     return None
 
 
-def shell(serial: str | None, command: str, timeout: float = 30.0) -> str:
+def shell_result(serial: str | None, command: str, timeout: float = 30.0) -> tuple[int, str, str]:
     args = ['shell', command]
     if serial:
         args = ['-s', serial, *args]
-    code, out, err = _run(args, timeout=timeout)
+    return _run(args, timeout=timeout)
+
+
+def shell(serial: str | None, command: str, timeout: float = 30.0) -> str:
+    code, out, err = shell_result(serial, command, timeout=timeout)
     if code != 0:
         raise RuntimeError(err.strip() or out.strip() or f'adb shell failed ({code})')
     return out.strip()
 
 
+def installed_miso_package(serial: str | None) -> str | None:
+    """설치된 미소 패키지. 최신 앱(com.miso)을 먼저 본다."""
+    for package in MISO_PACKAGES:
+        try:
+            out = shell(serial, f'pm path {package}')
+        except RuntimeError:
+            continue
+        if out.startswith('package:'):
+            return package
+    return None
+
+
+def is_miso_package(package: str | None) -> bool:
+    return bool(package) and package in MISO_PACKAGES
+
+
 def is_package_installed(serial: str | None) -> bool:
-    try:
-        out = shell(serial, f'pm path {MISO_PACKAGE}')
-        return out.startswith('package:')
-    except RuntimeError:
-        return False
+    return installed_miso_package(serial) is not None
 
 
 def get_package_version(serial: str | None) -> str | None:
+    package = installed_miso_package(serial)
+    if not package:
+        return None
     try:
-        out = shell(serial, f'dumpsys package {MISO_PACKAGE}')
+        out = shell(serial, f'dumpsys package {package}')
     except RuntimeError:
         return None
     for line in out.splitlines():
@@ -92,7 +111,11 @@ def get_foreground_package(serial: str | None) -> str | None:
         out = shell(serial, 'dumpsys window', timeout=15)
     except RuntimeError:
         return None
-    if 'Not Responding' in out or '응답하지 않음' in out:
+    focus = ''
+    for line in out.splitlines():
+        if 'mCurrentFocus=' in line or 'mFocusedApp=' in line:
+            focus += line + '\n'
+    if 'Not Responding' in focus or '응답하지 않음' in focus:
         return None
     m = re.search(r'mCurrentFocus=Window\{[^ ]+ u0 ([^/]+)/', out)
     if m:

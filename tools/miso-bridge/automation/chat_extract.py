@@ -6,7 +6,13 @@ import time
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from automation.adb_client import first_online_emulator, get_foreground_package, shell, tap
+from automation.adb_client import (
+    first_online_emulator,
+    get_foreground_package,
+    is_miso_package,
+    shell,
+    tap,
+)
 from automation.anr_guard import dismiss_blocking_dialogs, ensure_emulator_responsive
 from automation.chat_list import (
     CHAT_NOT_FOUND_MESSAGE,
@@ -16,16 +22,17 @@ from automation.chat_list import (
     canonical_service_summary,
     normalize_customer_name,
     open_chat_by_id,
+    parse_list_rows,
     stable_chat_id,
 )
 from automation.uiautomator import (
+    ScreenReadError,
     collect_nodes,
     dump_ui,
     parse_bounds,
     press_back,
     tap_node,
 )
-from bridge_config import MISO_PACKAGE
 
 KST = timezone(timedelta(hours=9))
 
@@ -382,7 +389,7 @@ def _ensure_chat_detail(
     target = (chat_id or '').strip()
 
     root = dump_ui(serial, 'miso-extract-check')
-    if not is_on_miso_chat_screen(root) and get_foreground_package(serial) == MISO_PACKAGE:
+    if not is_on_miso_chat_screen(root) and is_miso_package(get_foreground_package(serial)):
         root = dump_ui(serial, 'miso-extract-check-2')
 
     if is_on_miso_chat_screen(root):
@@ -474,6 +481,8 @@ def extract_current_chat(*, chat_id: str | None = None) -> dict[str, Any]:
                 allow_current=not (chat_id or '').strip(),
             )
         except MisoChatError as e:
+            return {'ok': False, 'error': str(e), 'code': e.code}
+        except ScreenReadError as e:
             return {'ok': False, 'error': str(e), 'code': e.code}
         except RuntimeError as e:
             return {'ok': False, 'error': str(e), 'code': 'UI_CHANGED'}

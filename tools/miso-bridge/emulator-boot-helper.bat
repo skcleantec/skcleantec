@@ -59,6 +59,9 @@ echo 화면 잠금을 해제하고 화면이 꺼지지 않게 합니다.
 "%ADB%" -s !SERIAL! shell input keyevent 82 >nul 2>&1
 "%ADB%" -s !SERIAL! shell wm dismiss-keyguard >nul 2>&1
 "%ADB%" -s !SERIAL! shell settings put system screen_off_timeout 2147483647 >nul 2>&1
+"%ADB%" -s !SERIAL! shell settings put global window_animation_scale 0 >nul 2>&1
+"%ADB%" -s !SERIAL! shell settings put global transition_animation_scale 0 >nul 2>&1
+"%ADB%" -s !SERIAL! shell settings put global animator_duration_scale 0 >nul 2>&1
 "%ADB%" -s !SERIAL! shell svc power stayon true >nul 2>&1
 call :ApplyKeyboard
 

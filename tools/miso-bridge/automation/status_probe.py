@@ -6,12 +6,13 @@ import time
 from automation.device_locale import read_device_locale
 from automation.emulator_launcher import our_emulator_serial
 from automation.phone_runtime import gpu_mode, in_warmup, phone_is_busy, read_timezone
-from bridge_config import MISO_AVD, MISO_PACKAGE, PORT, resolve_adb, resolve_emulator
+from bridge_config import MISO_AVD, PORT, resolve_adb, resolve_emulator
 from automation.adb_client import (
     first_online_emulator,
     get_foreground_package,
     get_package_version,
     get_page_size,
+    is_miso_package,
     is_package_installed,
     list_devices,
     shell,
@@ -187,7 +188,7 @@ def build_status_payload(*, lite: bool = False) -> dict:
     miso_version = get_package_version(serial) if miso_installed else None
     foreground = get_foreground_package(serial) if serial else None
     page_size = get_page_size(serial) if serial else None
-    miso_foreground = foreground == MISO_PACKAGE if foreground else False
+    miso_foreground = is_miso_package(foreground) if foreground else False
 
     booted = bool(serial) and _boot_completed(serial)
     locale_value, locale_korean = _locale_for_status(our_serial, booted and our_serial == serial)

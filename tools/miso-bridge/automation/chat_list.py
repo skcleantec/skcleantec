@@ -8,18 +8,25 @@ import time
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from automation.adb_client import first_online_emulator, get_foreground_package, tap
+from automation.adb_client import first_online_emulator, get_foreground_package, is_miso_package, tap
 from automation.anr_guard import dismiss_blocking_dialogs, ensure_emulator_responsive
+from automation.screen_match import (
+    chat_load_error_message,
+    covering_block_message,
+    dismiss_light_notices,
+    find_chat_tab,
+    find_partner_entry,
+    find_retry_button,
+    on_catalog_home,
+)
 from automation.uiautomator import (
     collect_nodes,
     dump_ui,
-    find_clickable_by_desc_contains,
     launch_miso_app,
     parse_bounds,
     press_back,
     tap_node,
 )
-from bridge_config import MISO_PACKAGE
 
 KST = timezone(timedelta(hours=9))
 _adb_lock = threading.Lock()
@@ -170,11 +177,48 @@ def _on_chat_list(root) -> bool:
 
 
 def _tap_chat_tab(serial: str | None, root) -> None:
-    node = find_clickable_by_desc_contains(root, '대화하기')
+    node = find_chat_tab(root)
     if not node:
-        raise RuntimeError('「대화하기」 탭을 찾지 못했습니다. (UI_CHANGED)')
+        raise MisoChatError('「대화하기」 탭을 찾지 못했습니다.', 'UI_CHANGED')
     tap_node(serial, node)
     time.sleep(1.8)
+
+
+def _block_payload(message: str) -> dict[str, Any]:
+    code = 'MISO_NOT_LOGGED_IN' if '로그인' in message else 'SCREEN_BLOCKED'
+    return {'ok': False, 'error': message, 'code': code, 'items': []}
+
+
+def _settle_screen(serial: str | None, root, tag: str):
+    """안내 창을 닫거나, 서비스 목록이면 파트너 화면으로 들어간다."""
+    blocked = covering_block_message(root)
+    if blocked:
+        return root, blocked
+    if dismiss_light_notices(serial, root):
+        time.sleep(0.8)
+        root = dump_ui(serial, f'{tag}-notice')
+        blocked = covering_block_message(root)
+        if blocked:
+            return root, blocked
+    if on_catalog_home(root):
+        entry = find_partner_entry(root)
+        if entry:
+            tap_node(serial, entry)
+            time.sleep(1.6)
+            root = dump_ui(serial, f'{tag}-partner')
+    return root, None
+
+
+def _reload_chat_error(serial: str | None, root, tag: str):
+    """대화 목록이 안 뜬 오류면 「다시 시도」를 한 번만 누른다."""
+    if not chat_load_error_message(root):
+        return root
+    button = find_retry_button(root)
+    if not button:
+        return root
+    tap_node(serial, button)
+    time.sleep(6)
+    return dump_ui(serial, f'{tag}-retry')
 
 
 def is_automation_active() -> bool:
@@ -188,14 +232,17 @@ def _open_chats_body(serial: str, *, force_launch: bool = False, gentle: bool = 
         dismiss_blocking_dialogs(serial)
         foreground = get_foreground_package(serial)
 
-    if gentle and foreground == MISO_PACKAGE:
+    if gentle and is_miso_package(foreground):
         pass
-    elif foreground != MISO_PACKAGE or force_launch:
+    elif not is_miso_package(foreground) or force_launch:
         launch_miso_app(serial)
         if not gentle and foreground is not None:
             press_back(serial, 2)
 
     root = dump_ui(serial, 'miso-open-chats')
+    root, blocked = _settle_screen(serial, root, 'miso-open-chats')
+    if blocked:
+        return _block_payload(blocked)
     if _looks_like_login_screen(root):
         return {
             'ok': False,
@@ -211,6 +258,9 @@ def _open_chats_body(serial: str, *, force_launch: bool = False, gentle: bool = 
     if not rows and not _on_chat_list(root):
         _tap_chat_tab(serial, root)
         root = dump_ui(serial, 'miso-open-chats-after-tab')
+        root, blocked = _settle_screen(serial, root, 'miso-open-chats-after-tab')
+        if blocked:
+            return _block_payload(blocked)
         if _looks_like_login_screen(root):
             return {
                 'ok': False,
@@ -218,6 +268,7 @@ def _open_chats_body(serial: str, *, force_launch: bool = False, gentle: bool = 
                 'code': 'MISO_NOT_LOGGED_IN',
                 'items': [],
             }
+        root = _reload_chat_error(serial, root, 'miso-open-chats-after-tab')
         try:
             rows = parse_list_rows(root)
         except MisoChatError as e:
@@ -226,10 +277,35 @@ def _open_chats_body(serial: str, *, force_launch: bool = False, gentle: bool = 
         _tap_chat_tab(serial, root)
         time.sleep(1.2)
         root = dump_ui(serial, 'miso-open-chats-retry')
+        root = _reload_chat_error(serial, root, 'miso-open-chats-retry')
         try:
             rows = parse_list_rows(root)
         except MisoChatError as e:
             return {'ok': False, 'error': str(e), 'code': e.code, 'items': []}
+
+    if not rows and find_chat_tab(root) and not chat_load_error_message(root):
+        time.sleep(4)
+        root = dump_ui(serial, 'miso-open-chats-settle')
+        root = _reload_chat_error(serial, root, 'miso-open-chats-settle')
+        try:
+            rows = parse_list_rows(root)
+        except MisoChatError as e:
+            return {'ok': False, 'error': str(e), 'code': e.code, 'items': []}
+
+    error_message = chat_load_error_message(root)
+    badge = 0
+    tab = find_chat_tab(root)
+    if tab:
+        badge_match = re.match(r'\s*(\d+)', tab.content_desc or '')
+        badge = int(badge_match.group(1)) if badge_match else 0
+    if not rows and (error_message or badge > 0):
+        return {
+            'ok': False,
+            'error': error_message
+            or '미소 대화 화면에서 대화 목록을 불러오지 못했습니다.',
+            'code': 'CHAT_SCREEN_ERROR',
+            'items': [],
+        }
 
     if not rows:
         return {

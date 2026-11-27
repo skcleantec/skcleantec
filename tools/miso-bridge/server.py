@@ -35,6 +35,13 @@ KST = timezone(timedelta(hours=9))
 _crm_status_at = 0.0
 
 
+def _exception_code(exc: BaseException, default: str = 'UI_CHANGED') -> str:
+    code = getattr(exc, 'code', None)
+    if isinstance(code, str) and code:
+        return code
+    return default
+
+
 def note_crm_status_request() -> None:
     global _crm_status_at
     _crm_status_at = time.time()
@@ -144,7 +151,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     {
                         'ok': False,
                         'error': f'채팅 목록 연결 실패: {e}',
-                        'code': 'UI_CHANGED',
+                        'code': _exception_code(e),
                         'items': [],
                     },
                 )
@@ -167,7 +174,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     code = 'ADB_TIMEOUT'
                 else:
                     msg = f'정보 가져오기 실패: {e}'
-                    code = 'UI_CHANGED'
+                    code = _exception_code(e)
                 _json_response(
                     self,
                     500,
@@ -208,7 +215,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     {
                         'ok': False,
                         'error': f'메시지 전송 실패: {e}',
-                        'code': 'UI_CHANGED',
+                        'code': _exception_code(e),
                     },
                 )
             return

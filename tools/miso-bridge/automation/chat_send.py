@@ -14,23 +14,32 @@ from automation.chat_list import (
     _now_iso,
 )
 from automation.text_input import type_into_field
-from automation.uiautomator import collect_nodes, dump_ui, find_clickable_by_desc_contains, tap_node
+from automation.uiautomator import (
+    ScreenReadError,
+    collect_nodes,
+    dump_ui,
+    find_clickable_by_desc_contains,
+    tap_node,
+)
 
 
 def find_message_input(root):
     for n in collect_nodes(root):
         blob = f'{n.text} {n.content_desc}'.strip()
-        if '메시지' in blob and ('입력' in blob or '입력해' in blob):
+        if any(word in blob for word in ('메시지', '메세지')) and ('입력' in blob or '입력해' in blob):
             return n
     for n in collect_nodes(root):
-        if n.text == '메시지를 입력해주세요':
+        if n.text in ('메시지를 입력해주세요', '메세지를 입력해주세요', '메시지 입력'):
             return n
     return None
 
 
 def find_send_button(root):
     for n in collect_nodes(root):
-        if n.content_desc == 'send' and n.clickable:
+        if not n.clickable:
+            continue
+        blob = f'{n.text} {n.content_desc}'.strip().lower()
+        if blob in ('send', '보내기', '전송') or n.content_desc == 'send':
             return n
     return find_clickable_by_desc_contains(root, 'send')
 
@@ -56,6 +65,8 @@ def send_chat_message(*, message: str, chat_id: str | None = None) -> dict[str, 
         try:
             _resolved, chat_root = _ensure_chat_detail(serial, target, allow_current=False)
         except MisoChatError as e:
+            return {'ok': False, 'error': str(e), 'code': e.code}
+        except ScreenReadError as e:
             return {'ok': False, 'error': str(e), 'code': e.code}
         except RuntimeError as e:
             return {'ok': False, 'error': str(e), 'code': 'UI_CHANGED'}

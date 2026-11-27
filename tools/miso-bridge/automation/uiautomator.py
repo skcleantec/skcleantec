@@ -8,8 +8,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
-from automation.adb_client import pull_file, shell, tap
-from bridge_config import MISO_PACKAGE
+from automation.adb_client import installed_miso_package, pull_file, shell, shell_result, tap
+from bridge_config import MISO_PACKAGES
 
 BOUNDS_RE = re.compile(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
 
@@ -51,17 +51,45 @@ def release_uiautomator(serial: str | None) -> None:
             pass
 
 
+class ScreenReadError(RuntimeError):
+    """uiautomator 가 화면 파일을 만들지 못했을 때. UI_CHANGED 와 구분한다."""
+
+    code = 'SCREEN_READ_FAILED'
+
+    def __init__(self) -> None:
+        super().__init__(
+            '가상폰 화면을 읽지 못했습니다. 가상폰이 느리거나 화면이 계속 움직이고 있습니다.'
+        )
+
+
+def _dump_succeeded(text: str) -> bool:
+    lowered = (text or '').lower()
+    return 'dumped to' in lowered
+
+
 def dump_ui(serial: str | None, tag: str = 'miso-ui') -> ET.Element:
+    """화면 XML 을 읽는다. 실패하면 1.5초 간격으로 최대 3번 다시 시도한다."""
     remote = f'/sdcard/{tag}.xml'
     try:
-        shell(serial, f'uiautomator dump {remote}', timeout=45)
-        with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as tmp:
-            local = Path(tmp.name)
-        try:
-            pull_file(serial, remote, local)
-            return ET.parse(local).getroot()
-        finally:
-            local.unlink(missing_ok=True)
+        for attempt in range(3):
+            if attempt:
+                time.sleep(1.5)
+            code, out, err = shell_result(serial, f'uiautomator dump {remote}', timeout=45)
+            blob = f'{out}\n{err}'.strip()
+            if code != 0 or not _dump_succeeded(blob):
+                release_uiautomator(serial)
+                continue
+            with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as tmp:
+                local = Path(tmp.name)
+            try:
+                pull_file(serial, remote, local)
+                return ET.parse(local).getroot()
+            except (RuntimeError, ET.ParseError, OSError):
+                release_uiautomator(serial)
+                continue
+            finally:
+                local.unlink(missing_ok=True)
+        raise ScreenReadError()
     finally:
         release_uiautomator(serial)
         time.sleep(0.15)
@@ -114,9 +142,10 @@ def find_by_text(root: ET.Element, text: str, *, clickable: bool | None = None) 
 
 
 def launch_miso_app(serial: str | None) -> None:
+    package = installed_miso_package(serial) or MISO_PACKAGES[0]
     shell(
         serial,
-        f'monkey -p {MISO_PACKAGE} -c android.intent.category.LAUNCHER 1',
+        f'monkey -p {package} -c android.intent.category.LAUNCHER 1',
         timeout=30,
     )
     time.sleep(2.5)

@@ -10,7 +10,9 @@ HOST = os.environ.get('MISO_BRIDGE_HOST', '127.0.0.1')
 MISO_AVD = os.environ.get('MISO_AVD', 'CbiseoMiso')
 MISO_LOCALE = os.environ.get('MISO_LOCALE', 'ko-KR')
 
-MISO_PACKAGE = 'com.miso.cleaner'
+# 2026-11 설치본은 com.miso (6.2611.x). 2026-07 기록은 com.miso.cleaner.
+MISO_PACKAGES = ('com.miso', 'com.miso.cleaner')
+MISO_PACKAGE = MISO_PACKAGES[0]
 
 
 def miso_sdk_root() -> Path:

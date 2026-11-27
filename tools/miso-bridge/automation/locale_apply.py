@@ -128,6 +128,9 @@ def _keep_awake(serial: str) -> None:
         'settings put system screen_off_timeout 2147483647',
         'svc power stayon true',
         'settings put secure show_ime_with_hard_keyboard 1',
+        'settings put global window_animation_scale 0',
+        'settings put global transition_animation_scale 0',
+        'settings put global animator_duration_scale 0',
     ):
         try:
             shell(serial, cmd, timeout=8)
