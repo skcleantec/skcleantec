@@ -1,5 +1,6 @@
 import type { Prisma, EContractIssuerProfile, EContractIssuerStampKind } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { parseTenantConfig } from '../tenants/tenantConfig.schema.js';
 import {
   EC_ISSUER_PLACEHOLDER_KEYS,
   ISSUER_SEAL_PUBLIC_ID_PREFIX,
@@ -58,12 +59,29 @@ export async function getIssuerProfilePayload(tenantId: string, profileKey = DEF
   };
 }
 
+async function readTenantCompanySeal(tenantId: string): Promise<
+  Pick<EContractIssuerSnapshot, 'companySealPublicId' | 'companySealSecureUrl' | 'companySealDisplayWidthPx'>
+> {
+  const tenant = await prisma.tenant.findFirst({
+    where: { id: tenantId },
+    select: { config: true },
+  });
+  const reg = parseTenantConfig(tenant?.config).companyRegistration;
+  const width = reg?.sealDisplayWidthPx;
+  return {
+    companySealPublicId: reg?.sealPublicId?.trim() || null,
+    companySealSecureUrl: reg?.sealSecureUrl?.trim() || null,
+    companySealDisplayWidthPx: typeof width === 'number' && Number.isFinite(width) ? width : null,
+  };
+}
+
 export async function getIssuerSnapshot(
   tenantId: string,
   profileKey = DEFAULT_PROFILE_KEY,
 ): Promise<EContractIssuerSnapshot> {
   const row = await getIssuerProfile(tenantId, profileKey);
-  return rowToIssuerSnapshot(row);
+  const companySeal = await readTenantCompanySeal(tenantId);
+  return { ...rowToIssuerSnapshot(row), tenantId, ...companySeal };
 }
 
 /** 관리 초안 미리보기 — 본문 갑 치환 + 하단 계약주·계약자 부록 HTML */
@@ -72,8 +90,7 @@ export async function previewBodyWithIssuerProfile(
   profileKey: string | undefined,
   bodyMarkdown: string,
 ) {
-  const row = await getIssuerProfile(tenantId, profileKey?.trim() || DEFAULT_PROFILE_KEY);
-  const snap = rowToIssuerSnapshot(row);
+  const snap = await getIssuerSnapshot(tenantId, profileKey?.trim() || DEFAULT_PROFILE_KEY);
   const expanded = expandIssuerPlaceholders(bodyMarkdown, snap);
   const appendixHtml = buildPartyAppendixHtml(snap);
   return { expanded, appendixHtml };
@@ -260,8 +277,7 @@ export async function issuerSnapshotBlockForPublish(
   tenantId: string,
   profileKey = DEFAULT_PROFILE_KEY,
 ): Promise<{ snapshotJson: Record<string, string | number | null>; plain: EContractIssuerSnapshot }> {
-  const row = await getIssuerProfile(tenantId, profileKey);
-  const plain = rowToIssuerSnapshot(row);
+  const plain = await getIssuerSnapshot(tenantId, profileKey);
   const snapshotJson = issuerSnapshotJsonFromPlain(plain);
   return { snapshotJson, plain };
 }

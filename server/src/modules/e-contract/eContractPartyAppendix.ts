@@ -99,9 +99,9 @@ export function buildPartyAppendixHtml(
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">연락처</td><td style="padding: 6px 0;">[[EC_ISSUER_PHONE]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">이메일</td><td style="padding: 6px 0;">[[EC_ISSUER_EMAIL]]</td></tr>
             <tr>
-              <td colspan="2" style="padding-top: 20px; text-align: right; vertical-align: middle;">
-                <span style="font-weight: bold; margin-right: 16px; vertical-align: middle;">(인)</span>
-                <span style="display: inline-block; vertical-align: middle;">[[EC_ISSUER_SEAL]]</span>
+              <td colspan="2" style="padding-top: 60px; padding-bottom: 60px; text-align: right; vertical-align: middle;">
+                <span style="font-size: 15px; font-weight: bold; vertical-align: middle;">[[EC_ISSUER_REP]]</span>
+                <span style="position: relative; display: inline-block; margin-left: 6px; font-size: 15px; vertical-align: middle;">(인)[[EC_ISSUER_SEAL]]</span>
               </td>
             </tr>
           </tbody>
