@@ -63,6 +63,8 @@ export function EContractPublicSignPage() {
   const [selfieFileName, setSelfieFileName] = useState<string | null>(null);
   const [selfieUploaded, setSelfieUploaded] = useState<{ publicId: string; secureUrl: string } | null>(null);
   const [selfieGuideOpen, setSelfieGuideOpen] = useState(false);
+  /** 사진은 따로 제출 — 본인이 직접 체크해야 셀카 없이 제출된다 */
+  const [selfieLater, setSelfieLater] = useState(false);
   const [sigUploaded, setSigUploaded] = useState<{ publicId: string; secureUrl: string } | null>(null);
 
   const [agree, setAgree] = useState(false);
@@ -167,8 +169,8 @@ export function EContractPublicSignPage() {
       setMsg('입력할 항목이 없습니다. 관리자에게 문의해 주세요.');
       return;
     }
-    if (!selfieUploaded) {
-      setMsg('본인 확인용 셀카를 업로드해 주세요.');
+    if (!selfieUploaded && !selfieLater) {
+      setMsg('본인 확인용 셀카를 올리거나, 「사진은 따로 제출하겠습니다」에 체크해 주세요.');
       return;
     }
     if (!sigUploaded) {
@@ -193,8 +195,9 @@ export function EContractPublicSignPage() {
           : {}),
         challengeEntered: session.challengeDigits, // UI input removed, submit the challenge digits directly
         agree,
-        selfiePublicId: selfieUploaded.publicId,
-        selfieUrl: selfieUploaded.secureUrl,
+        ...(selfieUploaded
+          ? { selfiePublicId: selfieUploaded.publicId, selfieUrl: selfieUploaded.secureUrl }
+          : { selfieDeferred: true }),
         signaturePublicId: sigUploaded.publicId,
         signatureUrl: sigUploaded.secureUrl,
       });
@@ -389,7 +392,22 @@ export function EContractPublicSignPage() {
             <div className="mt-4 flex justify-center">
               <img src={selfieUploaded.secureUrl} alt="본인 확인 셀카" className="max-h-48 w-auto rounded border border-gray-200" />
             </div>
-          ) : null}
+          ) : (
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-gray-300 bg-white px-3 py-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 shrink-0"
+                checked={selfieLater}
+                disabled={busy}
+                onChange={(ev) => setSelfieLater(ev.target.checked)}
+              />
+              <span className="min-w-0 text-[12px] leading-relaxed text-gray-800">
+                <span className="block font-semibold text-gray-950">사진은 따로 제출하겠습니다</span>
+                지금 셀카를 올리지 않고 계약을 제출합니다. 위 본인확인 번호와 얼굴이 함께 보이는 사진을 업체에 따로
+                보내 주셔야 본인 확인이 끝납니다.
+              </span>
+            </label>
+          )}
         </div>
       </section>
 

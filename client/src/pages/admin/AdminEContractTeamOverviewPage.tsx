@@ -327,6 +327,11 @@ export function AdminEContractTeamOverviewPage() {
                     <dt className="text-gray-500 shrink-0">수신자</dt>
                     <dd className="min-w-0 truncate text-right" title={s.teamLeaderName}>
                       {s.teamLeaderName}
+                      {s.selfieMissing ? (
+                        <span className="ml-1 inline-flex h-[18px] items-center whitespace-nowrap rounded-full border border-[#f3d58a] bg-[#fff6dc] px-1.5 align-middle text-[11px] font-semibold text-[#8a5a00]">
+                          셀카 미제출
+                        </span>
+                      ) : null}
                       {s.recipientRole ? (
                         <span className="text-gray-500"> · {eContractRecipientRoleLabel(s.recipientRole)}</span>
                       ) : null}
@@ -382,6 +387,11 @@ export function AdminEContractTeamOverviewPage() {
                       <tr key={s.id} className="group border-b border-gray-100 hover:bg-gray-50">
                         <td className="truncate px-2 py-2 text-center text-fluid-xs" title={s.teamLeaderName}>
                           {s.teamLeaderName}
+                          {s.selfieMissing ? (
+                        <span className="ml-1 inline-flex h-[18px] items-center whitespace-nowrap rounded-full border border-[#f3d58a] bg-[#fff6dc] px-1.5 align-middle text-[11px] font-semibold text-[#8a5a00]">
+                          셀카 미제출
+                        </span>
+                      ) : null}
                           {s.recipientRole ? (
                             <div className="text-fluid-2xs text-gray-500">
                               {eContractRecipientRoleLabel(s.recipientRole)}

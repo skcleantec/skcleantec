@@ -57,8 +57,11 @@ export async function submitEContractSign(
     signerFields?: Record<string, string>;
     challengeEntered: string;
     agree: boolean;
-    selfiePublicId: string;
-    selfieUrl: string;
+    /** 셀카를 지금 올렸을 때만 */
+    selfiePublicId?: string;
+    selfieUrl?: string;
+    /** 본인이 「사진은 따로 제출하겠습니다」에 체크하고 셀카 없이 제출 */
+    selfieDeferred?: boolean;
     signaturePublicId: string;
     signatureUrl: string;
   }
