@@ -67,6 +67,7 @@ export function OrderFormListActionsModal(props: {
   onSubmissionViewer: () => void;
   onResendEmail: () => void;
   onSendAlimtalk?: () => void;
+  onSendSms?: () => void;
   onDelete: () => void;
   canResendEmail: boolean;
 }) {
@@ -84,6 +85,7 @@ export function OrderFormListActionsModal(props: {
     onSubmissionViewer,
     onResendEmail,
     onSendAlimtalk,
+    onSendSms,
     onDelete,
     canResendEmail,
   } = props;
@@ -128,6 +130,20 @@ export function OrderFormListActionsModal(props: {
             onClick: () => {
               onSendAlimtalk();
             },
+          },
+        ]
+      : []),
+    ...(showAlimtalk && onSendSms
+      ? [
+          {
+            key: 'sms',
+            label: '발주서 문자로 보내기',
+            description: order.customerPhone?.trim()
+              ? '알림톡이 안 가는 고객에게 문자 1건 (내용·비용 확인 후 발송)'
+              : '고객 연락처가 없어 발송할 수 없습니다',
+            tone: 'default' as const,
+            disabled: alimtalkBusy || !order.customerPhone?.trim(),
+            onClick: closeThen(onSendSms),
           },
         ]
       : []),
