@@ -117,7 +117,7 @@ function companySealCandidate(snapshot: EContractIssuerSnapshot): SealImage | nu
 
 function sealImgMarkup(image: SealImage): string {
   const w = image.width;
-  return `<img src="${escapeHtml(image.url)}" alt="인" width="${w}" crossorigin="anonymous" class="e-contract-seal-img" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${w}px;height:auto;max-width:none;" />`;
+  return `<img src="${escapeHtml(image.url)}" alt="인" width="${w}" crossorigin="anonymous" class="e-contract-seal-img" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:auto;height:auto;max-width:100%;max-height:100%;" />`;
 }
 
 /** `[[EC_ISSUER_SEAL]]` — 발급자 도장, 없으면 업체 직인. 없으면 빈 문자열. 서명 이미지는 쓰지 않는다. */
