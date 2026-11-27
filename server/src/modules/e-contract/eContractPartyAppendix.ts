@@ -93,15 +93,15 @@ export function buildPartyAppendixHtml(
         <table width="100%" style="border-collapse: collapse; font-size: 14px; text-align: left;">
           <tbody>
             <tr><td width="80" style="padding: 6px 0; color: #333; font-weight: bold;">상호</td><td style="padding: 6px 0;">[[EC_ISSUER_COMPANY]]</td></tr>
-            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">대표자</td><td style="padding: 6px 0;">[[EC_ISSUER_REP]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">사업자번호</td><td style="padding: 6px 0;">[[EC_ISSUER_BIZNO]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주소</td><td style="padding: 6px 0;">[[EC_ISSUER_ADDRESS]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">연락처</td><td style="padding: 6px 0;">[[EC_ISSUER_PHONE]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">이메일</td><td style="padding: 6px 0;">[[EC_ISSUER_EMAIL]]</td></tr>
             <tr>
-              <td colspan="2" style="padding-top: 60px; padding-bottom: 60px; text-align: right; vertical-align: middle;">
+              <td colspan="2" style="padding: 4px 0; white-space: nowrap; vertical-align: middle;">
+                <span style="display: inline-block; margin-right: 10px; color: #333; font-weight: bold; vertical-align: middle;">대표자</span>
                 <span style="font-size: 15px; font-weight: bold; vertical-align: middle;">[[EC_ISSUER_REP]]</span>
-                <span style="position: relative; display: inline-block; margin-left: 6px; font-size: 15px; vertical-align: middle;">(인)[[EC_ISSUER_SEAL]]</span>
+                <span style="position: relative; display: inline-block; width: 52px; height: 52px; line-height: 52px; margin-left: 4px; text-align: center; font-size: 13px; color: #555; vertical-align: middle;">(인)[[EC_ISSUER_SEAL]]</span>
               </td>
             </tr>
           </tbody>
