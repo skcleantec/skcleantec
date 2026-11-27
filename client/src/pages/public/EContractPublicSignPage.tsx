@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -14,6 +14,7 @@ import { EContractDynamicFieldInputs, emptyFieldValues } from '../../components/
 import { EC_SIGNER_ADDRESS_TOKEN } from '../../utils/eContractDisplay';
 import { splitEContractSignerAddressValue } from '../../components/e-contract/eContractSignerAddressValue';
 import { EContractSelfiePicker } from '../../components/e-contract/EContractSelfiePicker';
+import { eContractBodyForReading } from '../../utils/eContractReadingBody';
 import { SignaturePad, type SignaturePadActions } from '../../components/e-contract/SignaturePad';
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 import { getTeamToken } from '../../stores/teamAuth';
@@ -277,6 +278,8 @@ export function EContractPublicSignPage() {
   }, [scrollRef]);
 
   const signedOrMissing = !session || session.alreadySigned;
+  const rawBody = session?.bodyMarkdown ?? '';
+  const readingBody = useMemo(() => eContractBodyForReading(rawBody), [rawBody]);
   useEffect(() => {
     if (signedOrMissing || step !== 0 || readDone) return;
     const el = scrollRef.current;
@@ -516,7 +519,7 @@ export function EContractPublicSignPage() {
                   </p>
                 ) : null}
                 <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200 bg-white px-4 py-4">
-                  <EContractBodyDisplay body={session.bodyMarkdown} className={READING_CLASS} />
+                  <EContractBodyDisplay body={readingBody} className={READING_CLASS} />
                 </div>
                 <p className="mt-3 text-center text-fluid-2xs text-slate-500">계약서의 끝입니다.</p>
               </div>
